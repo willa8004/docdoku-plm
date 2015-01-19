@@ -145,7 +145,7 @@ public class PartBinaryResourceTest {
     public void uploadFileWithSpecialCharactersToPart() throws Exception {
         //Given
         final File fileToUpload = new File(getClass().getResource(ResourceUtil.SOURCE_PART_STORAGE).getFile() + ResourceUtil.FILENAME_TO_UPLOAD_PART_SPECIAL_CHARACTER);
-        File uploadedFile = new File(getClass().getResource(ResourceUtil.TARGET_PART_STORAGE + ResourceUtil.FILENAME_TO_UPLOAD_PART_SPECIAL_CHARACTER).getFile());
+        File uploadedFile = new File(getClass().getResource(ResourceUtil.TARGET_PART_STORAGE).getFile()+ ResourceUtil.FILENAME_TO_UPLOAD_PART_SPECIAL_CHARACTER);
         HttpServletRequestWrapper request = Mockito.mock(HttpServletRequestWrapper.class);
         Collection<Part> parts = new ArrayList<Part>();
         parts.add(new PartImp(fileToUpload));
