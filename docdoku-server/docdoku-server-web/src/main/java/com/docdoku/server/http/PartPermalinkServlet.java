@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,13 +22,12 @@ package com.docdoku.server.http;
 
 import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.exceptions.NotAllowedException;
-import com.docdoku.core.meta.InstanceAttribute;
 import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.product.PartRevision;
 import com.docdoku.core.product.PartRevisionKey;
 import com.docdoku.core.services.IProductManagerLocal;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -44,10 +43,10 @@ import java.util.regex.Pattern;
  */
 
 public class PartPermalinkServlet extends HttpServlet {
-    
-    @EJB
+
+    @Inject
     private IProductManagerLocal productService;
-    
+
     @Override
     protected void doGet(HttpServletRequest pRequest, HttpServletResponse pResponse) throws ServletException, IOException {
 
@@ -56,9 +55,10 @@ public class PartPermalinkServlet extends HttpServlet {
                 PartRevision partRevision = (PartRevision) pRequest.getAttribute("publicPartRevision");
                 handleSuccess(pRequest,pResponse,partRevision);
             }else{
+
                 String requestURI = pRequest.getRequestURI();
                 String[] pathInfos = Pattern.compile("/").split(requestURI);
-                int offset = pRequest.getContextPath().equals("") ? 2 : 3;
+                int offset = pRequest.getContextPath().isEmpty() ? 2 : 3;
 
                 String workspaceId = URLDecoder.decode(pathInfos[offset], "UTF-8");
                 String partNumber = URLDecoder.decode(pathInfos[offset+1],"UTF-8");
@@ -67,6 +67,7 @@ public class PartPermalinkServlet extends HttpServlet {
                 PartRevisionKey partRevisionKey  = new PartRevisionKey(workspaceId,partNumber,partVersion);
                 PartRevision partRevision = productService.getPartRevision(partRevisionKey);
                 handleSuccess(pRequest,pResponse,partRevision);
+
             }
         } catch (Exception pEx) {
             throw new ServletException("Error while fetching your part.", pEx);
@@ -88,14 +89,15 @@ public class PartPermalinkServlet extends HttpServlet {
         }
 
         String geometryFileURI = "";
-        if(partRevision.getLastIteration().getGeometries().size()>0){
+        if(!partRevision.getLastIteration().getGeometries().isEmpty()){
             geometryFileURI = "/api/files/"+partRevision.getLastIteration().getSortedGeometries().get(0).getFullName();
         }
 
         pRequest.setAttribute("partRevision", partRevision);
-        pRequest.setAttribute("attr",  new ArrayList<InstanceAttribute>(partIteration.getInstanceAttributes().values()));
+        pRequest.setAttribute("attr",  new ArrayList<>(partIteration.getInstanceAttributes()));
         pRequest.setAttribute("nativeCadFileURI",nativeCadFileURI);
         pRequest.setAttribute("geometryFileURI",geometryFileURI);
         pRequest.getRequestDispatcher(pRequest.getContextPath()+"/faces/partPermalink.xhtml").forward(pRequest, pResponse);
     }
+
 }

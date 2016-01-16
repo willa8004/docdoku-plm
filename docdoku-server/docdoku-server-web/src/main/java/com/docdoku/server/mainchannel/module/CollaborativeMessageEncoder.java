@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -49,11 +49,11 @@ public class CollaborativeMessageEncoder implements Encoder.Text<CollaborativeMe
 
     @Override
     public void init(EndpointConfig endpointConfig) {
-
+        // Nothing to do
     }
 
     @Override
     public void destroy() {
-
+        // Nothing to do
     }
 }

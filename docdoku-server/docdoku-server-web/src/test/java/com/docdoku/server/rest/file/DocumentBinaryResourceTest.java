@@ -1,3 +1,23 @@
+/*
+ * DocDoku, Professional Open Source
+ * Copyright 2006 - 2015 DocDoku SARL
+ *
+ * This file is part of DocDokuPLM.
+ *
+ * DocDokuPLM is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.docdoku.server.rest.file;
 
 
@@ -9,7 +29,6 @@ import com.docdoku.core.document.DocumentIteration;
 import com.docdoku.core.document.DocumentIterationKey;
 import com.docdoku.core.document.DocumentMaster;
 import com.docdoku.core.document.DocumentRevision;
-import com.docdoku.core.exceptions.NotAllowedException;
 import com.docdoku.core.security.UserGroupMapping;
 import com.docdoku.core.services.*;
 import com.docdoku.core.sharing.SharedDocument;
@@ -17,7 +36,6 @@ import com.docdoku.core.util.Tools;
 import com.docdoku.server.filters.GuestProxy;
 import com.docdoku.server.util.PartImp;
 import com.docdoku.server.util.ResourceUtil;
-
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -39,7 +57,6 @@ import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.MockitoAnnotations.initMocks;
 
 public class DocumentBinaryResourceTest {
@@ -49,6 +66,8 @@ public class DocumentBinaryResourceTest {
 
     @Mock
     private IDataManagerLocal dataManager;
+    @Mock
+    private IContextManagerLocal contextManager;
     @Mock
     private IDocumentManagerLocal documentService;
     @Mock
@@ -84,14 +103,8 @@ public class DocumentBinaryResourceTest {
 
         BinaryResource binaryResource = new BinaryResource(ResourceUtil.FILENAME1, ResourceUtil.DOCUMENT_SIZE, new Date());
 
-        File uploadedFile1 = new File(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME1);
-        if (!uploadedFile1.getParentFile().exists()){
-            uploadedFile1.getParentFile().mkdirs();
-        }
-        if (!uploadedFile1.exists()){
-            uploadedFile1.createNewFile();
-        }
-
+        File uploadedFile1 = File.createTempFile(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME1, ResourceUtil.TEMP_SUFFIX);
+        
         OutputStream outputStream1 = new FileOutputStream(uploadedFile1);
 
         Mockito.when(request.getParts()).thenReturn(filesParts);
@@ -103,9 +116,12 @@ public class DocumentBinaryResourceTest {
         Response response = documentBinaryResource.uploadDocumentFiles(request, ResourceUtil.WORKSPACE_ID, ResourceUtil.DOCUMENT_ID, ResourceUtil.VERSION, ResourceUtil.ITERATION);
 
         //Then
-        org.junit.Assert.assertNotNull(response);
-        org.junit.Assert.assertEquals(response.getStatus(), 201);
-        org.junit.Assert.assertEquals(response.getStatusInfo(), Response.Status.CREATED);
+        assertNotNull(response);
+        assertEquals(response.getStatus(), 201);
+        assertEquals(response.getStatusInfo(), Response.Status.CREATED);
+        
+        //delete tem file
+        uploadedFile1.deleteOnExit();
     }
 
     /**
@@ -124,10 +140,8 @@ public class DocumentBinaryResourceTest {
 
         BinaryResource binaryResource = new BinaryResource(Tools.unAccent(ResourceUtil.FILENAME2), ResourceUtil.DOCUMENT_SIZE, new Date());
 
-        File uploadedFile1 = new File(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME2);
-        if (!uploadedFile1.getParentFile().exists()){
-            uploadedFile1.getParentFile().mkdirs();
-        }
+        File uploadedFile1 = File.createTempFile(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME2,ResourceUtil.TEMP_SUFFIX);
+       
 
         OutputStream outputStream1 = new FileOutputStream(uploadedFile1);
 
@@ -141,9 +155,12 @@ public class DocumentBinaryResourceTest {
         Response response = documentBinaryResource.uploadDocumentFiles(request, ResourceUtil.WORKSPACE_ID, ResourceUtil.DOCUMENT_ID, ResourceUtil.VERSION, ResourceUtil.ITERATION);
 
         //Then
-        org.junit.Assert.assertNotNull(response);
-        org.junit.Assert.assertEquals(response.getStatus(), 201);
-        org.junit.Assert.assertEquals(response.getStatusInfo(), Response.Status.CREATED);
+        assertNotNull(response);
+        assertEquals(response.getStatus(), 201);
+        assertEquals(response.getStatusInfo(), Response.Status.CREATED);
+
+        //delete tem file
+        uploadedFile1.deleteOnExit();
     }
 
     /**
@@ -166,12 +183,10 @@ public class DocumentBinaryResourceTest {
         BinaryResource binaryResource2 = new BinaryResource(ResourceUtil.FILENAME2, ResourceUtil.DOCUMENT_SIZE, new Date());
         BinaryResource binaryResource3 = new BinaryResource(ResourceUtil.FILENAME3, ResourceUtil.DOCUMENT_SIZE, new Date());
 
-        File uploadedFile1 = new File(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME1);
-        File uploadedFile2 = new File(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME2);
-        File uploadedFile3 = new File(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME3);
-        if (!uploadedFile1.getParentFile().exists()){
-            uploadedFile1.getParentFile().mkdirs();
-        }
+        File uploadedFile1 = File.createTempFile(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME1, ResourceUtil.TEMP_SUFFIX);
+        File uploadedFile2 = File.createTempFile(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME2, ResourceUtil.TEMP_SUFFIX);
+        File uploadedFile3 = File.createTempFile( ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME3,ResourceUtil.TEMP_SUFFIX);
+
         OutputStream outputStream1 = new FileOutputStream(uploadedFile1);
         OutputStream outputStream2 = new FileOutputStream(uploadedFile2);
         OutputStream outputStream3 = new FileOutputStream(uploadedFile3);
@@ -182,9 +197,15 @@ public class DocumentBinaryResourceTest {
         Response response = documentBinaryResource.uploadDocumentFiles(request, ResourceUtil.WORKSPACE_ID, ResourceUtil.DOCUMENT_ID, ResourceUtil.VERSION, ResourceUtil.ITERATION);
 
         //Then
-        org.junit.Assert.assertNotNull(response);
-        org.junit.Assert.assertEquals(response.getStatus(), 200);
-        org.junit.Assert.assertEquals(response.getStatusInfo(), Response.Status.OK);
+        assertNotNull(response);
+        assertEquals(response.getStatus(), 200);
+        assertEquals(response.getStatusInfo(), Response.Status.OK);
+
+        //delete temp files
+        uploadedFile1.deleteOnExit();
+        uploadedFile2.deleteOnExit();
+        uploadedFile3.deleteOnExit();
+
     }
 
     /**
@@ -207,16 +228,16 @@ public class DocumentBinaryResourceTest {
         Mockito.when(documentService.getBinaryResource(fullName)).thenReturn(binaryResource);
         Mockito.when(dataManager.getBinaryResourceInputStream(binaryResource)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.FILENAME1).getFile())));
         Mockito.when(guestProxy.getBinaryResourceForDocument(fullName)).thenReturn(binaryResource);
-        Mockito.when(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(false);
+        Mockito.when(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(false);
         Mockito.when(guestProxy.canAccess(Matchers.any(DocumentIterationKey.class))).thenReturn(true);
 
         //When
         Response response = documentBinaryResource.downloadDocumentFile(request, ResourceUtil.RANGE,ResourceUtil.DOC_REFER, ResourceUtil.WORKSPACE_ID,ResourceUtil.DOCUMENT_ID, ResourceUtil.VERSION, ResourceUtil.ITERATION,ResourceUtil.FILENAME1,null,ResourceUtil.FILE_TYPE,output,null);
 
         //Then
-        org.junit.Assert.assertNotNull(response);
-        org.junit.Assert.assertEquals(response.getStatus(), 206);
-        org.junit.Assert.assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
+        assertNotNull(response);
+        assertEquals(response.getStatus(), 206);
+        assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
     }
 
     /**
@@ -235,7 +256,7 @@ public class DocumentBinaryResourceTest {
         DocumentMaster documentMaster = new DocumentMaster(workspace,ResourceUtil.DOCUMENT_ID,user);
         DocumentRevision documentRevision = new DocumentRevision(documentMaster,ResourceUtil.VERSION,user);
         List<DocumentIteration> iterations = new ArrayList<>();
-        DocumentIteration documentIteration =new DocumentIteration(documentRevision,ResourceUtil.ITERATION,user);
+        DocumentIteration documentIteration = new DocumentIteration(documentRevision, user);
         iterations.add(documentIteration);
         documentRevision.setDocumentIterations(iterations);
         SharedDocument sharedEntity = new SharedDocument(workspace,user,new Date(2025,12,02),"password",documentRevision);
@@ -246,15 +267,15 @@ public class DocumentBinaryResourceTest {
         Mockito.when(documentService.getBinaryResource(fullName)).thenReturn(binaryResource);
         Mockito.when(dataManager.getBinaryResourceInputStream(binaryResource)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.FILENAME1).getFile())));
         Mockito.when(guestProxy.getBinaryResourceForDocument(fullName)).thenReturn(binaryResource);
-        Mockito.when(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(false);
+        Mockito.when(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(false);
         Mockito.when(shareService.findSharedEntityForGivenUUID(ResourceUtil.SHARED_DOC_ENTITY_UUID.split("/")[2])).thenReturn(sharedEntity);
         //When
         Response response = documentBinaryResource.downloadDocumentFile(request, ResourceUtil.RANGE,"refers/"+sharedEntity.getUuid(), ResourceUtil.WORKSPACE_ID,ResourceUtil.DOCUMENT_ID, ResourceUtil.VERSION, ResourceUtil.ITERATION,ResourceUtil.FILENAME1,null,ResourceUtil.FILE_TYPE,output,ResourceUtil.SHARED_DOC_ENTITY_UUID);
 
         //Then
-        org.junit.Assert.assertNotNull(response);
-        org.junit.Assert.assertEquals(response.getStatus(), 206);
-        org.junit.Assert.assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
+        assertNotNull(response);
+        assertEquals(response.getStatus(), 206);
+        assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
 
 
     }
@@ -275,7 +296,7 @@ public class DocumentBinaryResourceTest {
         DocumentMaster documentMaster = new DocumentMaster(workspace,ResourceUtil.DOCUMENT_ID,user);
         DocumentRevision documentRevision = new DocumentRevision(documentMaster,ResourceUtil.VERSION,user);
         List<DocumentIteration> iterations = new ArrayList<>();
-        DocumentIteration documentIteration =new DocumentIteration(documentRevision,ResourceUtil.ITERATION,user);
+        DocumentIteration documentIteration =new DocumentIteration(documentRevision, user);
         iterations.add(documentIteration);
         documentRevision.setDocumentIterations(iterations);
         SharedDocument sharedEntity = new SharedDocument(workspace,user,new Date(2025,12,02),"password",documentRevision);
@@ -286,16 +307,16 @@ public class DocumentBinaryResourceTest {
         Mockito.when(documentService.getBinaryResource(fullName)).thenReturn(binaryResource);
         Mockito.when(dataManager.getBinaryResourceInputStream(binaryResource)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.FILENAME1).getFile())));
         Mockito.when(guestProxy.getBinaryResourceForDocument(fullName)).thenReturn(binaryResource);
-        Mockito.when(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(true);
+        Mockito.when(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(true);
 
         Mockito.when(shareService.findSharedEntityForGivenUUID(ResourceUtil.SHARED_DOC_ENTITY_UUID.split("/")[2])).thenReturn(sharedEntity);
         //When
         Response response = documentBinaryResource.downloadDocumentFile(request, ResourceUtil.RANGE,"refers/"+sharedEntity.getUuid(), ResourceUtil.WORKSPACE_ID,ResourceUtil.DOCUMENT_ID, ResourceUtil.VERSION, ResourceUtil.ITERATION,ResourceUtil.FILENAME1,null,ResourceUtil.FILE_TYPE,output,ResourceUtil.SHARED_DOC_ENTITY_UUID);
 
         //Then
-        org.junit.Assert.assertNotNull(response);
-        org.junit.Assert.assertEquals(response.getStatus(), 206);
-        org.junit.Assert.assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
+        assertNotNull(response);
+        assertEquals(response.getStatus(), 206);
+        assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
 
 
     }
@@ -318,7 +339,7 @@ public class DocumentBinaryResourceTest {
         Mockito.when(documentService.getBinaryResource(fullName)).thenReturn(binaryResource);
         Mockito.when(dataManager.getBinaryResourceInputStream(binaryResource)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.FILENAME1).getFile())));
         Mockito.when(guestProxy.getBinaryResourceForDocument(fullName)).thenReturn(binaryResource);
-        Mockito.when(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(true);
+        Mockito.when(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(true);
         Mockito.when(guestProxy.canAccess(Matchers.any(DocumentIterationKey.class))).thenReturn(false);
 
         //When
@@ -351,16 +372,16 @@ public class DocumentBinaryResourceTest {
         Mockito.when(documentService.getBinaryResource(fullName)).thenReturn(binaryResource);
         Mockito.when(dataManager.getBinaryResourceInputStream(binaryResource)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.FILENAME1).getFile())));
         Mockito.when(guestProxy.getBinaryResourceForDocument(fullName)).thenReturn(binaryResource);
-        Mockito.when(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(true);
+        Mockito.when(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)).thenReturn(true);
         Mockito.when(documentService.canAccess(Matchers.any(DocumentIterationKey.class))).thenReturn(true);
-        Mockito.when(documentResourceGetterService.getConvertedResource(output, binaryResource)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.VIRTUAL_SUB_RESOURCE).getFile())));
+        Mockito.when(documentResourceGetterService.getDocumentConvertedResource(output, binaryResource)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.VIRTUAL_SUB_RESOURCE).getFile())));
         Mockito.when(dataManager.getBinarySubResourceInputStream(binaryResource, fullName+"/"+ResourceUtil.VIRTUAL_SUB_RESOURCE)).thenReturn(new FileInputStream(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.VIRTUAL_SUB_RESOURCE).getFile())));
         //When
         Response response = documentBinaryResource.downloadDocumentFile(request, ResourceUtil.RANGE,ResourceUtil.DOC_REFER, ResourceUtil.WORKSPACE_ID,ResourceUtil.DOCUMENT_ID, ResourceUtil.VERSION, ResourceUtil.ITERATION,ResourceUtil.FILENAME1,ResourceUtil.VIRTUAL_SUB_RESOURCE,ResourceUtil.FILE_TYPE,null,null);
         //Then
-        org.junit.Assert.assertNotNull(response);
-        org.junit.Assert.assertEquals(response.getStatus(), 206);
-        org.junit.Assert.assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
+        assertNotNull(response);
+        assertEquals(response.getStatus(), 206);
+        assertEquals(response.getStatusInfo(), Response.Status.PARTIAL_CONTENT);
 
 
     }

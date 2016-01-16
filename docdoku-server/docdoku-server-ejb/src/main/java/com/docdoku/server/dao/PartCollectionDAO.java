@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -30,7 +30,7 @@ public class PartCollectionDAO {
 
     private EntityManager em;
 
-    private static Logger LOGGER = Logger.getLogger(PartCollectionDAO.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(PartCollectionDAO.class.getName());
 
     public PartCollectionDAO(EntityManager pEM) {
         em = pEM;
@@ -41,7 +41,7 @@ public class PartCollectionDAO {
             em.persist(partCollection);
             em.flush();
         }catch (Exception e){
-            LOGGER.log(Level.SEVERE,"Fail to create a collection of part",e);
+            LOGGER.log(Level.SEVERE,"Fail to create a collection of parts",e);
         }
     }
 }

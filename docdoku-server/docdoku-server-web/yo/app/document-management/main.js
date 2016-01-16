@@ -1,7 +1,8 @@
 /*global _,require,window*/
-var workspace = /^#([^/]+)/.exec(window.location.hash);
+var workspace = /^#([^\/]+)/.exec(window.location.hash);
 if(!workspace){
-    location.href = '../';
+    location.href = '../faces/admin/workspace/workspacesMenu.xhtml';
+    throw new Error('Cannot parse workspace in url');
 }
 var App = {
     debug:false,
@@ -37,7 +38,9 @@ require.config({
 	    unmask: { deps: ['jquery'], exports: 'jQuery' },
 	    unmaskConfig: { deps: ['unmask','jquery'], exports: 'jQuery' },
         bootstrapSwitch: { deps: ['jquery'], exports: 'jQuery'},
-        backbone: { deps: ['underscore', 'jquery'], exports: 'Backbone'}
+        bootstrapDatepicker: {deps: ['jquery','bootstrap'], exports: 'jQuery'},
+        backbone: { deps: ['underscore', 'jquery'], exports: 'Backbone'},
+        date_picker_lang: { deps: ['bootstrapDatepicker'], exports: 'jQuery'}
     },
 
     paths: {
@@ -54,20 +57,23 @@ require.config({
         jqueryUI: '../../bower_components/jqueryui/ui/jquery-ui',
         unmask:'../../bower_components/jquery-maskedinput/dist/jquery.maskedinput',
         bootstrapSwitch:'../../bower_components/bootstrap-switch/static/js/bootstrap-switch',
+        bootstrapDatepicker:'../../bower_components/bootstrap-datepicker/js/bootstrap-datepicker',
         date:'../../bower_components/date.format/date.format',
         unorm:'../../bower_components/unorm/lib/unorm',
         moment:'../../bower_components/moment/min/moment-with-locales',
         momentTimeZone:'../../bower_components/moment-timezone/builds/moment-timezone-with-data',
-        unmaskConfig:'../lib/jquery.maskedinput-config',
+        unmaskConfig:'../utils/jquery.maskedinput-config',
         localization: '../localization',
         modules: '../modules',
         'common-objects': '../common-objects',
-        effects: '../lib/effects',
-        popoverUtils: '../lib/popover.utils',
-        inputValidity: '../lib/input-validity',
-        datatablesOsortExt: '../lib/datatables.oSort.ext',
-        stringprototype: '../lib/string.prototype',
-        userPopover: 'modules/user-popover-module/app'
+        effects: '../utils/effects',
+        popoverUtils: '../utils/popover.utils',
+        inputValidity: '../utils/input-validity',
+        datatablesOsortExt: '../utils/datatables.oSort.ext',
+        utilsprototype: '../utils/utils.prototype',
+        userPopover: 'modules/user-popover-module/app',
+        async: '../../bower_components/async/lib/async',
+        date_picker_lang: '../../bower_components/bootstrap-datepicker/js/locales/bootstrap-datepicker.fr'
     },
 
     deps: [
@@ -84,7 +90,8 @@ require.config({
         'datatables',
         'datatablesOsortExt',
         'unmaskConfig',
-        'stringprototype'
+        'utilsprototype',
+        'date_picker_lang'
     ],
     config: {
         i18n: {
@@ -103,9 +110,11 @@ require.config({
 require(['common-objects/contextResolver','i18n!localization/nls/common','i18n!localization/nls/document-management'],
 function (ContextResolver,  commonStrings, documentManagementStrings) {
     'use strict';
+
     App.config.i18n = _.extend(commonStrings,documentManagementStrings);
-    ContextResolver.resolve(function(){
-        require(['backbone','app','router','common-objects/views/header','modules/all'],function(Backbone, AppView, Router,HeaderView,Modules){
+
+    ContextResolver.resolveUser(function(){
+        require(['backbone','app','router','common-objects/views/header','modules/all'],function(Backbone, AppView, Router,HeaderView,Modules,date_picker_lang){
             App.appView = new AppView().render();
             App.headerView = new HeaderView().render();
             App.router = Router.getInstance();

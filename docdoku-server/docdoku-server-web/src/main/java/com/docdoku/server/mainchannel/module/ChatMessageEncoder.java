@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -47,11 +47,11 @@ public class ChatMessageEncoder implements Encoder.Text<ChatMessage> {
 
     @Override
     public void init(EndpointConfig endpointConfig) {
-
+        // Nothing to do
     }
 
     @Override
     public void destroy() {
-
+        // Nothing to do
     }
 }

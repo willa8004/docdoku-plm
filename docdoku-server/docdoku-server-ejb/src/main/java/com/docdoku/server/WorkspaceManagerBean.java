@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,18 +25,17 @@ import com.docdoku.core.common.User;
 import com.docdoku.core.common.Workspace;
 import com.docdoku.core.exceptions.*;
 import com.docdoku.core.security.UserGroupMapping;
-import com.docdoku.core.services.IDataManagerLocal;
-import com.docdoku.core.services.IMailerLocal;
-import com.docdoku.core.services.IUserManagerLocal;
-import com.docdoku.core.services.IWorkspaceManagerLocal;
+import com.docdoku.core.services.*;
 import com.docdoku.server.dao.AccountDAO;
 import com.docdoku.server.dao.WorkspaceDAO;
 import com.docdoku.server.esindexer.ESIndexer;
 
-import javax.annotation.Resource;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.*;
+import javax.ejb.Asynchronous;
+import javax.ejb.Local;
+import javax.ejb.Stateless;
+import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.io.IOException;
@@ -49,30 +48,30 @@ import java.util.logging.Logger;
 @Stateless(name = "WorkspaceManagerBean")
 public class WorkspaceManagerBean implements IWorkspaceManagerLocal {
 
-    @EJB
-    private IDataManagerLocal dataManager;
-
-    @EJB
-    private IUserManagerLocal userManager;
-
-    @EJB
-    private IMailerLocal mailerManager;
-
-    @EJB
-    private ESIndexer esIndexer;
-
     @PersistenceContext
     private EntityManager em;
 
-    @Resource
-    private SessionContext ctx;
+    @Inject
+    private IDataManagerLocal dataManager;
+
+    @Inject
+    private IUserManagerLocal userManager;
+
+    @Inject
+    private IContextManagerLocal contextManager;
+
+    @Inject
+    private IMailerLocal mailerManager;
+
+    @Inject
+    private ESIndexer esIndexer;
 
     private static final Logger LOGGER = Logger.getLogger(WorkspaceManagerBean.class.getName());
 
     @RolesAllowed(UserGroupMapping.ADMIN_ROLE_ID)
     @Override
     public long getDiskUsageInWorkspace(String workspaceId) throws AccountNotFoundException {
-        Account account = new AccountDAO(em).loadAccount(ctx.getCallerPrincipal().toString());
+        Account account = new AccountDAO(em).loadAccount(contextManager.getCallerPrincipalLogin());
         return new WorkspaceDAO(new Locale(account.getLanguage()),em).getDiskUsageForWorkspace(workspaceId);
     }
 
@@ -81,14 +80,14 @@ public class WorkspaceManagerBean implements IWorkspaceManagerLocal {
     @Asynchronous
     public void deleteWorkspace(String workspaceId) {
         try{
-            if(userManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID)){
+            if(contextManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID)){
                 Workspace workspace = new WorkspaceDAO(em, dataManager).loadWorkspace(workspaceId);
                 doWorkspaceDeletion(workspace);
                 esIndexer.deleteWorkspace(workspaceId);
             }else{
                 User user = userManager.checkWorkspaceReadAccess(workspaceId);
                 Workspace workspace = new WorkspaceDAO(em, dataManager).loadWorkspace(workspaceId);
-                if(workspace.getAdmin().getLogin().equals(ctx.getCallerPrincipal().getName())){
+                if(workspace.getAdmin().getLogin().equals(contextManager.getCallerPrincipalLogin())){
                    doWorkspaceDeletion(workspace);
                     esIndexer.deleteWorkspace(workspaceId);
                 }else{
@@ -111,7 +110,7 @@ public class WorkspaceManagerBean implements IWorkspaceManagerLocal {
         esIndexer.indexWorkspace(workspaceId);
     }
 
-    private void doWorkspaceDeletion(Workspace workspace){
+    private void doWorkspaceDeletion(Workspace workspace) throws Exception {
         Account admin = workspace.getAdmin();
         String workspaceId = workspace.getId();
         try {
@@ -120,6 +119,12 @@ public class WorkspaceManagerBean implements IWorkspaceManagerLocal {
             LOGGER.log(Level.SEVERE,"IOException while deleting the workspace : "+workspaceId,e);
         } catch (StorageException e) {
             LOGGER.log(Level.SEVERE,"StorageException while deleting the workspace : "+workspaceId,e);
+        } catch (Exception e) {
+            LOGGER.log(Level.SEVERE,"Exception while deleting the workspace : "+workspaceId,e);
+            //TODO : create own exception
+            mailerManager.sendWorkspaceDeletionErrorNotification(admin, workspaceId);
+            throw new Exception("Runtime exception while deleting the workspace : "+workspaceId);
+
         }
 
         mailerManager.sendWorkspaceDeletionNotification(admin,workspaceId);

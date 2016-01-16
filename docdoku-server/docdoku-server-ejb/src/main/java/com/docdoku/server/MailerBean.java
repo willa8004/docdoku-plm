@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -225,6 +225,26 @@ public class MailerBean implements IMailerLocal {
 
     @Asynchronous
     @Override
+    public void sendWorkspaceDeletionErrorNotification(Account admin, String workspaceId) {
+        try {
+            Locale locale = new Locale(admin.getLanguage());
+            sendMessage(new InternetAddress(admin.getEmail(),admin.getName()),
+                    getWorkspaceDeletionSubject(locale),
+                    getWorkspaceDeletionErrorMessage(workspaceId, locale));
+
+        } catch (UnsupportedEncodingException pUEEx) {
+            String message ="Mail address format error. \n\t"+pUEEx.getMessage();
+            LOGGER.warning(message);
+            LOGGER.log(Level.FINER, message, pUEEx);
+        } catch (MessagingException pMEx) {
+            String message = "Message format error. \n\t"+ pMEx.getMessage();
+            LOGGER.severe(message);
+            LOGGER.log(Level.FINER, message, pMEx);
+        }
+    }
+
+    @Asynchronous
+    @Override
     public void sendPartRevisionWorkflowRelaunchedNotification(PartRevision partRevision) {
         Workspace workspace = partRevision.getPartMaster().getWorkspace();
         Account admin = workspace.getAdmin();
@@ -271,6 +291,36 @@ public class MailerBean implements IMailerLocal {
             LOGGER.severe(message);
             LOGGER.log(Level.FINER,message,pMEx);
         }
+    }
+
+    @Asynchronous
+    @Override
+    public void sendCredential(Account account) {
+        try {
+            Locale locale = new Locale(account.getLanguage());
+            sendMessage(new InternetAddress(account.getEmail()),
+                    getCredentialSubject(locale),
+                    getCredentialMessage(account,locale));
+        }  catch (MessagingException pMEx) {
+            String message = "Message format error. \n\t"+pMEx.getMessage();
+            LOGGER.severe(message);
+            LOGGER.log(Level.FINER, message, pMEx);
+        }
+    }
+
+    private String getCredentialMessage(Account account, Locale locale) {
+        ResourceBundle bundle = ResourceBundle.getBundle(BASE_NAME, locale);
+        Object[] args = {
+                account.getLogin(),
+                codebase
+        };
+
+        return MessageFormat.format(bundle.getString("SignUp_success_text"),args);
+    }
+
+    private String getCredentialSubject(Locale pLocale) {
+        ResourceBundle bundle = ResourceBundle.getBundle(BASE_NAME, pLocale);
+        return bundle.getString("SignUp_success_title");
     }
 
     private void sendWorkflowRelaunchedNotification(String userName, String userEmail, String userLanguage, String workspaceId, PartRevision partRevision){
@@ -329,10 +379,17 @@ public class MailerBean implements IMailerLocal {
         return MessageFormat.format(bundle.getString("WorkspaceDeletion_text"), args);
     }
 
+    private String getWorkspaceDeletionErrorMessage(String workspaceId, Locale locale) {
+        Object[] args = {workspaceId};
+        ResourceBundle bundle = ResourceBundle.getBundle(BASE_NAME, locale);
+        return MessageFormat.format(bundle.getString("WorkspaceDeletionError_text"), args);
+    }
+
+
     private String getApprovalRequiredMessage(Task pTask, PartRevision partRevision, Locale pLocale) {
         String voteURL = codebase + "/action/vote";
         String instructions = pTask.getInstructions()==null?"-":pTask.getInstructions();
-        Object[] args = {voteURL, partRevision.getWorkspaceId(), pTask.getWorkflowId(), pTask.getActivityStep(), pTask.getNum(), pTask.getTitle(), getURL(partRevision), partRevision, instructions};
+        Object[] args = {voteURL, partRevision.getWorkspaceId(), String.valueOf(pTask.getWorkflowId()), String.valueOf(pTask.getActivityStep()), String.valueOf(pTask.getNum()), pTask.getTitle(), getURL(partRevision), partRevision, instructions};
         ResourceBundle bundle = ResourceBundle.getBundle(BASE_NAME, pLocale);
         return MessageFormat.format(bundle.getString("Approval_part_text"), args);
     }
@@ -354,7 +411,7 @@ public class MailerBean implements IMailerLocal {
             DocumentRevision pDocumentRevision, Locale pLocale) {
         String voteURL = codebase + "/action/vote";
         String instructions = pTask.getInstructions()==null?"-":pTask.getInstructions();
-        Object[] args = {voteURL, pDocumentRevision.getWorkspaceId(), pTask.getWorkflowId(), pTask.getActivityStep(), pTask.getNum(), pTask.getTitle(), getURL(pDocumentRevision), pDocumentRevision, instructions};
+        Object[] args = {voteURL, pDocumentRevision.getWorkspaceId(), String.valueOf(pTask.getWorkflowId()), String.valueOf(pTask.getActivityStep()), String.valueOf(pTask.getNum()), pTask.getTitle(), getURL(pDocumentRevision), pDocumentRevision, instructions};
         ResourceBundle bundle = ResourceBundle.getBundle(BASE_NAME, pLocale);
         return MessageFormat.format(bundle.getString("Approval_document_text"), args);
     }
@@ -381,12 +438,15 @@ public class MailerBean implements IMailerLocal {
     }
 
     private String getStateNotificationMessage(DocumentRevision pDocumentRevision, Locale pLocale) {
-
+        ResourceBundle bundle = ResourceBundle.getBundle(BASE_NAME, pLocale);
+        String stateName = pDocumentRevision.getLifeCycleState();
+        stateName = (stateName != null && ! stateName.isEmpty()) ? stateName : bundle.getString("FinalState_name");
         Object[] args = {
                 pDocumentRevision,
                 pDocumentRevision.getLastIteration().getCreationDate(),
-            getURL(pDocumentRevision)};
-        ResourceBundle bundle = ResourceBundle.getBundle(BASE_NAME, pLocale);
+                getURL(pDocumentRevision),
+                stateName};
+
         return MessageFormat.format(bundle.getString("StateNotification_text"), args);
 
     }

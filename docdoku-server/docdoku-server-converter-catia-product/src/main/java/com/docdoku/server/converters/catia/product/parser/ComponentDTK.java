@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -34,9 +34,7 @@ public class ComponentDTK {
     private Positioning positioning = null;
     private List<MetaData> metaDataList = null;
 
-    private static final String PROTOTYPE = "PrototypeComponentType";
     private static final String INSTANCE = "InstanceComponentType";
-    private static final String CATALOG = "CatalogComponentType";
 
     private List<ComponentDTK> subComponentDtkList = null;
 

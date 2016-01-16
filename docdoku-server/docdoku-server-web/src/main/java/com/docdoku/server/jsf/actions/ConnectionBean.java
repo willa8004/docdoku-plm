@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,15 +20,15 @@
 package com.docdoku.server.jsf.actions;
 
 import com.docdoku.core.common.Account;
-import com.docdoku.core.common.Workspace;
 import com.docdoku.core.exceptions.AccountNotFoundException;
 import com.docdoku.core.security.UserGroupMapping;
-import com.docdoku.core.services.IUserManagerLocal;
+import com.docdoku.core.services.IAccountManagerLocal;
+import com.docdoku.core.services.IContextManagerLocal;
 
-import javax.ejb.EJB;
 import javax.enterprise.context.RequestScoped;
 import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
+import javax.inject.Inject;
 import javax.inject.Named;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -44,8 +44,11 @@ import java.util.logging.Logger;
 public class ConnectionBean {
     private static final Logger LOGGER = Logger.getLogger(ConnectionBean.class.getName());
     
-    @EJB
-    private IUserManagerLocal userManager;
+    @Inject
+    private IContextManagerLocal contextManager;
+
+    @Inject
+    private IAccountManagerLocal accountManager;
 
     private String login;
     private String password;
@@ -53,9 +56,18 @@ public class ConnectionBean {
     private String originURL;
     
     public ConnectionBean() {
+        ExternalContext ec = FacesContext.getCurrentInstance().getExternalContext();
+        HttpServletRequest request = (HttpServletRequest) (ec.getRequest());
+        HttpSession session = request.getSession();
+        if(session.getAttribute("hasFail") == null) {
+            session.setAttribute("hasFail", false);
+        }
+        if(session.getAttribute("hasLogout") == null) {
+            session.setAttribute("hasLogout", false);
+        }
     }
 
-    public String logOut() throws ServletException, IOException {
+    public void logOut() throws ServletException, IOException {
         ExternalContext ec = FacesContext.getCurrentInstance().getExternalContext();
         HttpServletRequest request = (HttpServletRequest) (ec.getRequest());
         request.logout();
@@ -63,7 +75,7 @@ public class ConnectionBean {
         HttpSession newSession = request.getSession(true);
         newSession.setAttribute("hasFail", false);
         newSession.setAttribute("hasLogout", true);
-        return "/login.xhtml";
+        ec.redirect(request.getContextPath() + "/faces/login.xhtml");
     }
 
     public void logIn() throws ServletException, AccountNotFoundException, IOException {
@@ -77,7 +89,7 @@ public class ConnectionBean {
         if(tryLogin(request)) {
             checkAccount(request);
             session.setAttribute("remoteUser",login);
-            boolean isAdmin=userManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID);
+            boolean isAdmin = contextManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID);
 
             if(isAdmin){
                 URL url=new URL(request.getRequestURL().toString());
@@ -132,7 +144,7 @@ public class ConnectionBean {
         String accountLogin=null;
         Locale accountLocale=Locale.getDefault();
         try {
-            Account account = userManager.getAccount(login);
+            Account account = accountManager.getAccount(login);
             if(account!=null) {
                 accountLogin = account.getLogin();
                 accountLocale = new Locale(account.getLanguage());
@@ -148,23 +160,15 @@ public class ConnectionBean {
     }
 
     private void redirectionPostLogin(HttpServletRequest request,ExternalContext ec) throws IOException {
-        URL url=new URL(request.getRequestURL().toString());
-        if(originURL!=null && originURL.length()>1){
-            URL redirectURL=new URL(url.getProtocol(),url.getHost(), url.getPort(),originURL);
+        URL url = new URL(request.getRequestURL().toString());
+
+        if (originURL != null && originURL.length() > 1) {
+            URL redirectURL = new URL(url.getProtocol(), url.getHost(), url.getPort(), originURL);
             ec.redirect(redirectURL.toString());
-        }else{
-            String workspaceID = null;
-            Workspace[] workspaces = userManager.getWorkspacesWhereCallerIsActive();
-            if (workspaces != null && workspaces.length > 0) {
-                workspaceID = workspaces[0].getId();
-            }
-            if(workspaceID == null){
-                URL redirectURL=new URL(url.getProtocol(),url.getHost(), url.getPort(),request.getContextPath() + "/faces/admin/workspace/workspacesMenu.xhtml");
-                ec.redirect(redirectURL.toString());
-            }else{
-                URL redirectURL=new URL(url.getProtocol(),url.getHost(), url.getPort(),request.getContextPath() + "/document-management/#" + workspaceID);
-                ec.redirect(redirectURL.toString());
-            }
+
+        } else {
+            URL redirectURL = new URL(url.getProtocol(), url.getHost(), url.getPort(), request.getContextPath() + "/faces/admin/workspace/workspacesMenu.xhtml");
+            ec.redirect(redirectURL.toString());
         }
     }
 }

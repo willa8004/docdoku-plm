@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,11 +21,13 @@
 package com.docdoku.server.rest.dto;
 
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
+@XmlRootElement
 public class WorkflowModelDTO implements Serializable {
 
     private String id;
@@ -33,6 +35,7 @@ public class WorkflowModelDTO implements Serializable {
     private String finalLifeCycleState;
     private UserDTO author;
     private Date creationDate;
+    private ACLDTO acl;
 
     @XmlElement(nillable = false, required = true)
     private List<ActivityModelDTO> activityModels;
@@ -52,6 +55,7 @@ public class WorkflowModelDTO implements Serializable {
         this.author = author;
         this.creationDate = creationDate;
         this.activityModels = activityModels;
+
     }
 
     public WorkflowModelDTO(String id, UserDTO pAuthor) {
@@ -116,5 +120,10 @@ public class WorkflowModelDTO implements Serializable {
         this.reference = reference;
     }
 
-
+    public ACLDTO getAcl() {
+        return acl;
+    }
+    public void setAcl(ACLDTO acl) {
+        this.acl = acl;
+    }
 }

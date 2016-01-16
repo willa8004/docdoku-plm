@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,10 +24,9 @@ import com.docdoku.core.document.DocumentIteration;
 import com.docdoku.core.document.DocumentRevision;
 import com.docdoku.core.document.DocumentRevisionKey;
 import com.docdoku.core.exceptions.NotAllowedException;
-import com.docdoku.core.meta.InstanceAttribute;
 import com.docdoku.core.services.IDocumentManagerLocal;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -44,21 +43,22 @@ import java.util.regex.Pattern;
 
 public class DocumentPermalinkServlet extends HttpServlet {
 
-    @EJB
+    @Inject
     private IDocumentManagerLocal documentService;
 
     @Override
     protected void doGet(HttpServletRequest pRequest, HttpServletResponse pResponse) throws ServletException, IOException {
 
         try {
+
             if(pRequest.getAttribute("publicDocumentRevision") != null){
                 DocumentRevision documentRevision = (DocumentRevision) pRequest.getAttribute("publicDocumentRevision");
                 handleSuccess(pRequest,pResponse,documentRevision);
             }else{
-                HttpServletRequest httpRequest = (HttpServletRequest) pRequest;
-                String requestURI = httpRequest.getRequestURI();
+
+                String requestURI = pRequest.getRequestURI();
                 String[] pathInfos = Pattern.compile("/").split(requestURI);
-                int offset = httpRequest.getContextPath().equals("") ? 2 : 3;
+                int offset = pRequest.getContextPath().isEmpty() ? 2 : 3;
 
                 String workspaceId = URLDecoder.decode(pathInfos[offset], "UTF-8");
                 String documentMasterId = URLDecoder.decode(pathInfos[offset+1],"UTF-8");
@@ -81,7 +81,7 @@ public class DocumentPermalinkServlet extends HttpServlet {
             throw new NotAllowedException(Locale.getDefault(), "NotAllowedException27");
         }
 
-        pRequest.setAttribute("attr", new ArrayList<InstanceAttribute>(docI.getInstanceAttributes().values()));
+        pRequest.setAttribute("attr", new ArrayList<>(docI.getInstanceAttributes()));
         pRequest.getRequestDispatcher(pRequest.getContextPath() + "/faces/documentPermalink.xhtml").forward(pRequest, pResponse);
     }
 

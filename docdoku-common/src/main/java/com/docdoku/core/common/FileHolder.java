@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,10 +27,10 @@ import java.util.Set;
  * 
  * @author Florent Garin
  * @version 1.0, 02/06/08
- * @since   V1.0
+ * @since V1.0
  */
 public interface FileHolder {
     
-    public Set<BinaryResource> getAttachedFiles();
+    Set<BinaryResource> getAttachedFiles();
     
 }

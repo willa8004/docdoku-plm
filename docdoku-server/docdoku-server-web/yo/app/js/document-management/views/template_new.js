@@ -1,30 +1,50 @@
 /*global define,App*/
 define([
     'common-objects/views/components/modal',
+    'common-objects/views/workflow/workflow_list',
     'common-objects/views/attributes/template_new_attributes',
     'text!templates/template_new.html'
-], function (ModalView, TemplateNewAttributesView, template) {
+], function (ModalView, DocumentWorkflowListView, TemplateNewAttributesView, template) {
     'use strict';
     var TemplateNewView = ModalView.extend({
 
         template: template,
+
         initialize: function () {
             ModalView.prototype.initialize.apply(this, arguments);
             this.events['click .modal-footer button.btn-primary'] = 'interceptSubmit';
             this.events['submit form'] = 'onSubmitForm';
         },
+
         rendered: function () {
+
+            this.workflowsView = this.addSubView(
+                new DocumentWorkflowListView({
+                    el: '#workflows-' + this.cid
+                })
+            );
+
             this.attributesView = this.addSubView(
                 new TemplateNewAttributesView({
-                    el: '#tab-attributes-' + this.cid
+                    el: '#tab-attributes-' + this.cid,
+                    editMode: true
                 })
             ).render();
 
-            this.$('a#mask-help').popover({
+            var $popoverLink = this.$('#mask-help');
+
+            $popoverLink.popover({
                 title: App.config.i18n.MASK,
                 placement: 'left',
                 html: true,
-                content: App.config.i18n.MASK_HELP
+                trigger: 'manual',
+                content: App.config.i18n.MASK_HELP.nl2br(),
+                container:'.modal.new-template'
+            }).click(function(e){
+                $popoverLink.popover('show');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
             });
 
             this.$('input.reference').customValidity(App.config.i18n.REQUIRED_FIELD);
@@ -37,11 +57,14 @@ define([
 
         onSubmitForm: function (e) {
             if (this.isValid) {
+                var workflow = this.workflowsView.selected();
+
                 this.collection.create({
                     reference:  this.$('#form-' + this.cid + ' .reference').val(),
                     documentType: this.$('#form-' + this.cid + ' .type').val(),
                     mask: this.$('#form-' + this.cid + ' .mask').val(),
                     idGenerated: this.$('#form-' + this.cid + ' .id-generated').is(':checked'),
+                    workflowModelId: workflow ? workflow.get('id') : null,
                     attributeTemplates: this.attributesView.collection.toJSON(),
                     attributesLocked: this.attributesView.isAttributesLocked()
                 }, {

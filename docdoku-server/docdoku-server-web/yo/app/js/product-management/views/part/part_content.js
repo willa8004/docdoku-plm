@@ -1,7 +1,8 @@
-/*global _,define,App,bootbox,window*/
+/*global _,$,define,App,bootbox,window*/
 define([
     'backbone',
     'mustache',
+    'async',
     'common-objects/collections/part_collection',
     'common-objects/collections/part_search_collection',
     'text!templates/part/part_content.html',
@@ -10,15 +11,22 @@ define([
     'views/part/part_new_version',
     'common-objects/views/prompt',
     'common-objects/views/security/acl_edit',
-    'views/advanced_search',
+    '../query_builder',
     'text!common-objects/templates/buttons/delete_button.html',
     'text!common-objects/templates/buttons/checkout_button_group.html',
     'text!common-objects/templates/buttons/new_version_button.html',
     'text!common-objects/templates/buttons/release_button.html',
     'text!common-objects/templates/buttons/ACL_button.html',
+    'text!common-objects/templates/buttons/new_product_button.html',
+    'text!common-objects/templates/buttons/tags_button.html',
+    'text!common-objects/templates/buttons/obsolete_button.html',
 	'text!templates/part/search_part_form.html',
-    'common-objects/views/alert'
-], function (Backbone, Mustache, PartCollection, PartSearchCollection, template, PartListView, PartCreationView, PartNewVersionView, PromptView, ACLEditView, AdvancedSearchView, deleteButton, checkoutButtonGroup, newVersionButton, releaseButton, aclButton, searchForm, AlertView) {
+    'common-objects/views/alert',
+    'common-objects/views/tags/tags_management',
+    'views/product/product_creation_view',
+    'views/advanced_search',
+    'views/part/part_grouped_by_list'
+], function (Backbone, Mustache, Async, PartCollection, PartSearchCollection, template, PartListView, PartCreationView, PartNewVersionView, PromptView, ACLEditView, QueryBuilder, deleteButton, checkoutButtonGroup, newVersionButton, releaseButton, aclButton, newProductButton, tagsButton, obsoleteButton, searchForm, AlertView,TagsManagementView,ProductCreationView,AdvancedSearchView, PartGroupedByView) {
     'use strict';
 	var PartContentView = Backbone.View.extend({
         events: {
@@ -30,13 +38,18 @@ define([
             'click button.edit-acl': 'updateACL',
             'click button.new-version': 'newVersion',
             'click button.new-release': 'releasePart',
+            'click button.mark-as-obsolete': 'markAsObsolete',
             'click button.next-page': 'toNextPage',
             'click button.previous-page': 'toPreviousPage',
+            'click .actions .tags': 'actionTags',
             'click button.first-page': 'toFirstPage',
             'click button.last-page': 'toLastPage',
             'click button.current-page': 'goToPage',
+            'click button.show-all': 'showAll',
+            'click button.new-product': 'newProduct',
             'submit #part-search-form': 'onQuickSearch',
-            'click .advanced-search-button': 'onAdvancedSearch'
+            'click .advanced-search-button': 'onAdvancedSearch',
+            'click .display-query-builder-button': 'toggleQueryBuilder'
         },
 
         partials: {
@@ -45,13 +58,22 @@ define([
             checkoutButtonGroup: checkoutButtonGroup,
             newVersionButton: newVersionButton,
             releaseButton: releaseButton,
-            searchForm: searchForm
+            searchForm: searchForm,
+            newProductButton:newProductButton,
+            tagsButton: tagsButton,
+            obsoleteButton:obsoleteButton
         },
 
         initialize: function () {
             _.bindAll(this);
             this.query = null;
         },
+
+        setCollection:function(collection){
+            this.partsCollection = collection;
+            return this;
+        },
+
         setQuery: function (query) {
             this.query = query;
             this.partsCollection = null;
@@ -59,8 +81,12 @@ define([
         },
 
         render: function () {
+            this.isQueryBuilderDisplayed = false;
             this.$el.html(Mustache.render(template, {i18n: App.config.i18n}, this.partials));
             this.bindDomElements();
+
+            //always show tag button
+            this.tagsButton.show();
 
             if(!this.partsCollection){
                 if (this.query) {
@@ -80,6 +106,11 @@ define([
                 collection: this.partsCollection
             }).render();
 
+
+            this.queryBuilder = new QueryBuilder({
+                el: this.$('.query-builder')
+            });
+
             this.bindEvent();
             return this;
         },
@@ -93,15 +124,17 @@ define([
             this.aclButton = this.$('.edit-acl');
             this.checkinButton = this.$('.checkin');
             this.newVersionButton = this.$('.new-version');
+            this.newProductButton = this.$('.new-product');
             this.releaseButton = this.$('.new-release');
+            this.obsoleteButton = this.$('.mark-as-obsolete');
+            this.tagsButton = this.$('.actions .tags');
             this.currentPageIndicator = this.$('.current-page');
             this.pageControls = this.$('.page-controls');
+            this.pagingButtons = this.$('.paging-buttons');
+            this.showAllButton = this.$('.show-all');
         },
 
         bindEvent: function(){
-            // Try to remove this
-            Backbone.Events.on('refresh_tree', this.resetCollection);
-
             this.partListView.collection.on('page-count:fetch', this.onPageCountFetched);
             this.partListView.collection.fetchPageCount();
 
@@ -113,13 +146,30 @@ define([
             this.partListView.on('acl-edit-button:display', this.changeACLButtonDisplay);
             this.partListView.on('new-version-button:display', this.changeVersionButtonDisplay);
             this.partListView.on('release-button:display', this.changeReleaseButtonDisplay);
+            this.partListView.on('obsolete-button:display', this.changeObsoleteButtonDisplay);
+            this.partListView.on('new-product-button:display', this.changeNewProductButtonDisplay);
 
             this.delegateEvents();
+
+            var self = this;
+            this.queryBuilder.on('query:search', function(data){
+                if(self.partListView){
+                    self.partListView.remove();
+                    self.pageControls.remove();
+                    self.$('#part_table_filter').remove();
+                }
+                self.queryTable = new PartGroupedByView({
+                    data : data,
+                    el: self.$('#query-table')
+                }).render();
+            });
 
         },
 
         newPart: function () {
-            var partCreationView = new PartCreationView();
+            var partCreationView = new PartCreationView({
+                autoAddTag: this.partListView.collection.tag
+            });
             this.listenTo(partCreationView, 'part:created', this.fetchPartAndAdd);
             window.document.body.appendChild(partCreationView.el);
             partCreationView.openModal();
@@ -143,43 +193,31 @@ define([
         },
 
         changeDeleteButtonDisplay: function (state) {
-            if (state) {
-                this.deleteButton.show();
-            } else {
-                this.deleteButton.hide();
-            }
+            this.deleteButton.toggle(state);
         },
 
         changeACLButtonDisplay: function (state) {
-            if (state) {
-                this.aclButton.show();
-            } else {
-                this.aclButton.hide();
-            }
+            this.aclButton.toggle(state);
         },
 
         changeCheckoutGroupDisplay: function (state) {
-            if (state) {
-                this.checkoutGroup.show();
-            } else {
-                this.checkoutGroup.hide();
-            }
+            this.checkoutGroup.toggle(state);
         },
 
         changeVersionButtonDisplay: function (state) {
-            if (state) {
-                this.newVersionButton.show();
-            } else {
-                this.newVersionButton.hide();
-            }
+            this.newVersionButton.toggle(state);
+        },
+
+        changeNewProductButtonDisplay: function (state) {
+            this.newProductButton.toggle(state);
         },
 
         changeReleaseButtonDisplay: function (state) {
-            if (state) {
-                this.releaseButton.show();
-            } else {
-                this.releaseButton.hide();
-            }
+            this.releaseButton.toggle(state);
+        },
+
+        changeObsoleteButtonDisplay: function(state) {
+            this.obsoleteButton.toggle(state);
         },
 
         updateCheckoutButtons: function (values) {
@@ -189,42 +227,108 @@ define([
         },
 
         checkin: function () {
-            var self = this;
-            var selectedPart = this.partListView.getSelectedPart();
+            this.partListView.getSelectedPartIndexes();
+            var selectedParts = this.partListView.getSelectedParts();
+            var selectedPartsWithoutNote = 0;
 
-            if (!selectedPart.getLastIteration().get('iterationNote')) {
+            _.each(selectedParts, function (selectedPart) {
+                if (!selectedPart.getLastIteration().get('iterationNote')) {
+                    selectedPartsWithoutNote++;
+                }
+            });
+
+            var _this = this;
+
+            if (selectedPartsWithoutNote > 0) {
                 var promptView = new PromptView();
-                promptView.setPromptOptions(App.config.i18n.ITERATION_NOTE, App.config.i18n.ITERATION_NOTE_PROMPT_LABEL, App.config.i18n.ITERATION_NOTE_PROMPT_OK, App.config.i18n.ITERATION_NOTE_PROMPT_CANCEL);
+
+                if (selectedParts.length > 1) {
+                    promptView.setPromptOptions(App.config.i18n.REVISION_NOTE, App.config.i18n.PART_REVISION_NOTE_PROMPT_LABEL, App.config.i18n.REVISION_NOTE_PROMPT_OK, App.config.i18n.REVISION_NOTE_PROMPT_CANCEL);
+                } else {
+                    promptView.setPromptOptions(App.config.i18n.REVISION_NOTE, App.config.i18n.REVISION_NOTE_PROMPT_LABEL, App.config.i18n.REVISION_NOTE_PROMPT_OK, App.config.i18n.REVISION_NOTE_PROMPT_CANCEL);
+                }
+
+                promptView.specifyInput('textarea');
                 window.document.body.appendChild(promptView.render().el);
                 promptView.openModal();
 
-                self.listenTo(promptView, 'prompt-ok', function (args) {
+                this.listenTo(promptView, 'prompt-ok', function (args) {
                     var iterationNote = args[0];
                     if (_.isEqual(iterationNote, '')) {
                         iterationNote = null;
                     }
-                    selectedPart.getLastIteration().save({
-                        iterationNote: iterationNote
-                    }).success(function () {
-                        selectedPart.checkin();
+
+                    Async.each(selectedParts, function(part, callback) {
+                        var revisionNote;
+                        if (iterationNote) {
+                            revisionNote = part.getLastIteration().get('iterationNote');
+                            if (!revisionNote) {
+                                revisionNote = iterationNote;
+                            }
+                        }
+
+                        part.getLastIteration().save({
+                            iterationNote: revisionNote
+                        }).success(function () {
+                            part.checkin().success(callback);
+                        });
+
+                    }, function(err) {
+                        if (!err) {
+                            _this.allCheckinDone();
+                        }
                     });
+
                 });
 
-                self.listenTo(promptView, 'prompt-cancel', function () {
-                    selectedPart.checkin();
+                this.listenTo(promptView, 'prompt-cancel', function () {
+                    var ajaxes = [];
+                    _(selectedParts).each(function (part) {
+                        ajaxes.push(part.checkin());
+                    });
+                    $.when.apply($, ajaxes).then(this.allCheckinDone);
                 });
+
             } else {
-                selectedPart.checkin();
+                Async.each(selectedParts, function(part, callback) {
+
+                    part.getLastIteration().save().success(function () {
+                        part.checkin().success(callback);
+                    });
+
+                }, function(err) {
+                    if (!err) {
+                        _this.allCheckinDone();
+                    }
+                });
             }
         },
+
+        allCheckinDone: function () {
+            this.resetCollection();
+            Backbone.Events.trigger('part:iterationChange');
+        },
+
         checkout: function () {
-            this.partListView.getSelectedPart().checkout();
+            _(this.partListView.getSelectedParts()).each(function (view) {
+                view.checkout();
+            });
         },
         undocheckout: function () {
+            this.partListView.getSelectedPartIndexes();
             var _this= this;
+            var toBeDone = this.partListView.selectedPartIndexes.length;
+            var done = 0;
+            var onSuccess = function() {
+                if(++done === toBeDone) {
+                    _this.allCheckinDone();
+                }
+            };
             bootbox.confirm(App.config.i18n.UNDO_CHECKOUT_QUESTION, function(result){
                 if(result){
-                    _this.partListView.getSelectedPart().undocheckout();
+                    _(_this.partListView.getSelectedParts()).each(function (view) {
+                        view.undocheckout().success(onSuccess);
+                    });
                 }
 
             });
@@ -266,8 +370,9 @@ define([
         newVersion: function () {
             var partNewVersionView = new PartNewVersionView({
                 model: this.partListView.getSelectedPart()
-            }).render();
-            window.document.body.appendChild(partNewVersionView.el);
+            });
+            window.document.body.appendChild(partNewVersionView.render().el);
+            partNewVersionView.openModal();
         },
 
         releasePart: function () {
@@ -275,7 +380,10 @@ define([
         },
 
         resetCollection: function () {
-            this.partListView.collection.fetch({reset: true});
+            this.partListView.collection.fetch({reset: true}).success(function () {
+                this.partListView.checkCheckboxes();
+                this.partListView.canCheckinCheckoutOrUndoCheckout();
+            }.bind(this));
         },
 
         onPageCountFetched: function () {
@@ -324,9 +432,23 @@ define([
             this.currentPageIndicator.text(this.partListView.collection.getCurrentPage() + ' / ' + this.partListView.collection.getPageCount());
         },
 
+        showAll: function () {
+            if (this.partListView.collection.resultsPerPage) {
+                this.partListView.collection.setResultsPerPage(0);
+                this.pagingButtons.hide();
+                this.showAllButton.html(App.config.i18n.SHOW_BY_PAGE);
+            } else {
+                this.partListView.collection.setResultsPerPage(20);
+                this.pagingButtons.show();
+                this.showAllButton.html(App.config.i18n.SHOW_ALL);
+            }
+            this.partListView.collection.fetch({reset: true});
+            this.partListView.onNoPartSelected();
+        },
+
         onQuickSearch: function (e) {
-            if (e.target.children[0].value) {
-                App.router.navigate(App.config.workspaceId + '/parts-search/q=' + e.target.children[0].value, {trigger: true});
+            if (e.target.children[1].value) {
+                App.router.navigate(App.config.workspaceId + '/parts-search/?q=' + e.target.children[1].value, {trigger: true});
             }
             e.preventDefault();
             return false;
@@ -353,6 +475,68 @@ define([
                 type: 'warning',
                 message: errorMessage
             }).render().$el);
+        },
+
+        newProduct:function(){
+            var productCreationView = new ProductCreationView();
+            window.document.body.appendChild(productCreationView.render().el);
+            var that = this ;
+            productCreationView.on('product:created',function(){
+                that.$notifications.append(new AlertView({
+                    type: 'info',
+                    message: App.config.i18n.PRODUCT_CREATED
+                }).render().$el);
+            });
+            productCreationView.setRootPart(this.partListView.getSelectedPart())
+                .openModal();
+        },
+        actionTags: function () {
+
+            var partsChecked = new Backbone.Collection();
+
+            this.partListView.eachChecked(function (view) {
+                partsChecked.push(view.model);
+            });
+
+            var tagsManagementView = new TagsManagementView({
+                collection: partsChecked
+            });
+            window.document.body.appendChild(tagsManagementView.el);
+            tagsManagementView.show();
+
+            return false;
+
+        },
+        markAsObsolete:function(){
+            var _this = this;
+            bootbox.confirm(App.config.i18n.MARK_AS_OBSOLETE_QUESTION, function(result){
+                if(result){
+                    _(_this.partListView.getSelectedParts()).each(function (part) {
+                        part.markAsObsolete();
+                    });
+                }
+            });
+        },
+
+        toggleQueryBuilder:function() {
+            this.$el.toggleClass('displayQueryBuilder', !this.isQueryBuilderDisplayed);
+            this.$('.display-query-builder-button').toggleClass('fa-angle-double-down', this.isQueryBuilderDisplayed);
+            this.$('.display-query-builder-button').toggleClass('fa-angle-double-up', !this.isQueryBuilderDisplayed);
+
+            if (this.isQueryBuilderDisplayed) {
+                this.queryBuilder.destroy();
+            } else {
+                this.queryBuilder.render();
+            }
+
+            this.isQueryBuilderDisplayed = !this.isQueryBuilderDisplayed;
+        },
+
+        destroy:function(){
+            if(this.partListView){
+                this.partListView.remove();
+            }
+            this.remove();
         }
 
     });

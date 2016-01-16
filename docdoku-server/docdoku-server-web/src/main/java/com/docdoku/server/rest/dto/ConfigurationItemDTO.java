@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -19,27 +19,40 @@
  */
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
+import java.util.List;
 
 /**
  *
  * @author Florent Garin
  */
+@XmlRootElement
 public class ConfigurationItemDTO implements Serializable {
 
     private String id;
     private String workspaceId;
     private String description;
     private String designItemNumber;
+    private String designItemName;
+    private String designItemLatestVersion;
+    private UserDTO author;
+    private boolean hasModificationNotification;
+    private List<PathToPathLinkDTO> pathToPathLinks;
+
 
     public ConfigurationItemDTO() {
     }
 
-    public ConfigurationItemDTO(String id, String workspaceId, String description, String designItemNumber) {
+    public ConfigurationItemDTO(UserDTO author,String id, String workspaceId, String description, String designItemNumber,
+                                String designItemName, String designItemLatestVersion) {
         this.id = id;
+        this.author =author;
         this.workspaceId = workspaceId;
         this.description = description;
         this.designItemNumber = designItemNumber;
+        this.designItemName = designItemName ;
+        this.designItemLatestVersion = designItemLatestVersion;
     }
  
     public String getId() {
@@ -74,4 +87,43 @@ public class ConfigurationItemDTO implements Serializable {
         this.designItemNumber = designItemNumber;
     }
 
+    public String getDesignItemName() {
+        return designItemName;
+    }
+
+    public void setDesignItemName(String designItemName) {
+        this.designItemName = designItemName;
+    }
+
+    public String getDesignItemLatestVersion() {
+        return designItemLatestVersion;
+    }
+
+    public void setDesignItemLatestVersion(String designItemLatestVersion) {
+        this.designItemLatestVersion = designItemLatestVersion;
+    }
+
+    public List<PathToPathLinkDTO> getPathToPathLinks() {
+        return pathToPathLinks;
+    }
+
+    public void setPathToPathLinks(List<PathToPathLinkDTO> pathToPathLinks) {
+        this.pathToPathLinks = pathToPathLinks;
+    }
+
+    public UserDTO getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(UserDTO author) {
+        this.author = author;
+    }
+
+    public boolean isHasModificationNotification() {
+        return hasModificationNotification;
+    }
+
+    public void setHasModificationNotification(boolean hasModificationNotification) {
+        this.hasModificationNotification = hasModificationNotification;
+    }
 }

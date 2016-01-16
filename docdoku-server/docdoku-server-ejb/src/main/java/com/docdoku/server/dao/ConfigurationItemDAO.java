@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,7 +20,6 @@
 package com.docdoku.server.dao;
 
 
-import com.docdoku.core.configuration.EffectivityConfigSpec;
 import com.docdoku.core.exceptions.ConfigurationItemAlreadyExistsException;
 import com.docdoku.core.exceptions.ConfigurationItemNotFoundException;
 import com.docdoku.core.exceptions.CreationException;
@@ -58,7 +57,6 @@ public class ConfigurationItemDAO {
 
         removeLayersFromConfigurationItem(pKey);
         removeEffectivitiesFromConfigurationItem(pKey);
-        removeEffectivityConfigSpecFromConfigurationItem(pKey);
 
         em.remove(ci);
         return ci;
@@ -78,16 +76,10 @@ public class ConfigurationItemDAO {
         query.executeUpdate();
     }
 
-    public void removeEffectivityConfigSpecFromConfigurationItem(ConfigurationItemKey pKey){
-        TypedQuery<EffectivityConfigSpec> query = em.createNamedQuery("EffectivityConfigSpec.removeEffectivityConfigSpecFromConfigurationItem", EffectivityConfigSpec.class);
-        query.setParameter("workspaceId", pKey.getWorkspace());
-        query.setParameter("configurationItemId", pKey.getId());
-        query.executeUpdate();
-    }
-
     public List<ConfigurationItem> findAllConfigurationItems(String pWorkspaceId) {
-        TypedQuery<ConfigurationItem> query = em.createQuery("SELECT DISTINCT ci FROM ConfigurationItem ci WHERE ci.workspace.id = :workspaceId", ConfigurationItem.class);
-        return query.setParameter("workspaceId", pWorkspaceId).getResultList();
+        TypedQuery<ConfigurationItem> query = em.createNamedQuery("ConfigurationItem.getConfigurationItemsInWorkspace", ConfigurationItem.class);
+        query.setParameter("workspaceId", pWorkspaceId);
+        return query.getResultList();
     }
 
     public ConfigurationItem loadConfigurationItem(ConfigurationItemKey pKey)
@@ -123,6 +115,6 @@ public class ConfigurationItemDAO {
     }
 
     public boolean isPartMasterLinkedToConfigurationItem(PartMaster partMaster){
-        return findConfigurationItemsByDesignItem(partMaster).size() > 0;
+        return !findConfigurationItemsByDesignItem(partMaster).isEmpty();
     }
 }

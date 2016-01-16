@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -38,11 +38,14 @@ import java.util.Map;
  * @since   V1.0
  */
 @Table(name="ACTIVITYMODEL")
-@javax.persistence.IdClass(com.docdoku.core.workflow.ActivityModelKey.class)
 @XmlSeeAlso({SerialActivityModel.class, ParallelActivityModel.class})
 @Inheritance()
 @Entity
 public abstract class ActivityModel implements Serializable, Cloneable {
+
+    @javax.persistence.Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
 
     @ManyToOne(optional=false, fetch=FetchType.EAGER)
     @JoinColumns({
@@ -54,30 +57,17 @@ public abstract class ActivityModel implements Serializable, Cloneable {
     @OneToMany(mappedBy = "activityModel", cascade=CascadeType.ALL, fetch=FetchType.EAGER)
     @OrderBy("num")
     protected List<TaskModel> taskModels=new LinkedList<>();
-    
-    @javax.persistence.Id
+
     protected int step;
-    
-    @javax.persistence.Column(name = "WORKFLOWMODEL_ID", length=100, nullable = false, insertable = false, updatable = false)
-    @javax.persistence.Id
-    private String workflowModelId="";
-    
-    @javax.persistence.Column(name = "WORKSPACE_ID", length=100, nullable = false, insertable = false, updatable = false)
-    @javax.persistence.Id
-    private String workspaceId="";
 
     @ManyToOne(optional = true,fetch=FetchType.EAGER)
     @JoinTable (
             name="ACTIVITYMODEL_RELAUNCH",
             joinColumns={
-                    @JoinColumn(name="ACTIVITYMODEL_STEP", referencedColumnName="STEP"),
-                    @JoinColumn(name="WORKFLOWMODEL_ID", referencedColumnName="WORKFLOWMODEL_ID"),
-                    @JoinColumn(name="WORKSPACE_ID", referencedColumnName="WORKSPACE_ID")
+                    @JoinColumn(name="ACTIVITYMODEL_ID", referencedColumnName="ID")
             },
             inverseJoinColumns={
-                    @JoinColumn(name="RELAUNCHACTIVITYMODEL_STEP", referencedColumnName="STEP"),
-                    @JoinColumn(name="RELAUNCHWORKFLOWMODEL_ID", referencedColumnName="WORKFLOWMODEL_ID"),
-                    @JoinColumn(name="RELAUNCHWORKSPACE_ID", referencedColumnName="WORKSPACE_ID")
+                    @JoinColumn(name="RELAUNCHACTIVITYMODEL_ID", referencedColumnName="ID")
             }
     )
     private ActivityModel relaunchActivity;
@@ -98,10 +88,8 @@ public abstract class ActivityModel implements Serializable, Cloneable {
     
     public void setWorkflowModel(WorkflowModel pWorkflowModel){
         workflowModel=pWorkflowModel;
-        workflowModelId=workflowModel.getId();
-        workspaceId=workflowModel.getWorkspaceId();
     }
-    
+
     public int getStep(){
         return step;
     }
@@ -114,18 +102,18 @@ public abstract class ActivityModel implements Serializable, Cloneable {
         return lifeCycleState;
     }
 
-    
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
     public void setTaskModels(List<TaskModel> taskModels) {
         this.taskModels = taskModels;
     }
 
-    public String getWorkspaceId() {
-        return workspaceId;
-    }
-
-    public String getWorkflowModelId() {
-        return workflowModelId;
-    }
 
     @XmlTransient
     public WorkflowModel getWorkflowModel() {

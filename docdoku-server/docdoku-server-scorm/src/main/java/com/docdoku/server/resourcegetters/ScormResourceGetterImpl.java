@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,10 +23,12 @@ import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.document.DocumentIteration;
 import com.docdoku.core.exceptions.ConvertedResourceException;
 import com.docdoku.core.exceptions.StorageException;
+import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.services.IDataManagerLocal;
+import com.docdoku.server.InternalService;
 import com.docdoku.server.viewers.utils.ScormUtil;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -34,7 +36,10 @@ import java.util.logging.Logger;
 
 public class ScormResourceGetterImpl implements DocumentResourceGetter {
 
-    @EJB
+    private static final Logger LOGGER = Logger.getLogger(ScormResourceGetterImpl.class.getName());
+
+    @InternalService
+    @Inject
     private IDataManagerLocal dataManager;
 
 
@@ -49,11 +54,16 @@ public class ScormResourceGetterImpl implements DocumentResourceGetter {
     }
 
     @Override
+    public InputStream getConvertedResource(String outputFormat, BinaryResource binaryResource, PartIteration partIteration, Locale locale) throws ConvertedResourceException {
+        return null;
+    }
+
+    @Override
     public boolean canGetSubResourceVirtualPath(BinaryResource binaryResource) {
         try {
             return dataManager.exists(binaryResource, ScormUtil.getScormSubResourceVirtualPath(ScormUtil.IMS_MANIFEST));
         } catch (StorageException e) {
-            Logger.getLogger(ScormResourceGetterImpl.class.getName()).log(Level.INFO, null, e);
+            LOGGER.log(Level.INFO, null, e);
             return false;
         }
     }

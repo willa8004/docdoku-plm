@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,21 +20,30 @@
 
 package com.docdoku.server.rest.dto.product;
 
+import com.docdoku.server.rest.dto.ACLDTO;
+
 import javax.xml.bind.annotation.XmlRootElement;
-import java.util.Date;
+import java.io.Serializable;
 import java.util.List;
 
 @XmlRootElement
-public class ProductInstanceMasterDTO {
+public class ProductInstanceMasterDTO implements Serializable {
 
+    private String identifier;
     private String serialNumber;
     private String configurationItemId;
-    private String updateAuthor;
-    private String updateAuthorName;
-    private Date updateDate;
     private List<ProductInstanceIterationDTO> productInstanceIterations;
+    private ACLDTO acl;
 
     public ProductInstanceMasterDTO() {
+    }
+
+    public String getIdentifier() {
+        return identifier;
+    }
+
+    public void setIdentifier(String identifier) {
+        this.identifier = identifier;
     }
 
     public String getSerialNumber() {
@@ -51,31 +60,18 @@ public class ProductInstanceMasterDTO {
         this.configurationItemId = configurationItemId;
     }
 
-    public String getUpdateAuthor() {
-        return updateAuthor;
-    }
-    public void setUpdateAuthor(String updateAuthor) {
-        this.updateAuthor = updateAuthor;
-    }
-
-    public String getUpdateAuthorName() {
-        return updateAuthorName;
-    }
-    public void setUpdateAuthorName(String updateAuthorName) {
-        this.updateAuthorName = updateAuthorName;
-    }
-
-    public Date getUpdateDate() {
-        return updateDate;
-    }
-    public void setUpdateDate(Date updateDate) {
-        this.updateDate = updateDate;
-    }
-
     public List<ProductInstanceIterationDTO> getProductInstanceIterations() {
         return productInstanceIterations;
     }
     public void setProductInstanceIterations(List<ProductInstanceIterationDTO> productInstanceIterations) {
         this.productInstanceIterations = productInstanceIterations;
     }
+    public ACLDTO getAcl() {
+        return acl;
+    }
+
+    public void setAcl(ACLDTO acl) {
+        this.acl = acl;
+    }
+
 }

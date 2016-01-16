@@ -3,8 +3,8 @@ var App = {
     debug: false,
 
 	config:{
-		workspaceId: /^#([^/]+)/.exec(window.location.hash)[1] || null,
-		productId: window.location.hash.split('/')[1] || null,
+		workspaceId: decodeURIComponent(/^#(product|assembly)\/([^\/]+)/.exec(window.location.hash)[2]).trim() || null,
+		productId: decodeURIComponent(window.location.hash.split('/')[2]).trim() || null,
 		login: '',
 		groups: [],
 		contextPath: '',
@@ -30,8 +30,9 @@ var App = {
         cameraFar: 5E4,
         defaultCameraPosition: {x: -1000, y: 800, z: 1100},
         defaultTargetPosition: {x: 0, y: 0, z: 0},
-        ambientLightColor:0x101030,
-        cameraLightColor:0xbcbcbc,
+        ambientLightColor:0xffffff,
+        cameraLight1Color:0xbcbcbc,
+        cameraLight2Color:0xffffff,
         transformControls:false
     }
 
@@ -77,6 +78,7 @@ require.config({
         colladaloader: {deps: ['threecore'], exports: 'THREE'},
         stlloader: {deps: ['threecore'], exports: 'THREE'},
         objloader: {deps: ['threecore'], exports: 'THREE'},
+        mtlloader:{deps:['threecore'],exports:'THREE'},
         buffergeometryutils: {deps: ['threecore'], exports: 'THREE'}
     },
     paths: {
@@ -105,8 +107,9 @@ require.config({
         buffergeometryutils: 'dmu/utils/BufferGeometryUtils',
         stlloader: 'dmu/loaders/STLLoader',
         objloader: 'dmu/loaders/OBJLoader',
+        mtlloader: 'dmu/loaders/MTLLoader',
         stats:'dmu/utils/Stats',
-        stringprototype:'../lib/string.prototype'
+        utilsprototype:'../utils/utils.prototype'
     },
 
     deps: [
@@ -118,12 +121,13 @@ require.config({
         'colladaloader',
         'stlloader',
         'objloader',
+        'mtlloader',
         'buffergeometryutils',
         'stats',
         'dat',
         'tween',
-        'stringprototype',
-        'bootstrap',
+        'utilsprototype',
+        'bootstrap'
     ],
     config: {
         i18n: {
@@ -143,8 +147,8 @@ require(['common-objects/contextResolver','i18n!localization/nls/common','i18n!l
 function (ContextResolver,  commonStrings, productStructureStrings) {
     'use strict';
     App.config.i18n = _.extend(commonStrings,productStructureStrings);
-    ContextResolver.resolve(function(){
-        require(['backbone','frameRouter', 'dmu/SceneManager','dmu/InstancesManager'],function(Backbone,  Router,SceneManager,InstancesManager){
+    ContextResolver.resolveUser(function(){
+        require(['backbone', 'frameRouter', 'dmu/SceneManager','dmu/InstancesManager'],function(Backbone,  Router,SceneManager,InstancesManager){
             App.$SceneContainer = $('div#frameWorkspace');
             App.instancesManager = new InstancesManager();
             App.sceneManager = new SceneManager();

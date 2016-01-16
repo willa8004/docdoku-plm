@@ -12,6 +12,7 @@
         <div class="tabs">
             <ul class="nav nav-tabs">
                 <li class="active"><a href="#tab-main" data-toggle="tab">{{i18n.GENERAL}}</a></li>
+                <li><a href="#tab-workflow" data-toggle="tab">{{i18n.WORKFLOW}}</a></li>
                 <li><a href="#tab-attributes" data-toggle="tab">{{i18n.ATTRIBUTES}}</a></li>
                 {{#model.id}}
                 <li>
@@ -46,7 +47,7 @@
                         <div class="controls">
                             <input type="text" class="input-xlarge mask" id="part-template-mask"
                                    value="{{model.mask}}"/>
-                            <a href="#" id="mask-help" class="btn"><i class="fa fa-lightbulb-o"></i></a>
+                            <a id="mask-help" class="btn"><i class="fa fa-lightbulb-o"></i></a>
                         </div>
                     </div>
                     <div class="control-group">
@@ -59,7 +60,15 @@
                         </div>
                     </div>
                 </div>
-                <div class="tab-pane attributes attributes-edit" id="tab-attributes"></div>
+                <div id="tab-workflow" class="tab-pane">
+                    <div id="workflows-list"></div>
+                </div>
+                <div class="tab-pane attributes attributes-edit" id="tab-attributes">
+                    <p>{{i18n.PART_ATTRIBUTES_TEMPLATES}}</p>
+                    <div id="attributes-list" class="attributes attributes-edit"></div>
+                    <p>{{i18n.PRODUCT_INSTANCE_DATA_ATTRIBUTES_TEMPLATES}}</p>
+                    <div id="attribute-product-instance-list" class="attributes attributes-edit"></div>
+                </div>
                 {{#model.id}}
                 <div class="tab-pane" id="tab-files"></div>
                 {{/model.id}}

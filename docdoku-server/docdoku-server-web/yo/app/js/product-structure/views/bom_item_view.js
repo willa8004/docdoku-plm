@@ -13,12 +13,14 @@ define([
         tagName: 'tr',
 
         events: {
+            'click td.modification_notification i': 'toPartModalOnNotificationsTab',
             'click .part_number': 'onPartClicked',
-            'click td.part-revision-share i': 'sharePart'
+            'click td.part-revision-share i': 'sharePart',
+            'click td.part-attached-files i': 'toPartModalOnFilesTab'
         },
 
         initialize: function () {
-            this.listenTo(this.model, 'change', this.render);
+            this.listenTo(this.model, 'sync, reset, change', this.render);
         },
 
         render: function () {
@@ -37,7 +39,29 @@ define([
             self.model.fetch().success(function () {
                 new PartModalView({
                     model: self.model
-                }).show();
+                });
+            });
+        },
+
+        toPartModalOnNotificationsTab: function () {
+            var model = this.model;
+            model.fetch().success(function () {
+                var partModalView = new PartModalView({
+                    model: model
+                });
+                partModalView.show();
+                partModalView.activateNotificationsTab();
+            });
+        },
+
+        toPartModalOnFilesTab: function () {
+            var model = this.model;
+            model.fetch().success(function () {
+                var partModalView = new PartModalView({
+                    model: model
+                });
+                partModalView.show();
+                partModalView.activateFileTab();
             });
         },
 

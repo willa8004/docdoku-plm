@@ -1,5 +1,7 @@
 <div class="LifecycleModalTab">
-    <h4 class="LifecycleModalTab-title">{{i18n.LIFECYCLE_STATE}} : {{workflow.lifeCycleState}}</h4>
+
+    <div class="notifications"></div>
+
     {{#abortedWorkflows.length}}
         <a class="LifecycleModalTab-historyLink">{{i18n.WORKFLOW_HISTORY}}</a>
         <div class="LifecycleModalTab-historyContent hide">

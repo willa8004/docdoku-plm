@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -33,8 +33,8 @@ import org.dozer.Mapper;
 import javax.annotation.PostConstruct;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -48,12 +48,12 @@ import java.util.logging.Logger;
  *
  * @author Morgan Guimard
  */
-@Stateless
+@RequestScoped
 @DeclareRoles(UserGroupMapping.REGULAR_USER_ROLE_ID)
 @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
 public class RoleResource {
 
-    @EJB
+    @Inject
     private IWorkflowManagerLocal roleService;
 
     private static final Logger LOGGER = Logger.getLogger(RoleResource.class.getName());
@@ -79,6 +79,7 @@ public class RoleResource {
             rolesDTO[i] = mapRoleToDTO(roles[i]);
         }
 
+        // TODO: return Response instead of RoleDTO[]
         return rolesDTO;
     }
 
@@ -95,6 +96,7 @@ public class RoleResource {
             rolesDTO[i] = mapRoleToDTO(roles[i]);
         }
 
+        // TODO: return Response instead of RoleDTO[]
         return rolesDTO;
     }
 
@@ -105,7 +107,7 @@ public class RoleResource {
     public Response createRole(RoleDTO roleDTO)
             throws EntityNotFoundException, EntityAlreadyExistsException, UserNotActiveException, AccessRightException, CreationException {
 
-        UserDTO userDTO = roleDTO.getDefaultUserMapped();
+        UserDTO userDTO = roleDTO.getDefaultAssignee();
         String userLogin = null;
         if(userDTO != null){
             userLogin = userDTO.getLogin();
@@ -114,7 +116,7 @@ public class RoleResource {
         Role roleCreated = roleService.createRole(roleDTO.getName(),roleDTO.getWorkspaceId(),userLogin);
         RoleDTO roleCreatedDTO = mapRoleToDTO(roleCreated);
 
-        try{
+        try {
             return Response.created(URI.create(URLEncoder.encode(roleCreatedDTO.getName(), "UTF-8"))).entity(roleCreatedDTO).build();
         } catch (UnsupportedEncodingException ex) {
             LOGGER.log(Level.WARNING,null,ex);
@@ -129,7 +131,7 @@ public class RoleResource {
     public Response updateRole(@PathParam("roleName") String roleName, RoleDTO roleDTO)
             throws EntityNotFoundException, AccessRightException, UserNotActiveException {
 
-        UserDTO userDTO = roleDTO.getDefaultUserMapped();
+        UserDTO userDTO = roleDTO.getDefaultAssignee();
         String userLogin = null;
         if(userDTO != null){
             userLogin = userDTO.getLogin();
@@ -160,8 +162,8 @@ public class RoleResource {
     private RoleDTO mapRoleToDTO(Role role){
         RoleDTO roleDTO = mapper.map(role,RoleDTO.class);
         roleDTO.setWorkspaceId(role.getWorkspace().getId());
-        if(role.getDefaultUserMapped() != null){
-            roleDTO.setDefaultUserMapped(mapper.map(role.getDefaultUserMapped(), UserDTO.class));
+        if(role.getDefaultAssignee() != null){
+            roleDTO.setDefaultAssignee(mapper.map(role.getDefaultAssignee(), UserDTO.class));
         }
         roleDTO.setId(role.getName());
 

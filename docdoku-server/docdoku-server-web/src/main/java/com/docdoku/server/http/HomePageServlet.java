@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,10 +21,10 @@
 package com.docdoku.server.http;
 
 import com.docdoku.core.common.Workspace;
+import com.docdoku.core.security.UserGroupMapping;
+import com.docdoku.core.services.IContextManagerLocal;
 import com.docdoku.core.services.IUserManagerLocal;
-import com.docdoku.server.jsf.actions.AccountBean;
 
-import javax.ejb.EJB;
 import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;
@@ -32,35 +32,40 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.logging.Logger;
 
 @WebServlet(name = "HomePageServlet", urlPatterns = {"/home"})
 public class HomePageServlet extends HttpServlet {
 
     @Inject
-    private AccountBean accountBean;
+    private IContextManagerLocal contextManager;
 
-    @EJB
+    @Inject
     private IUserManagerLocal userManager;
+
+    private static final Logger LOGGER = Logger.getLogger(HomePageServlet.class.getName());
 
     private void handleRequest(HttpServletRequest pRequest,
             HttpServletResponse pResponse)
             throws ServletException, IOException {
-        if(accountBean.isSuperAdmin()){
+
+        if (contextManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID)) {
             pResponse.sendRedirect(pRequest.getContextPath() + "/faces/admin/workspace/workspacesMenu.xhtml");
-        }else{
+        } else {
 
             String workspaceID = null;
             Workspace[] workspaces = userManager.getWorkspacesWhereCallerIsActive();
             if (workspaces != null && workspaces.length > 0) {
                 workspaceID = workspaces[0].getId();
             }
-            if(workspaceID == null){
+            if (workspaceID == null) {
                 pResponse.sendRedirect(pRequest.getContextPath() + "/faces/admin/workspace/workspacesMenu.xhtml");
-            }else{
+            } else {
                 pResponse.sendRedirect(pRequest.getContextPath() + "/document-management/#" + workspaceID);
             }
 
         }
+
     }
     @Override
     protected void doGet(HttpServletRequest pRequest,

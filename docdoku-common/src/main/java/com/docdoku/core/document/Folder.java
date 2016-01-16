@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -28,8 +28,7 @@ import java.io.Serializable;
 import java.util.Stack;
 
 /**
- * The <a href="Folder.html">Folder</a>
- * class is the unitary element of the tree structure.
+ * The {@link Folder} class is the unitary element of the tree structure.
  * Like in a regular file system, folder may contain other folders or documents.  
  * 
  * @author Florent Garin
@@ -134,9 +133,13 @@ public class Folder implements Serializable, Comparable<Folder> {
         }
         
         Folder[] folders = new Folder[foldersStack.size()];
-        for (int i = 0; !foldersStack.empty(); i++) {
-            folders[i] = foldersStack.pop();
+
+        int i = 0;
+
+        while(!foldersStack.empty()){
+            folders[i++] = foldersStack.pop();
         }
+
         return folders;
     }
     
@@ -151,7 +154,22 @@ public class Folder implements Serializable, Comparable<Folder> {
 
     public String getRoutePath() {
         int index = completePath.indexOf('/');
-        return completePath.substring(index + 1).replaceAll("/", ":");
+
+        if (index == -1) {
+            return "";
+        } else {
+            return completePath.substring(index + 1).replaceAll("/", ":");
+        }
+    }
+
+    public String getFoldersPath() {
+        String path = getRoutePath();
+
+        if (path != null && path.length() > 0) {
+            return "folders/" + path;
+        } else {
+            return "folders";
+        }
     }
     
     public static Folder createRootFolder(String pWorkspaceId) {

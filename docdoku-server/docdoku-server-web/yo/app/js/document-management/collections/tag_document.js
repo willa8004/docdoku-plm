@@ -1,22 +1,22 @@
 /*global define,App*/
 define([
     'backbone',
-    'models/document'
-], function (Backbone,Document) {
+    'common-objects/models/document/document_revision'
+], function (Backbone, DocumentRevision) {
 	'use strict';
     var TagDocumentList = Backbone.Collection.extend({
 
-        model: Document,
+        model: DocumentRevision,
 
         className: 'TagDocumentList',
 
         url: function () {
             var tagsUrl = App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/tags';
-            return tagsUrl + '/' + this.parent.get('label') + '/documents?configSpec='+App.config.configSpec;
+            return tagsUrl + '/' + encodeURIComponent(this.parent.get('label')) + '/documents?configSpec='+App.config.documentConfigSpec;
         },
 
-        comparator: function (document) {
-            return document.get('id');
+        comparator: function (documentRevision) {
+            return documentRevision.get('id');
         }
 
     });

@@ -83,7 +83,7 @@ define([
             if(_.isUndefined(this.options.workflowModelId)) {
                 this.model = new WorkflowModel();
                 this.model.attributes.activityModels.bind('add', this.addActivity, this);
-                
+
                 this.$notifications.append(new AlertView({
                     type: 'info',
                     message: App.config.i18n.WARNING_ACTIVITIES_MISSING
@@ -149,6 +149,13 @@ define([
             _this.listenTo(activityModel, 'change', function () {
                 _.each(_this.subviews, function (subview) {
                     subview.trigger('activities-order:changed');
+                });
+            });
+
+            _this.listenTo(activityModel, 'destroy', function () {
+                _this.subviews = _(_this.subviews).without(activityModelEditorView);
+                _.each(_this.subviews, function (subview) {
+                    subview.trigger('activities:removed');
                 });
             });
         },
@@ -219,11 +226,14 @@ define([
             );
         },
         copyAction: function () {
+
             var workflowModelCopyView = new WorkflowModelCopyView({
                 model: this.model
-            }).render();
+            });
 
-            window.document.body.appendChild(workflowModelCopyView.el);
+            window.document.body.appendChild(workflowModelCopyView.render().el);
+
+            workflowModelCopyView.openModal();
 
             return false;
         },

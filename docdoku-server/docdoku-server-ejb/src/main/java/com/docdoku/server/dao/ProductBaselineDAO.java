@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,13 +20,15 @@
 
 package com.docdoku.server.dao;
 
-import com.docdoku.core.configuration.BaselinedPart;
-import com.docdoku.core.configuration.ProductBaseline;
+import com.docdoku.core.configuration.*;
 import com.docdoku.core.exceptions.BaselineNotFoundException;
+import com.docdoku.core.exceptions.CreationException;
+import com.docdoku.core.exceptions.ProductInstanceMasterNotFoundException;
+import com.docdoku.core.product.ConfigurationItemKey;
 import com.docdoku.core.product.PartRevision;
 
 import javax.persistence.EntityManager;
-import java.util.ArrayList;
+import javax.persistence.PersistenceException;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -61,12 +63,13 @@ public class ProductBaselineDAO {
                 .getResultList();
     }
 
-    public void createBaseline(ProductBaseline productBaseline) {
+    public void createBaseline(ProductBaseline productBaseline) throws CreationException {
         try {
             em.persist(productBaseline);
             em.flush();
-        }catch (Exception e){
-            LOGGER.log(Level.WARNING,"Fail to create baseline",e);
+        } catch (PersistenceException pPEx) {
+            LOGGER.log(Level.FINEST,null,pPEx);
+            throw new CreationException(mLocale);
         }
     }
 
@@ -80,6 +83,7 @@ public class ProductBaselineDAO {
     }
 
     public void deleteBaseline(ProductBaseline productBaseline) {
+        flushBaselinedParts(productBaseline);
         em.remove(productBaseline);
         em.flush();
     }
@@ -102,23 +106,35 @@ public class ProductBaselineDAO {
                 .getResultList();
     }
 
+    public List<PartRevision> findObsoletePartsInBaseline(String workspaceId, ProductBaseline productBaseline) {
+        return em.createNamedQuery("ProductBaseline.findObsoletePartRevisions", PartRevision.class)
+                .setParameter("productBaseline", productBaseline)
+                .setParameter("workspaceId", workspaceId)
+                .getResultList();
+    }
+
     public ProductBaseline findBaselineById(int baselineId) {
-        return em.find(ProductBaseline.class,baselineId);
+        return em.find(ProductBaseline.class, baselineId);
     }
 
     public List<BaselinedPart> findBaselinedPartWithReferenceLike(int collectionId, String q, int maxResults) throws BaselineNotFoundException {
-        List<BaselinedPart> baselinedPartList = em.createNamedQuery("BaselinedPart.findByReference",BaselinedPart.class)
+        return em.createNamedQuery("BaselinedPart.findByReference",BaselinedPart.class)
                                                   .setParameter("id", "%" + q + "%")
+                                                  .setParameter("partCollection",collectionId)
+                                                  .setMaxResults(maxResults)
                                                   .getResultList();
-        List<BaselinedPart> returnList = new ArrayList<>();
-        for(BaselinedPart baselinedPart : baselinedPartList){
-            if(baselinedPart.getPartCollection().getId()==collectionId){
-                returnList.add(baselinedPart);
-                if(returnList.size()>=maxResults){
-                    break;
-                }
-            }
-        }
-        return returnList;
     }
+
+    public ProductBaseline findLastBaselineWithSerialNumber(ConfigurationItemKey ciKey, String serialNumber) throws ProductInstanceMasterNotFoundException {
+        ProductInstanceMasterKey pimk = new ProductInstanceMasterKey(serialNumber, ciKey);
+        ProductInstanceMaster productIM = new ProductInstanceMasterDAO(em).loadProductInstanceMaster(pimk);
+        ProductInstanceIteration productII = productIM.getLastIteration();
+
+        if (productII != null) {
+            return productII.getBasedOn();
+        }
+
+        return null;
+    }
+
 }

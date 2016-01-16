@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -30,9 +30,8 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Represents a marker on the 3D scene, actually a
- * <a href="ConfigurationItem.html">ConfigurationItem</a>.
- * May be attached to one or several <a href="PartMaster.html">PartMaster</a>s.
+ * Represents a marker on the 3D scene, actually a {@link ConfigurationItem}.
+ * May be attached to one or several {@link PartMaster}s.
  * 
  * @author Florent Garin
  * @version 1.1, 14/08/12
@@ -68,7 +67,7 @@ public class Marker implements Serializable{
     private Set<PartMaster> relatedParts = new HashSet<PartMaster>();
     
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns({
         @JoinColumn(name = "AUTHOR_LOGIN", referencedColumnName = "LOGIN"),
         @JoinColumn(name = "AUTHOR_WORKSPACE_ID", referencedColumnName = "WORKSPACE_ID")

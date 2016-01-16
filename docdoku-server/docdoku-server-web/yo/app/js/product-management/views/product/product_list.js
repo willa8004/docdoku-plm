@@ -30,8 +30,8 @@ define([
             this.oTable=null;
             this.collection.fetch({
                 reset: true,
-                error:function(err){
-                    _this.trigger('error',err);
+                error:function(collection,err){
+                    _this.trigger('error', null, err);
                 }
             });
             return this;
@@ -126,20 +126,18 @@ define([
 
         onNoProductSelected: function () {
             this.trigger('delete-button:display', false);
-            this.trigger('snap-latest-baseline-button:display', false);
-            this.trigger('snap-released-baseline-button:display', false);
+            this.trigger('create-baseline-button:display', false);
         },
 
         onOneProductSelected: function () {
+            this.trigger('create-configuration-button:display', true);
+            this.trigger('create-baseline-button:display', true);
             this.trigger('delete-button:display', true);
-            this.trigger('snap-latest-baseline-button:display', true);
-            this.trigger('snap-released-baseline-button:display', true);
         },
 
         onSeveralProductsSelected: function () {
             this.trigger('delete-button:display', true);
-            this.trigger('snap-latest-baseline-button:display', false);
-            this.trigger('snap-released-baseline-button:display', false);
+            this.trigger('create-baseline-button:display', false);
         },
 
         getSelectedProduct: function () {
@@ -196,7 +194,7 @@ define([
                 },
                 sDom: 'ft',
                 aoColumnDefs: [
-                    { 'bSortable': false, 'aTargets': [ 0, 3,4 ] }
+                    { 'bSortable': false, 'aTargets': [ 0, 2, 5, 6, 7 ] }
                 ]
             });
             this.$el.parent().find('.dataTables_filter input').attr('placeholder', App.config.i18n.FILTER);

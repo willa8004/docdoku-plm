@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -19,72 +19,90 @@
  */
 package com.docdoku.server.rest;
 
+import com.docdoku.core.change.ModificationNotification;
 import com.docdoku.core.common.User;
 import com.docdoku.core.common.UserGroup;
 import com.docdoku.core.common.Workspace;
 import com.docdoku.core.exceptions.*;
 import com.docdoku.core.exceptions.NotAllowedException;
 import com.docdoku.core.product.PartIteration;
+import com.docdoku.core.product.PartIterationKey;
 import com.docdoku.core.product.PartMaster;
 import com.docdoku.core.product.PartRevision;
 import com.docdoku.core.query.PartSearchQuery;
+import com.docdoku.core.query.Query;
+import com.docdoku.core.query.QueryResultRow;
 import com.docdoku.core.security.ACL;
 import com.docdoku.core.security.ACLUserEntry;
 import com.docdoku.core.security.ACLUserGroupEntry;
 import com.docdoku.core.security.UserGroupMapping;
 import com.docdoku.core.services.IProductManagerLocal;
 import com.docdoku.core.services.IUserManagerLocal;
+import com.docdoku.server.export.ExcelGenerator;
+import com.docdoku.server.rest.collections.QueryResult;
 import com.docdoku.server.rest.dto.*;
 import com.docdoku.server.rest.util.SearchQueryParser;
+import org.dozer.DozerBeanMapperSingletonWrapper;
+import org.dozer.Mapper;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
+import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.*;
-import javax.ws.rs.core.MediaType;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import javax.ws.rs.core.*;
+import java.util.*;
 
-@Stateless
+@RequestScoped
 @DeclareRoles(UserGroupMapping.REGULAR_USER_ROLE_ID)
 @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
 public class PartsResource {
 
-    @EJB
+    @Inject
     private IProductManagerLocal productService;
 
-    @EJB
+    @Inject
     private IUserManagerLocal userManager;
 
-    @EJB
-    private PartResource part;
+    @Inject
+    private PartResource partResource;
 
     public PartsResource() {
     }
 
+    private Mapper mapper;
+
+    @PostConstruct
+    public void init() {
+        mapper = DozerBeanMapperSingletonWrapper.getInstance();
+    }
+
     @Path("{partNumber: [^/].*}-{partVersion:[A-Z]+}")
     @Produces(MediaType.APPLICATION_JSON)
-    public PartResource getPart() {
-        return part;
+    public PartResource getPartResource() {
+        return partResource;
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<PartDTO> getPartRevisions(@PathParam("workspaceId") String workspaceId, @QueryParam("start") int start)
-            throws EntityNotFoundException, AccessRightException, UserNotActiveException {
+    public Response getPartRevisions(@PathParam("workspaceId") String workspaceId, @QueryParam("start") int start, @QueryParam("length") int length)
+        throws EntityNotFoundException, AccessRightException, UserNotActiveException {
 
-        int maxResults = 20;
-        List<PartRevision> partRevisions = productService.getPartRevisions(Tools.stripTrailingSlash(workspaceId), start, maxResults);
-        List<PartDTO> partDTOs = new ArrayList<>();
+        List<PartRevision> partRevisions = productService.getPartRevisions(Tools.stripTrailingSlash(workspaceId), start, length);
+        List<PartRevisionDTO> partRevisionDTOs = new ArrayList<>();
 
-        for(PartRevision partRevision : partRevisions){
-            partDTOs.add(Tools.mapPartRevisionToPartDTO(partRevision));
+        for (PartRevision partRevision : partRevisions) {
+            PartRevisionDTO partRevisionDTO = Tools.mapPartRevisionToPartDTO(partRevision);
+
+            List<ModificationNotificationDTO> notificationDTOs = getModificationNotificationDTOs(partRevision);
+            partRevisionDTO.setNotifications(notificationDTOs);
+
+            partRevisionDTOs.add(partRevisionDTO);
         }
-
-        return partDTOs;
+        return Response.ok(new GenericEntity<List<PartRevisionDTO>>((List<PartRevisionDTO>) partRevisionDTOs) {
+        }).build();
     }
 
     @GET
@@ -97,41 +115,177 @@ public class PartsResource {
     }
 
     @GET
-    @Path("search/{query}")
+    @Path("tags/{tagId}")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<PartDTO> searchPartRevisions(@PathParam("workspaceId") String workspaceId, @PathParam("query") String pStringQuery)
-            throws EntityNotFoundException, ESServerException, UserNotActiveException {
+    public Response getPartRevisions(@PathParam("workspaceId") String workspaceId, @PathParam("tagId") String tagId)
+            throws EntityNotFoundException, AccessRightException, UserNotActiveException {
 
-        PartSearchQuery partSearchQuery = SearchQueryParser.parsePartStringQuery(workspaceId, pStringQuery);
+        PartRevision[] partRevisions = productService.findPartRevisionsByTag(Tools.stripTrailingSlash(workspaceId), tagId);
+        List<PartRevisionDTO> partRevisionDTOs = new ArrayList<>();
+
+        for (PartRevision partRevision : partRevisions) {
+            PartRevisionDTO partRevisionDTO = Tools.mapPartRevisionToPartDTO(partRevision);
+
+            List<ModificationNotificationDTO> notificationDTOs = getModificationNotificationDTOs(partRevision);
+            partRevisionDTO.setNotifications(notificationDTOs);
+
+            partRevisionDTOs.add(partRevisionDTO);
+        }
+        return Response.ok(new GenericEntity<List<PartRevisionDTO>>((List<PartRevisionDTO>) partRevisionDTOs) {
+        }).build();
+    }
+
+    @GET
+    @Path("search")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response searchPartRevisions(@Context UriInfo uri,@PathParam("workspaceId") String workspaceId)
+            throws EntityNotFoundException, ESServerException, UserNotActiveException, AccessRightException {
+
+        PartSearchQuery partSearchQuery = SearchQueryParser.parsePartStringQuery(workspaceId, uri.getQueryParameters());
 
         List<PartRevision> partRevisions = productService.searchPartRevisions(partSearchQuery);
-        List<PartDTO> partDTOs = new ArrayList<>();
+        List<PartRevisionDTO> partRevisionDTOs = new ArrayList<>();
 
-        for(PartRevision partRevision : partRevisions){
-            partDTOs.add(Tools.mapPartRevisionToPartDTO(partRevision));
+        for (PartRevision partRevision : partRevisions) {
+            PartRevisionDTO partRevisionDTO = Tools.mapPartRevisionToPartDTO(partRevision);
+
+            List<ModificationNotificationDTO> notificationDTOs = getModificationNotificationDTOs(partRevision);
+            partRevisionDTO.setNotifications(notificationDTOs);
+
+            partRevisionDTOs.add(partRevisionDTO);
         }
 
-        return partDTOs;
+        return Response.ok(new GenericEntity<List<PartRevisionDTO>>((List<PartRevisionDTO>) partRevisionDTOs) {
+        }).build();
+    }
+
+    @GET
+    @Path("queries")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getCustomQueries(@PathParam("workspaceId") String workspaceId) throws UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException {
+        List<Query> queries = productService.getQueries(workspaceId);
+        List<QueryDTO> queryDTOs = new ArrayList<>();
+        for (Query query : queries) {
+            queryDTOs.add(mapper.map(query, QueryDTO.class));
+        }
+        return Response.ok(new GenericEntity<List<QueryDTO>>((List<QueryDTO>) queryDTOs) {
+        }).build();
+    }
+
+    @POST
+    @Path("queries")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces({MediaType.APPLICATION_JSON,MediaType.APPLICATION_OCTET_STREAM})
+    public Response runCustomQuery(@PathParam("workspaceId") String workspaceId, @QueryParam("save") boolean save, @QueryParam("export") String exportType, QueryDTO queryDTO) throws EntityNotFoundException, UserNotActiveException, AccessRightException, CreationException, QueryAlreadyExistsException, EntityConstraintException, NotAllowedException {
+        Query query = mapper.map(queryDTO, Query.class);
+        QueryResult queryResult = getQueryResult(workspaceId, query, exportType);
+
+        if (save) {
+            productService.createQuery(workspaceId, query);
+        }
+
+        return Response.ok(new GenericEntity<QueryResult>((QueryResult)queryResult){
+        }).build();
+    }
+
+    @GET
+    @Path("queries/{queryId}/format/{export}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces("application/vnd.ms-excel")
+    public Response exportCustomQuery(@Context HttpServletRequest request, @PathParam("workspaceId") String workspaceId, @PathParam("queryId") String queryId, @PathParam("export") String exportType) throws EntityNotFoundException, UserNotActiveException, AccessRightException, CreationException, QueryAlreadyExistsException, EntityConstraintException, NotAllowedException {
+        User user = userManager.checkWorkspaceReadAccess(workspaceId);
+        Locale locale = new Locale(user != null?user.getLanguage():"en");
+        Query query = productService.loadQuery(workspaceId, Integer.valueOf(queryId));
+        QueryResult queryResult = getQueryResult(workspaceId, query, exportType);
+        String url = request.getRequestURL().toString();
+        String baseURL = url.substring(0, url.length() - request.getRequestURI().length()) + request.getContextPath();
+        return makeQueryResponse(queryResult,locale, baseURL);
+    }
+
+
+    private QueryResult getQueryResult(String workspaceId, Query query, String pExportType) throws UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException, EntityConstraintException, BaselineNotFoundException, ProductInstanceMasterNotFoundException, NotAllowedException, ConfigurationItemNotFoundException, PartMasterNotFoundException {
+        List<PartRevision> partRevisions = productService.searchPartRevisions(workspaceId, query);
+        QueryResult queryResult = new QueryResult(partRevisions, query);
+        if (query.hasContext()) {
+            List<QueryResultRow> rows = productService.filterProductBreakdownStructure(workspaceId, query);
+            queryResult.mergeRows(rows);
+        }
+        String exportType = pExportType != null ? pExportType : "JSON";
+        queryResult.setExportType(QueryResult.ExportType.valueOf(exportType));
+        return queryResult;
+    }
+
+    public Response makeQueryResponse(QueryResult queryResult, Locale locale, String baseURL) {
+        ExcelGenerator excelGenerator = new ExcelGenerator();
+        String contentType = "application/vnd.ms-excel";
+        String contentDisposition = "attachment; filename=export_parts.xls";
+        Response.ResponseBuilder responseBuilder = Response.ok((Object) excelGenerator.generateXLSResponse(queryResult,locale, baseURL));
+        responseBuilder
+                .header("Content-Type", contentType)
+                .header("Content-Disposition", contentDisposition);
+
+        return responseBuilder.build();
+    }
+
+    @DELETE
+    @Path("queries/{queryId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response deleteQuery(@PathParam("workspaceId") String workspaceId, @PathParam("queryId") int queryId) throws EntityNotFoundException, UserNotActiveException, AccessRightException {
+        productService.deleteQuery(workspaceId, queryId);
+        return Response.ok().build();
+    }
+
+    @GET
+    @Path("checkedout")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getCheckedOutPartRevisions(@PathParam("workspaceId") String workspaceId)
+            throws EntityNotFoundException, UserNotActiveException, AccessRightException {
+        PartRevision[] checkedOutPartRevisions = productService.getCheckedOutPartRevisions(workspaceId);
+        List<PartRevisionDTO> partRevisionDTOs = new ArrayList<>();
+
+        for (PartRevision partRevision : checkedOutPartRevisions) {
+            PartRevisionDTO partRevisionDTO = Tools.mapPartRevisionToPartDTO(partRevision);
+
+            List<ModificationNotificationDTO> notificationDTOs = getModificationNotificationDTOs(partRevision);
+            partRevisionDTO.setNotifications(notificationDTOs);
+
+            partRevisionDTOs.add(partRevisionDTO);
+        }
+
+        return Response.ok(new GenericEntity<List<PartRevisionDTO>>((List<PartRevisionDTO>) partRevisionDTOs) {
+        }).build();
+    }
+
+    @GET
+    @Path("countCheckedOut")
+    @Produces(MediaType.APPLICATION_JSON)
+    public CountDTO getCheckedOutNumberOfItems(@PathParam("workspaceId") String workspaceId) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, AccessRightException, AccountNotFoundException {
+        return new CountDTO(productService.getCheckedOutPartRevisions(workspaceId).length);
     }
 
     @GET
     @Path("numbers")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<LightPartMasterDTO> searchPartNumbers(@PathParam("workspaceId") String workspaceId, @QueryParam("q") String q)
+    public Response searchPartNumbers(@PathParam("workspaceId") String workspaceId, @QueryParam("q") String q)
             throws EntityNotFoundException, AccessRightException {
 
-        List<PartMaster> partMasters = productService.findPartMasters(Tools.stripTrailingSlash(workspaceId), "%" + q + "%", 8);
+        String search = "%" + q + "%";
+        List<PartMaster> partMasters = productService.findPartMasters(Tools.stripTrailingSlash(workspaceId), search, search, 8);
         List<LightPartMasterDTO> partsMastersDTO = new ArrayList<>();
-        for(PartMaster p : partMasters){
-            partsMastersDTO.add(new LightPartMasterDTO(p.getNumber()));
+        for (PartMaster p : partMasters) {
+            LightPartMasterDTO lightPartMasterDTO = new LightPartMasterDTO(p.getNumber(), p.getName());
+            partsMastersDTO.add(lightPartMasterDTO);
         }
-        return partsMastersDTO;
+
+        return Response.ok(new GenericEntity<List<LightPartMasterDTO>>((List<LightPartMasterDTO>) partsMastersDTO) {
+        }).build();
     }
 
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public PartDTO createNewPart(@PathParam("workspaceId") String workspaceId, PartCreationDTO partCreationDTO)
+    public PartRevisionDTO createNewPart(@PathParam("workspaceId") String workspaceId, PartCreationDTO partCreationDTO)
             throws EntityNotFoundException, EntityAlreadyExistsException, CreationException, AccessRightException, NotAllowedException {
 
         String pWorkflowModelId = partCreationDTO.getWorkflowModelId();
@@ -139,9 +293,9 @@ public class PartsResource {
 
         Map<String, String> roleMappings = new HashMap<>();
 
-        if(rolesMappingDTO != null){
-            for(RoleMappingDTO roleMappingDTO : rolesMappingDTO){
-                roleMappings.put(roleMappingDTO.getRoleName(),roleMappingDTO.getUserLogin());
+        if (rolesMappingDTO != null) {
+            for (RoleMappingDTO roleMappingDTO : rolesMappingDTO) {
+                roleMappings.put(roleMappingDTO.getRoleName(), roleMappingDTO.getUserLogin());
             }
         }
 
@@ -172,20 +326,38 @@ public class PartsResource {
     @GET
     @Path("parts_last_iter")
     @Produces(MediaType.APPLICATION_JSON)
-    public PartIterationDTO[] searchDocumentsLastIterationToLink(@PathParam("workspaceId") String workspaceId,@QueryParam("q") String q)
+    public PartIterationDTO[] searchDocumentsLastIterationToLink(@PathParam("workspaceId") String workspaceId, @QueryParam("q") String q, @QueryParam("l") int limit)
             throws EntityNotFoundException, UserNotActiveException {
 
-        int maxResults = 8;
-        PartRevision[] partRs = productService.getPartRevisionsWithReference(workspaceId, q, maxResults);
+        int maxResults = limit == 0 ? 15 : limit;
+        PartRevision[] partRs = productService.getPartRevisionsWithReferenceOrName(workspaceId, q, maxResults);
 
         List<PartIterationDTO> partsLastIter = new ArrayList<>();
         for (PartRevision partR : partRs) {
             PartIteration partLastIter = partR.getLastIteration();
             if (partLastIter != null) {
-                partsLastIter.add(new PartIterationDTO(partLastIter.getWorkspaceId(), partLastIter.getPartNumber(), partLastIter.getPartVersion(), partLastIter.getIteration()));
+                partsLastIter.add(new PartIterationDTO(partLastIter.getWorkspaceId(), partLastIter.getPartName(), partLastIter.getPartNumber(), partLastIter.getPartVersion(), partLastIter.getIteration()));
             }
         }
 
         return partsLastIter.toArray(new PartIterationDTO[partsLastIter.size()]);
     }
+
+    /**
+     * Return a list of ModificationNotificationDTO matching with a given PartRevision
+     *
+     * @param partRevision The specified PartRevision
+     * @return A list of ModificationNotificationDTO
+     * @throws EntityNotFoundException If an entity doesn't exist
+     * @throws AccessRightException    If the user can not get the modification notifications
+     * @throws UserNotActiveException  If the user is disabled
+     */
+    private List<ModificationNotificationDTO> getModificationNotificationDTOs(PartRevision partRevision)
+            throws EntityNotFoundException, AccessRightException, UserNotActiveException {
+
+        PartIterationKey iterationKey = new PartIterationKey(partRevision.getKey(), partRevision.getLastIterationNumber());
+        List<ModificationNotification> notifications = productService.getModificationNotifications(iterationKey);
+        return Tools.mapModificationNotificationsToModificationNotificationDTO(notifications);
+    }
+
 }

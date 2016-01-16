@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -29,6 +29,8 @@ import javax.websocket.DecodeException;
 import javax.websocket.Decoder;
 import javax.websocket.EndpointConfig;
 import java.io.StringReader;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class MessageDecoder implements Decoder.Text<AbstractMessage>{
 
@@ -94,7 +96,8 @@ public class MessageDecoder implements Decoder.Text<AbstractMessage>{
                 message=collaborativeMessage;
                 break;
             default :
-                System.out.println("Type of message not recognized."+type);
+                Logger.getLogger(MessageDecoder.class.getName()).log(Level.WARNING, "Type of message not recognized."+type);
+                break;
         }
         return message;
     }
@@ -107,11 +110,11 @@ public class MessageDecoder implements Decoder.Text<AbstractMessage>{
 
     @Override
     public void init(EndpointConfig endpointConfig) {
-
+        // Nothing to do
     }
 
     @Override
     public void destroy() {
-
+        // Nothing to do
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,29 +23,33 @@ import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.document.DocumentIteration;
 import com.docdoku.core.exceptions.ConvertedResourceException;
 import com.docdoku.core.exceptions.StorageException;
+import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.services.IDataManagerLocal;
-import com.docdoku.core.services.IDocumentManagerLocal;
 import com.docdoku.core.util.FileIO;
+import com.docdoku.core.util.Tools;
+import com.docdoku.server.InternalService;
 import com.docdoku.server.extras.TitleBlockGenerator;
 import com.google.common.io.ByteStreams;
 import com.itextpdf.text.DocumentException;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Locale;
+import java.util.logging.Logger;
 
 public class OfficeDocumentResourceGetter implements DocumentResourceGetter {
 
-    @EJB
+    private static final Logger LOGGER = Logger.getLogger(DocumentResourceGetter.class.getName());
+
+    @Inject
+    private FileConverter fileConverter;
+
+    @InternalService
+    @Inject
     private IDataManagerLocal dataManager;
 
-    @EJB
-    private IDocumentManagerLocal documentService;
-
-    @EJB
-    private FileConverter fileConverter;
 
     @Override
     public boolean canGetConvertedResource(String outputFormat, BinaryResource binaryResource) {
@@ -59,6 +63,7 @@ public class OfficeDocumentResourceGetter implements DocumentResourceGetter {
     @Override
     public InputStream getConvertedResource(String outputFormat, BinaryResource binaryResource, DocumentIteration docI, Locale locale) throws ConvertedResourceException {
         try {
+            // TODO check for resources to be closed
             InputStream inputStream=null;
 
             if ("pdf".equals(outputFormat)) {
@@ -71,7 +76,26 @@ public class OfficeDocumentResourceGetter implements DocumentResourceGetter {
 
             return inputStream;
         } catch (StorageException | DocumentException | IOException e) {
-            throw new ConvertedResourceException(Locale.getDefault(),e);
+            throw new ConvertedResourceException(locale,e);
+        }
+    }
+
+    @Override
+    public InputStream getConvertedResource(String outputFormat, BinaryResource binaryResource, PartIteration partIteration, Locale locale) throws ConvertedResourceException {
+        try {
+            InputStream inputStream=null;
+
+            if("pdf".equals(outputFormat)) {
+                inputStream = getPdfConvertedResource(binaryResource);
+            }
+
+            if("parts".equals(binaryResource.getOwnerType()) && partIteration != null) {
+                return TitleBlockGenerator.addBlockTitleToPDF(inputStream,partIteration,locale);
+            }
+
+            return inputStream;
+        } catch (StorageException | DocumentException | IOException e) {
+            throw new ConvertedResourceException(locale,e);
         }
     }
 
@@ -88,15 +112,14 @@ public class OfficeDocumentResourceGetter implements DocumentResourceGetter {
                 //if the resource is already converted, return it
                 inputStream = dataManager.getBinarySubResourceInputStream(binaryResource, subResourceVirtualPath);
             } else {
+                String normalizedName = Tools.unAccent(binaryResource.getName());
                 //copy the converted file for further reuse
-                OutputStream outputStream = dataManager.getBinarySubResourceOutputStream(binaryResource, subResourceVirtualPath);
-                InputStream binaryResourceInputStream = dataManager.getBinaryResourceInputStream(binaryResource);
-                try (InputStream inputStreamConverted = fileConverter.convertToPDF(binaryResource.getName(),binaryResourceInputStream)) {
+
+                // TODO check for resources to be closed
+                try (OutputStream outputStream = dataManager.getBinarySubResourceOutputStream(binaryResource, subResourceVirtualPath);
+                     InputStream binaryResourceInputStream = dataManager.getBinaryResourceInputStream(binaryResource);
+                     InputStream inputStreamConverted = fileConverter.convertToPDF(normalizedName,binaryResourceInputStream)) {
                     ByteStreams.copy(inputStreamConverted, outputStream);
-                } finally {
-                    binaryResourceInputStream.close();
-                    outputStream.flush();
-                    outputStream.close();
                 }
                 inputStream = dataManager.getBinarySubResourceInputStream(binaryResource, subResourceVirtualPath);
             }

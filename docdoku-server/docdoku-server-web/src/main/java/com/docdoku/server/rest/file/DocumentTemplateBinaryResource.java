@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,6 +27,7 @@ import com.docdoku.core.security.UserGroupMapping;
 import com.docdoku.core.services.IDataManagerLocal;
 import com.docdoku.core.services.IDocumentManagerLocal;
 import com.docdoku.core.services.IDocumentResourceGetterManagerLocal;
+import com.docdoku.server.helpers.Streams;
 import com.docdoku.server.rest.exceptions.FileConversionException;
 import com.docdoku.server.rest.exceptions.NotModifiedException;
 import com.docdoku.server.rest.exceptions.PreconditionFailedException;
@@ -38,8 +39,8 @@ import com.docdoku.server.rest.interceptors.Compress;
 
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
@@ -51,18 +52,27 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.text.Normalizer;
 import java.util.Collection;
+import java.util.logging.Logger;
 
-@Stateless
+@RequestScoped
 @DeclareRoles({UserGroupMapping.REGULAR_USER_ROLE_ID})
 @RolesAllowed({UserGroupMapping.REGULAR_USER_ROLE_ID})
 public class DocumentTemplateBinaryResource {
-    @EJB
+
+    @Inject
     private IDataManagerLocal dataManager;
-    @EJB
+
+    @Inject
     private IDocumentManagerLocal documentService;
-    @EJB
+
+    @Inject
     private IDocumentResourceGetterManagerLocal documentResourceGetterService;
+
+    private static final Logger LOGGER = Logger.getLogger(DocumentTemplateBinaryResource.class.getName());
+
 
     public DocumentTemplateBinaryResource() {
     }
@@ -82,7 +92,7 @@ public class DocumentTemplateBinaryResource {
             Collection<Part> formParts = request.getParts();
 
             for(Part formPart : formParts){
-                fileName = formPart.getSubmittedFileName();
+                fileName = Normalizer.normalize(formPart.getSubmittedFileName(), Normalizer.Form.NFC);
                 // Init the binary resource with a null length
                 binaryResource= documentService.saveFileInTemplate(templatePK, fileName, 0);
                 OutputStream outputStream = dataManager.getBinaryResourceOutputStream(binaryResource);
@@ -91,7 +101,7 @@ public class DocumentTemplateBinaryResource {
             }
 
             if(formParts.size()==1) {
-                return BinaryResourceUpload.tryToRespondCreated(request.getRequestURI()+fileName);
+                return BinaryResourceUpload.tryToRespondCreated(request.getRequestURI()+ URLEncoder.encode(fileName, "UTF-8"));
             }
             return Response.ok().build();
 
@@ -126,8 +136,8 @@ public class DocumentTemplateBinaryResource {
             return rb.build();
         }
 
+        InputStream binaryContentInputStream = null;
         try {
-            InputStream binaryContentInputStream;
             if(output!=null && !output.isEmpty()){
                 binaryContentInputStream = getConvertedBinaryResource(binaryResource, output);
             }else{
@@ -135,6 +145,7 @@ public class DocumentTemplateBinaryResource {
             }
             return BinaryResourceDownloadResponseBuilder.prepareResponse(binaryContentInputStream, binaryResourceDownloadMeta, range);
         } catch (StorageException | FileConversionException e) {
+            Streams.close(binaryContentInputStream);
             return BinaryResourceDownloadResponseBuilder.downloadError(e, fullName);
         }
     }
@@ -148,7 +159,7 @@ public class DocumentTemplateBinaryResource {
      */
     private InputStream getConvertedBinaryResource(BinaryResource binaryResource, String output) throws FileConversionException {
         try {
-            return documentResourceGetterService.getConvertedResource(output, binaryResource);
+            return documentResourceGetterService.getDocumentConvertedResource(output, binaryResource);
         } catch (Exception e) {
             throw new FileConversionException(e);
         }

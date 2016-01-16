@@ -1,7 +1,13 @@
-{{#lockMode}}
+<i class="fa fa-bars sortable-handler {{^availability.sortable}}invisible{{/availability.sortable}}"></i>
 <div class="controls">
-    <a class="fa fa-times"></a>
+    <a class="fa fa-times {{^availability.remove}}invisible{{/availability.remove}}"></a>
 </div>
+<div class="controls">
+    <input type="text" class="input-xlarge name" placeholder="{{i18n.NAME}}" value="{{model.name}}" required
+    {{^availability.name}}disabled="disabled"{{/availability.name}} />
+</div>
+
+{{#availability.type}}
 <div class="controls">
     <select class="type">
         <option value="TEXT">{{i18n.TEXT}}</option>
@@ -9,14 +15,16 @@
         <option value="DATE">{{i18n.DATE}}</option>
         <option value="NUMBER">{{i18n.NUMBER}}</option>
         <option value="URL">{{i18n.URL}}</option>
+        <optgroup label="{{i18n.LOV}}">
+            {{#lovs}}
+            <option value="{{getLOVName}}">{{getLOVName}}</option>
+            {{/lovs}}
+        </optgroup>
     </select>
 </div>
-{{/lockMode}}
-{{^lockMode}}
+{{/availability.type}}
+{{^availability.type}}
 <div class="controls type">
 </div>
-{{/lockMode}}
-<div class="controls">
-    <input type="text" class="input-xlarge name" placeholder="{{i18n.NAME}}" value="{{model.name}}" required
-    {{^lockMode}}disabled="disabled"{{/lockMode}} />
-</div>
+{{/availability.type}}
+

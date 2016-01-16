@@ -24,15 +24,26 @@ define(['backbone'], function (Backbone) {
         },
 
         getNumber: function () {
-            return  this.get('number');
+            return this.get('number');
+        },
+
+        getName: function () {
+            return this.get('name');
         },
 
         getVersion: function () {
-            return  this.get('version');
+            return this.get('version');
         },
 
         getPartKey: function () {
-            return  this.getNumber() + '-' + this.getVersion();
+            return this.getNumber() + '-' + this.getVersion();
+        },
+
+        getDisplayPartKey: function () {
+            if (this.getName()) {
+                return this.getName() + ' < ' + this.getNumber() + '-' + this.getVersion() + ' >';
+            }
+            return '< ' + this.getNumber() + '-' + this.getVersion() + ' >';
         },
 
         getPartMasterPermalink: function () {

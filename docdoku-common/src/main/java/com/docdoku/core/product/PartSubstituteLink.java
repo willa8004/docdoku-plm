@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,7 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 /**
- * This class is related to a <a href="PartUsageLink.html">PartUsageLink</a>
+ * This class is related to a {@link PartUsageLink}
  * to indicate a replacement part that could be used instead.
  * 
  * @author Florent Garin
@@ -34,13 +34,18 @@ import java.util.List;
  */
 @Table(name="PARTSUBSTITUTELINK")
 @Entity
-public class PartSubstituteLink implements Serializable, Cloneable {
+@NamedQueries({
+        @NamedQuery(name="PartSubstituteLink.findBySubstitute",query="SELECT u FROM PartSubstituteLink u WHERE u.substitute.number LIKE :partNumber AND u.substitute.workspace.id = :workspaceId"),
+})
+public class PartSubstituteLink implements Serializable, Cloneable, PartLink {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private int id;
+    private double amount;
+    private String unit;
 
-    @Lob
+
     private String referenceDescription;
     
     @Column(name="COMMENTDATA")
@@ -67,32 +72,89 @@ public class PartSubstituteLink implements Serializable, Cloneable {
     public PartSubstituteLink() {
     }
 
-    public PartMaster getSubstitute() {
-        return substitute;
+    @Override
+    public int getId() {
+        return id;
     }
 
-    public void setSubstitute(PartMaster substitute) {
-        this.substitute = substitute;
+    @Override
+    public double getAmount() {
+        return amount;
     }
 
+    @Override
+    public String getUnit() {
+        return unit;
+    }
+
+    @Override
     public String getComment() {
         return comment;
     }
 
-    public void setComment(String comment) {
-        this.comment = comment;
+    @Override
+    public boolean isOptional() {
+        // A substitute cannot be optional
+        return false;
     }
 
+    @Override
+    public PartMaster getComponent() {
+        return substitute;
+    }
+
+    @Override
+    public List<PartSubstituteLink> getSubstitutes() {
+        // A substitute cannot have substitutes
+        return null;
+    }
+
+    @Override
     public String getReferenceDescription() {
         return referenceDescription;
+    }
+
+    @Override
+    public Character getCode() {
+        return 's';
+    }
+
+    @Override
+    public String getFullId() {
+        return getCode()+""+getId();
+    }
+
+    public PartMaster getSubstitute() {
+        return substitute;
+    }
+
+    @Override
+    public List<CADInstance> getCadInstances() {
+        return cadInstances;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public void setAmount(double amount) {
+        this.amount = amount;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
     }
 
     public void setReferenceDescription(String referenceDescription) {
         this.referenceDescription = referenceDescription;
     }
 
-    public List<CADInstance> getCadInstances() {
-        return cadInstances;
+    public void setComment(String comment) {
+        this.comment = comment;
+    }
+
+    public void setSubstitute(PartMaster substitute) {
+        this.substitute = substitute;
     }
 
     public void setCadInstances(List<CADInstance> cadInstances) {
@@ -118,4 +180,5 @@ public class PartSubstituteLink implements Serializable, Cloneable {
 
         return clone;
     }
+
 }

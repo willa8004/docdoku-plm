@@ -60,10 +60,13 @@ define([
 
         bindTypeahead: function () {
             var self = this;
+            var itemsLimit = 15;
 
             this.partReferenceInput.typeahead({
+                items: itemsLimit,
+
                 source: function (query, process) {
-                    $.getJSON(App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/parts/parts_last_iter?q=' + query, function (data) {
+                    $.getJSON(App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/parts/parts_last_iter?q=' + query + '&l=' + itemsLimit, function (data) {
 
                         self.searchResults = new LinkedPartCollection(data);
 
@@ -83,7 +86,7 @@ define([
                         self.searchResults.remove(partsToRemove);
 
                         process(self.searchResults.map(function (partLastIter) {
-                            return partLastIter.getPartKey();
+                            return partLastIter.getDisplayPartKey();
                         }));
                     });
                 },
@@ -94,7 +97,7 @@ define([
 
                 updater: function (partLastIterPartKey) {
                     var linkedPart = self.searchResults.find(function (partLastIter) {
-                        return partLastIter.getPartKey() === partLastIterPartKey;
+                        return partLastIter.getDisplayPartKey() === partLastIterPartKey;
                     });
                     linkedPart.collection.remove(linkedPart);
                     self.collection.add(linkedPart);

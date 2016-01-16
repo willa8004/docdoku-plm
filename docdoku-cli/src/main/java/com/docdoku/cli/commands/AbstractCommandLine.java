@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -19,14 +19,12 @@
  */
 
 package com.docdoku.cli.commands;
-
+import com.docdoku.cli.helpers.AccountsManager;
 import com.docdoku.cli.helpers.CliOutput;
-import com.docdoku.cli.interfaces.CommandLine;
+import com.docdoku.cli.helpers.CommandLine;
 import org.kohsuke.args4j.Option;
 
-import java.io.Console;
-import java.net.MalformedURLException;
-import java.net.URL;
+import java.util.Locale;
 
 /**
  *
@@ -34,67 +32,30 @@ import java.net.URL;
  */
 public abstract class AbstractCommandLine implements CommandLine {
 
-    @Option(name="-P", aliases = "--port", metaVar = "<port>", usage="port number to use for connection; default is 80")
-    protected int port=80;
-
-    @Option(name="-h", aliases = "--host", metaVar = "<host>", usage="host of the DocDokuPLM server to connect; default is docdokuplm.net")
-    protected String host="docdokuplm.net";
-
-    @Option(name="-p", aliases = "--password", metaVar = "<password>", usage="password to log in")
-    protected String password;
-
     @Option(name="-u", aliases = "--user", metaVar = "<user>", usage="user for login")
     protected String user;
 
-    @Option(name="-F", aliases = "--format", metaVar = "<format>", usage="output format, possible value : json")
+    @Option(name="-F", aliases = "--format", metaVar = "<format>", usage="output format, possible value: json")
     protected CliOutput.formats format = CliOutput.formats.HUMAN;
+
 
     //A default value is set in case an exception is raised
     //inside the CmdLineParser.parseArgument(args) method.
-
-    protected CliOutput output = CliOutput.getOutput(format);
-
-    private void promptForUser(){
-        Console c = System.console();
-        if(c == null){
-            return;
-        }
-        user = c.readLine("Please enter user for '" + host + "': ");
-    }
-
-    private void promptForPassword(){
-        Console c = System.console();
-        if(c == null){
-            return;
-        }
-        password = new String(c.readPassword("Please enter password for '" + user +"@" + host +"': "));
-    }
+    protected CliOutput output = CliOutput.getOutput(format, Locale.getDefault());
 
     @Override
     public void exec() throws Exception {
+        Locale userLocale = new AccountsManager().getUserLocale(user);
+        output = CliOutput.getOutput(format,userLocale);
 
-        output = CliOutput.getOutput(format);
-
-        if(!(this instanceof HelpCommand)){
-
-            if(user==null && format.equals(CliOutput.formats.HUMAN)){
-                promptForUser();
-            }
-            if(password==null && format.equals(CliOutput.formats.HUMAN)){
-                promptForPassword();
-            }
-
-        }
         execImpl();
 
     }
 
+    @Override
     public CliOutput getOutput(){
         return output;
     }
 
-    public URL getServerURL() throws MalformedURLException {
-        return new URL("http",host,port,"");
-    }
     public abstract void execImpl() throws Exception;
 }

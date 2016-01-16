@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,10 +21,11 @@
 package com.docdoku.server.dao;
 
 import com.docdoku.core.exceptions.PartIterationNotFoundException;
-import com.docdoku.core.product.PartIteration;
-import com.docdoku.core.product.PartIterationKey;
+import com.docdoku.core.meta.ListOfValuesKey;
+import com.docdoku.core.product.*;
 
 import javax.persistence.EntityManager;
+import java.util.List;
 import java.util.Locale;
 
 
@@ -62,6 +63,48 @@ public class PartIterationDAO {
 
     public void removeIteration(PartIteration pPartI){
         new ConversionDAO(em).removePartIterationConversion(pPartI);
+        for(PartUsageLink partUsageLink:pPartI.getComponents()){
+            if(!partLinkIsUsedInPreviousIteration(partUsageLink,pPartI)){
+                em.remove(partUsageLink);
+            }
+        }
         em.remove(pPartI);
+    }
+
+    public boolean partLinkIsUsedInPreviousIteration(PartUsageLink partUsageLink, PartIteration partIte) {
+        int iteration = partIte.getIteration();
+        if(iteration == 1){
+            return false;
+        }
+        PartIteration previousIteration = partIte.getPartRevision().getIteration(iteration-1);
+        return previousIteration.getComponents().contains(partUsageLink);
+    }
+
+    public List<PartIteration> findUsedByAsComponent(PartMasterKey pPart) {
+        return findUsedByAsComponent(em.getReference(PartMaster.class,pPart));
+    }
+
+    public List<PartIteration> findUsedByAsComponent(PartMaster pPart) {
+        List<PartIteration> usedByParts =  em.createNamedQuery("PartIteration.findUsedByAsComponent", PartIteration.class)
+                .setParameter("partMaster", pPart).getResultList();
+        return usedByParts;
+    }
+
+    public List<PartIteration> findUsedByAsSubstitute(PartMasterKey pPart) {
+        return findUsedByAsSubstitute(em.getReference(PartMaster.class,pPart));
+    }
+
+    public List<PartIteration> findUsedByAsSubstitute(PartMaster pPart) {
+        List<PartIteration> usedByParts =  em.createNamedQuery("PartIteration.findUsedByAsSubstitute", PartIteration.class)
+                .setParameter("partMaster", pPart).getResultList();
+        return usedByParts;
+    }
+
+
+    public List<PartIteration> findAllPartIterationFromLOV(ListOfValuesKey lovKey) {
+        return em.createNamedQuery("PartIteration.findWhereLOV", PartIteration.class)
+                .setParameter("lovName", lovKey.getName())
+                .setParameter("workspace_id", lovKey.getWorkspaceId())
+                .getResultList();
     }
 }

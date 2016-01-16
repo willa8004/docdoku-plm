@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -56,7 +56,7 @@ public class DocumentMasterTemplateKey implements Serializable {
             return false;
         }
         DocumentMasterTemplateKey key = (DocumentMasterTemplateKey) pObj;
-        return (key.id.equals(id) && (key.workspaceId.equals(workspaceId)));
+        return key.id.equals(id) && key.workspaceId.equals(workspaceId);
     }
     
     @Override

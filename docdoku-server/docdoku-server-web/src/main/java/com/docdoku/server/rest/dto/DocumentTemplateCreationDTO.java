@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,14 +20,15 @@
 
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.List;
-import java.util.Set;
 
 /**
  *
  * @author Florent Garin
  */
+@XmlRootElement
 public class DocumentTemplateCreationDTO implements Serializable{
     
     private String workspaceId;
@@ -35,9 +36,10 @@ public class DocumentTemplateCreationDTO implements Serializable{
     private String documentType;
     private boolean idGenerated;
     private String mask;
+    private String workflowModelId;
 
     private List<String> attachedFiles;
-    private Set<InstanceAttributeTemplateDTO> attributeTemplates;
+    private List<InstanceAttributeTemplateDTO> attributeTemplates;
     private boolean attributesLocked;
     
     public DocumentTemplateCreationDTO(){
@@ -65,7 +67,13 @@ public class DocumentTemplateCreationDTO implements Serializable{
         this.mask = mask;
     }
 
-   
+    public String getWorkflowModelId() {
+        return workflowModelId;
+    }
+
+    public void setWorkflowModelId(String workflowModelId) {
+        this.workflowModelId = workflowModelId;
+    }
 
     public String getWorkspaceId() {
         return workspaceId;
@@ -91,11 +99,11 @@ public class DocumentTemplateCreationDTO implements Serializable{
         this.workspaceId = workspaceId;
     }
 
-    public void setAttributeTemplates(Set<InstanceAttributeTemplateDTO> attributeTemplates) {
+    public void setAttributeTemplates(List<InstanceAttributeTemplateDTO> attributeTemplates) {
         this.attributeTemplates = attributeTemplates;
     }
 
-    public Set<InstanceAttributeTemplateDTO> getAttributeTemplates() {
+    public List<InstanceAttributeTemplateDTO> getAttributeTemplates() {
         return attributeTemplates;
     }
 

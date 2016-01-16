@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -28,6 +28,7 @@ import com.docdoku.core.document.DocumentRevisionKey;
 import com.docdoku.core.exceptions.DocumentRevisionNotFoundException;
 
 import javax.persistence.EntityManager;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 
@@ -57,12 +58,15 @@ public class BaselinedDocumentDAO {
     }
 
     public List<DocumentIteration> findDocRsByFolder(BaselinedFolderKey baselinedFolderKey){
-        return em.createQuery("" +
+        List<DocumentIteration> list = em.createQuery("" +
                 "SELECT d.documentIterations " +
                 "FROM BaselinedFolder d " +
                 "WHERE d.baselinedFolderKey = :pk ", DocumentIteration.class)
-             .setParameter("pk",baselinedFolderKey)
-             .getResultList();
+                .setParameter("pk", baselinedFolderKey)
+                .getResultList();
+        // TODO : find out why the list can contains a null value and remove this workaround :
+        list.removeAll(Collections.singleton(null));
+        return list;
     }
 
     public List<DocumentIteration> findDocumentRevision(DocumentRevisionKey pDocumentRevisionKey) {
@@ -73,9 +77,9 @@ public class BaselinedDocumentDAO {
                 "AND i.documentRevision.documentMaster.workspace.id = :workspaceId " +
                 "AND i.documentRevision.documentMasterId = :documentMasterId " +
                 "AND i.documentRevision.version = :version",DocumentIteration.class)
-                .setParameter("documentMasterId", pDocumentRevisionKey.getDocumentMasterId())
+                .setParameter("documentMasterId", pDocumentRevisionKey.getDocumentMaster().getId())
                 .setParameter("version", pDocumentRevisionKey.getVersion())
-                .setParameter("workspaceId", pDocumentRevisionKey.getWorkspaceId())
+                .setParameter("workspaceId", pDocumentRevisionKey.getDocumentMaster().getWorkspace())
                 .getResultList();
     }
 

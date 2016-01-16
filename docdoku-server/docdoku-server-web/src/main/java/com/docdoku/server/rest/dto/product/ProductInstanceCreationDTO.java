@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,11 +20,27 @@
 
 package com.docdoku.server.rest.dto.product;
 
-public class ProductInstanceCreationDTO {
+import com.docdoku.server.rest.dto.ACLDTO;
+import com.docdoku.server.rest.dto.DocumentRevisionDTO;
+import com.docdoku.server.rest.dto.InstanceAttributeDTO;
+
+import javax.xml.bind.annotation.XmlRootElement;
+import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+@XmlRootElement
+public class ProductInstanceCreationDTO implements Serializable {
 
     private String serialNumber;
     private String configurationItemId;
     private int baselineId;
+    private ACLDTO acl;
+    private List<InstanceAttributeDTO> instanceAttributes = new ArrayList<>();
+    private Set<DocumentRevisionDTO> linkedDocuments = new HashSet<>();
+    private List<String> attachedFiles;
 
     public ProductInstanceCreationDTO() {
     }
@@ -48,5 +64,37 @@ public class ProductInstanceCreationDTO {
     }
     public void setBaselineId(int baselineId) {
         this.baselineId = baselineId;
+    }
+
+    public ACLDTO getAcl() {
+        return acl;
+    }
+
+    public void setAcl(ACLDTO acl) {
+        this.acl = acl;
+    }
+
+    public List<InstanceAttributeDTO> getInstanceAttributes() {
+        return instanceAttributes;
+    }
+
+    public void setInstanceAttributes(List<InstanceAttributeDTO> instanceAttributes) {
+        this.instanceAttributes = instanceAttributes;
+    }
+
+    public Set<DocumentRevisionDTO> getLinkedDocuments() {
+        return linkedDocuments;
+    }
+
+    public void setLinkedDocuments(Set<DocumentRevisionDTO> linkedDocuments) {
+        this.linkedDocuments = linkedDocuments;
+    }
+
+    public List<String> getAttachedFiles() {
+        return attachedFiles;
+    }
+
+    public void setAttachedFiles(List<String> attachedFiles) {
+        this.attachedFiles = attachedFiles;
     }
 }

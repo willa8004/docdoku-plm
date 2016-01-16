@@ -7,6 +7,7 @@ define(['views/progress_bar_view'], function (ProgressBarView) {
         this.STLLoader = null;
         this.BinaryLoader = null;
         this.OBJLoader = null;
+        this.JSONLoader = null;
 
         _.extend(this, options);
 
@@ -14,6 +15,25 @@ define(['views/progress_bar_view'], function (ProgressBarView) {
             this.listenXHRProgress();
         }
     };
+
+    var defaultMaterial = new THREE.MeshLambertMaterial({color:new THREE.Color(0x62697B)});
+
+    function setShadows(object){
+        object.traverse( function ( o ) {
+            if ( o instanceof THREE.Mesh) {
+                o.castShadow = true;
+                o.receiveShadow = true;
+            }
+        });
+    }
+
+    function updateMaterial(object){
+        object.traverse( function ( o ) {
+            if ( o instanceof THREE.Mesh && !o.material.name) {
+                o.material = defaultMaterial;
+            }
+        });
+    }
 
     /*
      * Parse all meshes geometries in collada object given by COlladaLoader
@@ -78,8 +98,11 @@ define(['views/progress_bar_view'], function (ProgressBarView) {
             };
         },
 
+
+
         parseFile: function (filename, texturePath, callbacks) {
-            var material;
+
+
             var extension = filename.substr(filename.lastIndexOf('.') + 1).toLowerCase();
 
             switch (extension) {
@@ -90,33 +113,16 @@ define(['views/progress_bar_view'], function (ProgressBarView) {
                         this.OBJLoader = new THREE.OBJLoader();
                     }
 
-                    material = new THREE.MeshPhongMaterial({  transparent: true, color: new THREE.Color(0xbbbbbb) });
-                    material.side = THREE.doubleSided;
-
-                    this.OBJLoader.load(filename, function ( object ) {
-
-                        var geometries = [], combined = new THREE.Geometry();
-                        getMeshGeometries(object, geometries);
-
-                        // Merge all sub meshes into one
-                        _.each(geometries, function (geometry) {
-                            combined.merge(geometry);
-                        });
-
-                        combined.dynamic = false;
-                        combined.mergeVertices();
-
-                        combined.computeBoundingSphere();
-
-                        callbacks.success(combined, material);
-
-                    }, function onProgress(){},  function onError(){});
+                    this.OBJLoader.load(filename, texturePath+'/attachedfiles/', function ( object ) {
+                        setShadows(object);
+                        updateMaterial(object);
+                        callbacks.success(object);
+                    });
 
 
                     break;
 
                 case 'dae':
-                     material = new THREE.MeshPhongMaterial({ transparent: true, color: new THREE.Color(0xbbbbbb) });
 
                     if (this.ColladaLoader === null) {
                         this.ColladaLoader = new THREE.ColladaLoader();
@@ -136,8 +142,11 @@ define(['views/progress_bar_view'], function (ProgressBarView) {
                         combined.mergeVertices();
 
                         combined.computeBoundingSphere();
-
-                        callbacks.success(combined, material);
+                        var object = new THREE.Object3D();
+                        object.add(new THREE.Mesh(combined));
+                        setShadows(object);
+                        updateMaterial(object);
+                        callbacks.success(object);
 
                     });
 
@@ -148,16 +157,35 @@ define(['views/progress_bar_view'], function (ProgressBarView) {
                         this.STLLoader = new THREE.STLLoader();
                     }
 
-                    material = new THREE.MeshPhongMaterial({ transparent: true, color: new THREE.Color(0xbbbbbb) });
-
                     this.STLLoader.load(filename, function(geometry){
-                        callbacks.success(geometry, material);
+                        var object = new THREE.Object3D();
+                        object.add(new THREE.Mesh(geometry));
+                        setShadows(object);
+                        updateMaterial(object);
+                        callbacks.success(object);
                     });
 
                     break;
 
-                case 'js':
+                // Used for json files only (no referenced buffers)
                 case 'json':
+                    if (this.JSONLoader === null) {
+                        this.JSONLoader = new THREE.JSONLoader();
+                    }
+
+                    this.JSONLoader.load(filename, function (geometry, materials) {
+                        geometry.dynamic = false;
+                        var object = new THREE.Object3D();
+                        object.add(new THREE.Mesh(geometry,new THREE.MeshFaceMaterial(materials)));
+                        setShadows(object);
+                        callbacks.success(object);
+                    }, texturePath+'/attachedfiles/');
+
+                    break;
+
+                // Used for binary json files only (referenced buffers - bin file)
+                case 'js':
+
                     if (this.BinaryLoader === null) {
                         this.BinaryLoader = new THREE.BinaryLoader();
                     }
@@ -165,10 +193,14 @@ define(['views/progress_bar_view'], function (ProgressBarView) {
                     this.BinaryLoader.load(filename, function (geometry, materials) {
                         var _material = new THREE.MeshPhongMaterial({color: materials[0].color, overdraw: true });
                         geometry.dynamic = false;
-                        callbacks.success(geometry, _material);
+                        var object = new THREE.Object3D();
+                        object.add(new THREE.Mesh(geometry,_material));
+                        setShadows(object);
+                        callbacks.success(object);
                     }, texturePath);
 
                     break;
+
 
                 default:
                     break;

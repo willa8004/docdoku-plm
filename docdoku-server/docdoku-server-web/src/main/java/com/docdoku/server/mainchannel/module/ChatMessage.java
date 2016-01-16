@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -33,7 +33,6 @@ public class ChatMessage extends AbstractMessage{
     private String error;
 
     public ChatMessage(){
-
     }
 
     public ChatMessage(String type, String remoteUser){
@@ -47,10 +46,12 @@ public class ChatMessage extends AbstractMessage{
         this.error = error;
     }
 
+    @Override
     public String getType() {
         return type;
     }
 
+    @Override
     public void setType(String type) {
         this.type = type;
     }

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -29,8 +29,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * This class can be attached to a
- * <a href="DocumentMaster.html">DocumentMaster</a> so that an access control
+ * This class can be attached to any entity so that an access control
  * list will be applied.
  * In that way, the default access rights defined at the workspace level will be
  * overridden.
@@ -59,7 +58,11 @@ public class ACL implements Serializable, Cloneable{
     @MapKey(name="principal")
     private Map<UserGroup,ACLUserGroupEntry> groupEntries=new HashMap<UserGroup,ACLUserGroupEntry>();
 
-    public enum Permission{FORBIDDEN, READ_ONLY, FULL_ACCESS}
+    public enum Permission{
+        FORBIDDEN,
+        READ_ONLY,
+        FULL_ACCESS
+    }
 
     private boolean enabled=true;
 
@@ -89,10 +92,8 @@ public class ACL implements Serializable, Cloneable{
             return !userAccess.getPermission().equals(Permission.FORBIDDEN);
         else{
             for(Map.Entry<UserGroup, ACLUserGroupEntry> entry:groupEntries.entrySet()){
-                if(entry.getKey().isMember(user)) {
-                    if (!entry.getValue().getPermission().equals(Permission.FORBIDDEN)) {
-                        return true;
-                    }
+                if(entry.getKey().isMember(user) && !entry.getValue().getPermission().equals(Permission.FORBIDDEN)) {
+                    return true;
                 }
             }
         }
@@ -105,10 +106,8 @@ public class ACL implements Serializable, Cloneable{
             return userAccess.getPermission().equals(Permission.FULL_ACCESS);
         else{
             for(Map.Entry<UserGroup, ACLUserGroupEntry> entry:groupEntries.entrySet()){
-                if(entry.getKey().isMember(user)) {
-                    if (entry.getValue().getPermission().equals(Permission.FULL_ACCESS)) {
-                        return true;
-                    }
+                if(entry.getKey().isMember(user) && entry.getValue().getPermission().equals(Permission.FULL_ACCESS)) {
+                    return true;
                 }
             }
         }

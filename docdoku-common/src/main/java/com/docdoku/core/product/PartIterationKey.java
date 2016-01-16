@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,7 +23,7 @@ package com.docdoku.core.product;
 import java.io.Serializable;
 
 /**
- * Identity class of <a href="PartIteration.html">PartIteration</a> objects.
+ * Identity class of {@link PartIteration} objects.
  * 
  * @author Florent Garin
  */
@@ -89,5 +89,9 @@ public class PartIterationKey implements Serializable {
     }
     public String getPartMasterNumber() {
         return partRevision.getPartMaster().getNumber();
+    }
+
+    public String getPartRevisionVersion() {
+        return partRevision.getVersion();
     }
 }

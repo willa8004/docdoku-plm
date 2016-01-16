@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -35,11 +35,14 @@ import java.util.List;
 public class DocumentRevisionDTO implements Serializable, Comparable<DocumentRevisionDTO> {
 
     private String workspaceId;
-    private String id;    
+    private String id;
+    private String documentMasterId;
     private String version;
     private String type;
     private UserDTO author;
     private Date creationDate;
+    @XmlElement(nillable = true)
+    private String commentLink;
     private String title;
 
     @XmlElement(nillable = true)
@@ -64,9 +67,19 @@ public class DocumentRevisionDTO implements Serializable, Comparable<DocumentRev
 
     public DocumentRevisionDTO() {
     }
+
     public DocumentRevisionDTO(String workspaceId, String id, String version) {
         this.workspaceId = workspaceId;
         this.id = id;
+        this.documentMasterId = id;
+        this.version = version;
+    }
+
+    public DocumentRevisionDTO(String workspaceId, String id, String title, String version) {
+        this.workspaceId = workspaceId;
+        this.id = id;
+        this.documentMasterId = id;
+        this.title = title;
         this.version = version;
     }
 
@@ -187,6 +200,21 @@ public class DocumentRevisionDTO implements Serializable, Comparable<DocumentRev
     }
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getDocumentMasterId() {
+        return documentMasterId;
+    }
+    public void setDocumentMasterId(String documentMasterId) {
+        this.documentMasterId = documentMasterId;
+    }
+
+    public String getCommentLink() {
+        return commentLink;
+    }
+
+    public void setCommentLink(String commentLink) {
+        this.commentLink = commentLink;
     }
 
     public boolean isIterationSubscription() {

@@ -1,4 +1,4 @@
-/*global define,THREE,requestAnimationFrame,_*/
+/*global define,THREE,requestAnimationFrame,_,$*/
 
 // Global Namespace for the application
 var App = {
@@ -6,16 +6,23 @@ var App = {
         zoomSpeed: 1.2,
         rotateSpeed: 1.0,
         panSpeed: 0.3,
-        cameraNear: 1,
-        cameraFar: 10000,
-        defaultCameraPosition: {x: 0, y: 50, z: 200}
+        cameraNear: 0.1,
+        cameraFar: 5E4,
+        defaultCameraPosition: {x: 0, y: 50, z: 200},
+        ambientLightColor: 0xffffff,
+        cameraLight1Color: 0xbcbcbc,
+        cameraLight2Color: 0xffffff
     }
 };
 
 define(function () {
-	'use strict';
+
+    'use strict';
+
     function PermalinkApp(filename, width, height) {
+
         var container = document.getElementById('container');
+        var $container = $(container);
         var scene = new THREE.Scene();
         var camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, App.SceneOptions.cameraNear, App.SceneOptions.cameraFar);
         var control;
@@ -23,15 +30,48 @@ define(function () {
         var texturePath = filename.substring(0, filename.lastIndexOf('/'));
         var extension = filename.substr(filename.lastIndexOf('.') + 1).toLowerCase();
 
-	    function addLightsToCamera(camera) {
-		    var dirLight = new THREE.DirectionalLight(0xffffff);
-		    dirLight.position.set(200, 200, 1000).normalize();
-		    camera.add(dirLight);
-		    camera.add(dirLight.target);
-	    }
+        function addLightsToCamera(camera) {
+            var dirLight1 = new THREE.DirectionalLight(App.SceneOptions.cameraLight1Color);
+            dirLight1.position.set(200, 200, 1000).normalize();
+            dirLight1.name = 'CameraLight1';
+            camera.add(dirLight1);
+            camera.add(dirLight1.target);
+
+            var dirLight2 = new THREE.DirectionalLight( App.SceneOptions.cameraLight2Color, 1 );
+            dirLight2.color.setHSL( 0.1, 1, 0.95 );
+            dirLight2.position.set( -1, 1.75, 1 );
+            dirLight2.position.multiplyScalar( 50 );
+            dirLight2.name='CameraLight2';
+            camera.add( dirLight2 );
+
+            dirLight2.castShadow = true;
+
+            dirLight2.shadowMapWidth = 2048;
+            dirLight2.shadowMapHeight = 2048;
+
+            var d = 50;
+
+            dirLight2.shadowCameraLeft = -d;
+            dirLight2.shadowCameraRight = d;
+            dirLight2.shadowCameraTop = d;
+            dirLight2.shadowCameraBottom = -d;
+
+            dirLight2.shadowCameraFar = 3500;
+            dirLight2.shadowBias = -0.0001;
+            dirLight2.shadowDarkness = 0.35;
+
+            var hemiLight = new THREE.HemisphereLight( App.SceneOptions.ambientLightColor, App.SceneOptions.ambientLightColor, 0.6 );
+            hemiLight.color.setHSL( 0.6, 1, 0.6 );
+            hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+            hemiLight.position.set( 0, 0, 500 );
+            hemiLight.name='AmbientLight';
+            camera.add( hemiLight );
+
+        }
 
         camera.position.copy(App.SceneOptions.defaultCameraPosition);
         addLightsToCamera(camera);
+
         renderer.setSize(width, height);
         container.appendChild(renderer.domElement);
         scene.add(camera);
@@ -46,7 +86,7 @@ define(function () {
             var radius = Math.max(size.x, size.y, size.z);
             var distance = radius ? radius * 2 : 1000;
             distance = (distance < App.SceneOptions.cameraNear) ? App.SceneOptions.cameraNear + 100 : distance;
-            camera.position.set(cog.x+distance,cog.y,cog.z+distance);
+            camera.position.set(cog.x + distance, cog.y, cog.z + distance);
             control.target.copy(cog);
         }
 
@@ -56,7 +96,7 @@ define(function () {
         }
 
         function animate() {
-            requestAnimationFrame(animate, null);
+            requestAnimationFrame(animate);
             control.update();
             render();
         }
@@ -72,11 +112,38 @@ define(function () {
             }
         }
 
-        function onParseSuccess(geometry, material) {
-            var mesh = new THREE.Mesh(geometry, material || new THREE.MeshPhongMaterial({ transparent: true, color: new THREE.Color(0xbbbbbb) }));
-            scene.add(mesh);
-            centerOn(mesh);
+        var defaultMaterial = new THREE.MeshLambertMaterial({color:new THREE.Color(0x62697B)});
+
+        function setShadows(object){
+            object.traverse( function ( o ) {
+                if ( o instanceof THREE.Mesh) {
+                    o.castShadow = true;
+                    o.receiveShadow = true;
+                }
+            });
         }
+
+        function updateMaterial(object){
+            object.traverse( function ( o ) {
+                if ( o instanceof THREE.Mesh && !o.material.name) {
+                    o.material = defaultMaterial;
+                }
+            });
+        }
+
+        function onParseSuccess(object) {
+            scene.add(object);
+            centerOn(object.children[0]);
+        }
+
+        function handleResize() {
+            camera.aspect = $container.innerWidth() / $container.innerHeight();
+            camera.updateProjectionMatrix();
+            renderer.setSize($container.innerWidth(), $container.innerHeight());
+            control.handleResize();
+        }
+
+        window.addEventListener('resize', handleResize, false);
 
         switch (extension) {
 
@@ -98,8 +165,11 @@ define(function () {
                     combined.mergeVertices();
 
                     combined.computeBoundingSphere();
-
-                    onParseSuccess(combined, null);
+                    var object = new THREE.Object3D();
+                    object.add(new THREE.Mesh(combined));
+                    setShadows(object);
+                    updateMaterial(object);
+                    onParseSuccess(object);
 
                 });
 
@@ -108,21 +178,41 @@ define(function () {
             case 'stl':
                 var stlLoader = new THREE.STLLoader();
 
-                stlLoader.load(filename, function(geometry){
-                    onParseSuccess(geometry, null);
+                stlLoader.load(filename, function (geometry) {
+                    var object = new THREE.Object3D();
+                    object.add(new THREE.Mesh(geometry));
+                    setShadows(object);
+                    updateMaterial(object);
+                    onParseSuccess(object);
                 });
 
                 break;
 
-            case 'js':
+            // Used for json files only (no referenced buffers)
             case 'json':
+                var jsonLoader = new THREE.JSONLoader();
 
+                jsonLoader.load(filename, function (geometry, materials) {
+                    geometry.dynamic = false;
+                    var object = new THREE.Object3D();
+                    object.add(new THREE.Mesh(geometry,new THREE.MeshFaceMaterial(materials)));
+                    setShadows(object);
+                    onParseSuccess(object);
+                }, texturePath+'/attachedfiles/');
+
+                break;
+
+            // Used for binary json files only (referenced buffers - bin file)
+            case 'js':
                 var binaryLoader = new THREE.BinaryLoader();
 
                 binaryLoader.load(filename, function (geometry, materials) {
-                    var _material = new THREE.MeshPhongMaterial({color: materials[0].color, overdraw: true });
+                    var _material = new THREE.MeshPhongMaterial({color: materials[0].color, overdraw: true});
                     geometry.dynamic = false;
-                    onParseSuccess(geometry, _material);
+                    var object = new THREE.Object3D();
+                    object.add(new THREE.Mesh(geometry,_material));
+                    setShadows(object);
+                    onParseSuccess(object);
                 }, texturePath);
 
                 break;
@@ -131,27 +221,11 @@ define(function () {
 
                 var OBJLoader = new THREE.OBJLoader();
 
-                var material = new THREE.MeshPhongMaterial({  transparent: true, color: new THREE.Color(0xbbbbbb) });
-                material.side = THREE.doubleSided;
-
-                OBJLoader.load(filename, function ( object ) {
-
-                    var geometries = [], combined = new THREE.Geometry();
-                    getMeshGeometries(object, geometries);
-
-                    // Merge all sub meshes into one
-                    _.each(geometries, function (geometry) {
-                        THREE.GeometryUtils.merge(combined, geometry);
-                    });
-
-                    combined.dynamic = false;
-                    combined.mergeVertices();
-
-                    combined.computeBoundingSphere();
-                    onParseSuccess(combined, material);
-
-                }, function onProgress(){},  function onError(){});
-
+                OBJLoader.load(filename, texturePath + '/attachedfiles/', function (object) {
+                    setShadows(object);
+                    updateMaterial(object);
+                    onParseSuccess(object);
+                });
 
                 break;
 
@@ -165,6 +239,7 @@ define(function () {
         });
 
         animate();
+        handleResize();
     }
 
     return PermalinkApp;

@@ -4,8 +4,9 @@ define([
     'text!templates/part-template/part_template_creation_view.html',
     'models/part_template',
     'common-objects/views/alert',
-    'common-objects/views/attributes/template_new_attributes'
-], function (ModalView, template, PartTemplate, AlertView, TemplateNewAttributesView) {
+    'common-objects/views/attributes/template_new_attributes',
+    'common-objects/views/workflow/workflow_list'
+], function (ModalView, template, PartTemplate, AlertView, TemplateNewAttributesView, WorkflowListView) {
     'use strict';
     var PartTemplateCreationView = ModalView.extend({
         template: template,
@@ -20,17 +21,41 @@ define([
 
             this.bindDomElements();
 
-            this.attributesView = this.addSubView(
+            this.workflowsView = new WorkflowListView({
+                el: this.$('#workflows-list')
+            });
+
+            this.productInstanceAttributesView = this.addSubView(
                 new TemplateNewAttributesView({
-                    el: '#tab-attributes'
+                    el: '#attribute-product-instance-list',
+                    editMode: true,
+                    unfreezable: true
                 })
             ).render();
 
-            this.$('a#mask-help').popover({
+            this.attributesView = this.addSubView(
+                new TemplateNewAttributesView({
+                    el: '#attributes-list',
+                    editMode: true,
+                    attributesLocked: this.attributesLocked
+                })
+            ).render();
+
+
+            var $popoverLink = this.$('#mask-help');
+
+            $popoverLink.popover({
                 title: App.config.i18n.MASK,
                 placement: 'left',
                 html: true,
-                content: App.config.i18n.MASK_HELP
+                trigger: 'manual',
+                content: App.config.i18n.MASK_HELP.nl2br(),
+                container:'#part_template_creation_modal'
+            }).click(function(e){
+                $popoverLink.popover('show');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
             });
 
             this.$partTemplateReference.customValidity(App.config.i18n.REQUIRED_FIELD);
@@ -52,13 +77,17 @@ define([
         onSubmitForm: function (e) {
 
             if(this.isValid){
+                var workflow = this.workflowsView.selected();
+
                 this.model = new PartTemplate({
                     reference: this.$partTemplateReference.val(),
                     partType: this.$partTemplateType.val(),
                     mask: this.$partTemplateMask.val(),
                     idGenerated: this.$partTemplateIdGenerated.is(':checked'),
                     attributeTemplates: this.attributesView.collection.toJSON(),
-                    attributesLocked: this.attributesView.isAttributesLocked()
+                    attributeInstanceTemplates: this.productInstanceAttributesView.collection.toJSON(),
+                    attributesLocked: this.attributesView.isAttributesLocked(),
+                    workflowModelId: workflow ? workflow.get('id') : null
                 });
 
                 this.model.save({}, {

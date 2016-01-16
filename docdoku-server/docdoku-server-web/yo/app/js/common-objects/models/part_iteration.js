@@ -18,6 +18,18 @@ define([
             this.set('instanceAttributes', attributes);
             this.resetNativeCADFile();
 
+            var filesMapping = _.map(this.get('attachedFiles'), function (fullName) {
+                return {
+                    'fullName': fullName,
+                    shortName: _.last(fullName.split('/')),
+                    created: true
+                };
+            });
+
+            var attachedFiles = new AttachedFileCollection(filesMapping);
+
+            this.set('attachedFiles', attachedFiles);
+
         },
 
         resetNativeCADFile: function () {
@@ -34,12 +46,17 @@ define([
             }
         },
 
+
         defaults: {
             instanceAttributes: []
         },
 
         getAttributes: function () {
             return this.get('instanceAttributes');
+        },
+
+        getAttributeTemplates: function () {
+            return this.get('instanceAttributeTemplates');
         },
 
         getWorkspace: function () {
@@ -59,11 +76,11 @@ define([
         },
 
         getAttachedFiles: function () {
-            return this.get('nativeCADFile');
+            return this.get('attachedFiles');
         },
 
-        getBaseName: function () {
-            return this.getWorkspace() + '/parts/' + this.getNumber() + '/' + this.getVersion() + '/' + this.get('iteration') + '/nativecad';
+        getBaseName: function (subType) {
+            return this.getWorkspace() + '/parts/' + this.getNumber() + '/' + this.getVersion() + '/' + this.get('iteration') + '/' + subType;
         },
 
         getNumber: function () {
@@ -78,8 +95,18 @@ define([
             return this.get('components');
         },
 
+        isAssembly: function () {
+            var components = this.getComponents();
+            return components && components.length > 0;
+        },
+
+
         getLinkedDocuments: function () {
             return this.get('linkedDocuments');
+        },
+
+        setLinkedDocuments: function (linkedDocuments) {
+            this.set('linkedDocuments', linkedDocuments);
         },
 
         getLifeCycleState: function () {
@@ -101,12 +128,12 @@ define([
         launchConversion:function(){
             return $.ajax({method:'PUT',url:this.getConversionUrl()});
         },
-        /**
-         * file Upload uses the old servlet, not the JAXRS Api         *
-         * return /files/{workspace}/parts/{docId}/{version}/{iteration}/
-         * @returns string
-         */
-        getUploadBaseUrl: function () {
+
+        getAttachedFilesUploadBaseUrl: function () {
+            return App.config.contextPath + '/api/files/' + this.getWorkspace() + '/parts/' + this.getNumber() + '/' + this.getVersion() + '/' + this.get('iteration') + '/attachedfiles/';
+        },
+
+        getNativeCadFileUploadBaseUrl: function () {
             return App.config.contextPath + '/api/files/' + this.getWorkspace() + '/parts/' + this.getNumber() + '/' + this.getVersion() + '/' + this.get('iteration') + '/nativecad/';
         }
 

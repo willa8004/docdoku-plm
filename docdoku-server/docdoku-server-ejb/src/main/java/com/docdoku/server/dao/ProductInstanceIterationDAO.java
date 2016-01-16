@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,14 +21,13 @@
 package com.docdoku.server.dao;
 
 import com.docdoku.core.configuration.BaselinedPart;
+import com.docdoku.core.configuration.ProductBaseline;
 import com.docdoku.core.configuration.ProductInstanceIteration;
 import com.docdoku.core.configuration.ProductInstanceIterationKey;
-import com.docdoku.core.configuration.ProductInstanceMasterKey;
 import com.docdoku.core.exceptions.ProductInstanceIterationNotFoundException;
 import com.docdoku.core.exceptions.ProductInstanceMasterNotFoundException;
 
 import javax.persistence.EntityManager;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -39,7 +38,7 @@ public class ProductInstanceIterationDAO {
     private EntityManager em;
     private Locale mLocale;
 
-    private static Logger LOGGER = Logger.getLogger(ProductInstanceIterationDAO.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(ProductInstanceIterationDAO.class.getName());
 
     public ProductInstanceIterationDAO(EntityManager pEM) {
         em = pEM;
@@ -59,15 +58,6 @@ public class ProductInstanceIterationDAO {
         }
     }
 
-    public List<ProductInstanceIteration> findProductInstanceIterationsByMaster(ProductInstanceMasterKey prodInstMKey) {
-        return em.createQuery("SELECT pii " +
-                              "FROM ProductInstanceIteration pii " +
-                              "WHERE pii.productInstanceMaster.serialNumber = :serialNumber " +
-                              "AND pii.productInstanceMaster.instanceOf = :configurationId", ProductInstanceIteration.class)
-                .setParameter("serialNumber",prodInstMKey.getSerialNumber())
-                .setParameter("configurationId",prodInstMKey.getInstanceOf())
-                .getResultList();
-    }
 
     public ProductInstanceIteration loadProductInstanceIteration(ProductInstanceIterationKey pId) throws ProductInstanceMasterNotFoundException, ProductInstanceIterationNotFoundException {
         ProductInstanceIteration productInstanceIteration = em.find(ProductInstanceIteration.class, pId);
@@ -79,18 +69,17 @@ public class ProductInstanceIterationDAO {
     }
 
     public List<BaselinedPart> findBaselinedPartWithReferenceLike(int collectionId, String q, int maxResults) {
-        List<BaselinedPart> baselinedPartList = em.createNamedQuery("BaselinedPart.findByReference",BaselinedPart.class)
+        return em.createNamedQuery("BaselinedPart.findByReference",BaselinedPart.class)
                 .setParameter("id", "%" + q + "%")
+                .setParameter("partCollection",collectionId)
+                .setMaxResults(maxResults)
                 .getResultList();
-        List<BaselinedPart> returnList = new ArrayList<>();
-        for(BaselinedPart baselinedPart : baselinedPartList){
-            if(baselinedPart.getPartCollection().getId()==collectionId){
-                returnList.add(baselinedPart);
-                if(returnList.size()>=maxResults){
-                    break;
-                }
-            }
-        }
-        return returnList;
+
+    }
+
+    public boolean isBaselinedUsed(ProductBaseline productBaseline) {
+        return !em.createNamedQuery("ProductInstanceIteration.findByProductBaseline",ProductInstanceIteration.class)
+                .setParameter("productBaseline",productBaseline)
+                .getResultList().isEmpty();
     }
 }

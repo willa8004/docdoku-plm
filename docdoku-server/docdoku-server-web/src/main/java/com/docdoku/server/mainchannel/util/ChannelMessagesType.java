@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,7 +21,6 @@
 package com.docdoku.server.mainchannel.util;
 
 public class ChannelMessagesType {
-
 
     public static final String USER_STATUS = "USER_STATUS";
 
@@ -51,4 +50,8 @@ public class ChannelMessagesType {
     public static final String COLLABORATIVE_KICK_USER = "COLLABORATIVE_KICK_USER";
     public static final String COLLABORATIVE_KICK_NOT_INVITED= "COLLABORATIVE_KICK_NOT_INVITED";
     public static final String COLLABORATIVE_WITHDRAW_INVITATION = "COLLABORATIVE_WITHDRAW_INVITATION";
+
+    private ChannelMessagesType() {
+    }
+
 }

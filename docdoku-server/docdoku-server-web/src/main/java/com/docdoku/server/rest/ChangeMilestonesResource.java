@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,10 +22,7 @@ package com.docdoku.server.rest;
 import com.docdoku.core.change.ChangeOrder;
 import com.docdoku.core.change.ChangeRequest;
 import com.docdoku.core.change.Milestone;
-import com.docdoku.core.exceptions.AccessRightException;
-import com.docdoku.core.exceptions.EntityAlreadyExistsException;
-import com.docdoku.core.exceptions.EntityNotFoundException;
-import com.docdoku.core.exceptions.UserNotActiveException;
+import com.docdoku.core.exceptions.*;
 import com.docdoku.core.security.ACL;
 import com.docdoku.core.security.UserGroupMapping;
 import com.docdoku.core.services.IChangeManagerLocal;
@@ -39,9 +36,10 @@ import org.dozer.Mapper;
 import javax.annotation.PostConstruct;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.ws.rs.*;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.ArrayList;
@@ -49,12 +47,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Stateless
+@RequestScoped
 @DeclareRoles(UserGroupMapping.REGULAR_USER_ROLE_ID)
 @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
 public class ChangeMilestonesResource {
 
-    @EJB
+    @Inject
     private IChangeManagerLocal changeManager;
 
     private Mapper mapper;
@@ -70,7 +68,7 @@ public class ChangeMilestonesResource {
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
-    public List<ChangeMilestoneDTO> getMilestones(@PathParam("workspaceId") String workspaceId)
+    public Response getMilestones(@PathParam("workspaceId") String workspaceId)
             throws EntityNotFoundException, UserNotActiveException {
         List<Milestone> changeMilestones = changeManager.getChangeMilestones(workspaceId);
         List<ChangeMilestoneDTO> changeMilestoneDTOs = new ArrayList<>();
@@ -81,7 +79,8 @@ public class ChangeMilestonesResource {
             changeMilestoneDTO.setNumberOfOrders(changeManager.getNumberOfOrderByMilestone(milestone.getWorkspaceId(),milestone.getId()));
             changeMilestoneDTOs.add(changeMilestoneDTO);
         }
-        return changeMilestoneDTOs;
+        return Response.ok(new GenericEntity<List<ChangeMilestoneDTO>>((List<ChangeMilestoneDTO>) changeMilestoneDTOs) {
+        }).build();
     }
 
     @POST
@@ -125,36 +124,38 @@ public class ChangeMilestonesResource {
     @DELETE
     @Consumes(MediaType.APPLICATION_JSON)
     @Path("{milestoneId}")
-    public Response removeIssue(@PathParam("milestoneId") int milestoneId)
-            throws EntityNotFoundException, UserNotActiveException, AccessRightException {
-        changeManager.deleteChangeMilestone(milestoneId);
+    public Response removeMilestone(@PathParam("workspaceId") String workspaceId, @PathParam("milestoneId") int milestoneId)
+            throws EntityNotFoundException, UserNotActiveException, AccessRightException, EntityConstraintException {
+        changeManager.deleteChangeMilestone(workspaceId,milestoneId);
         return Response.ok().build();
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("{milestoneId}/requests")
-    public List<ChangeRequestDTO> getRequestsByMilestone(@PathParam("workspaceId") String workspaceId, @PathParam("milestoneId") int milestoneId)
+    public Response getRequestsByMilestone(@PathParam("workspaceId") String workspaceId, @PathParam("milestoneId") int milestoneId)
             throws EntityNotFoundException, UserNotActiveException, AccessRightException {
         List<ChangeRequest> changeRequests = changeManager.getChangeRequestsByMilestone(workspaceId, milestoneId);
         List<ChangeRequestDTO> changeRequestDTOs = new ArrayList<>();
         for(ChangeRequest changeRequest : changeRequests){
             changeRequestDTOs.add(mapper.map(changeRequest, ChangeRequestDTO.class));
         }
-        return changeRequestDTOs;
+        return Response.ok(new GenericEntity<List<ChangeRequestDTO>>((List<ChangeRequestDTO>) changeRequestDTOs) {
+        }).build();
     }
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     @Path("{milestoneId}/orders")
-    public List<ChangeOrderDTO> getOrdersByMilestone(@PathParam("workspaceId") String workspaceId, @PathParam("milestoneId") int milestoneId)
+    public Response getOrdersByMilestone(@PathParam("workspaceId") String workspaceId, @PathParam("milestoneId") int milestoneId)
             throws EntityNotFoundException, UserNotActiveException, AccessRightException {
         List<ChangeOrder> changeOrders = changeManager.getChangeOrdersByMilestone(workspaceId, milestoneId);
         List<ChangeOrderDTO> changeOrderDTOs = new ArrayList<>();
         for(ChangeOrder changeOrder : changeOrders){
             changeOrderDTOs.add(mapper.map(changeOrder, ChangeOrderDTO.class));
         }
-        return changeOrderDTOs;
+        return Response.ok(new GenericEntity<List<ChangeOrderDTO>>((List<ChangeOrderDTO>) changeOrderDTOs) {
+        }).build();
     }
 
     @PUT
@@ -162,7 +163,7 @@ public class ChangeMilestonesResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response updateACL(@PathParam("workspaceId") String pWorkspaceId, @PathParam("milestoneId") int milestoneId, ACLDTO acl)
             throws EntityNotFoundException, UserNotActiveException, AccessRightException {
-        if (acl.getGroupEntries().size() > 0 || acl.getUserEntries().size() > 0) {
+        if (!acl.getGroupEntries().isEmpty() || !acl.getUserEntries().isEmpty()) {
 
             Map<String,String> userEntries = new HashMap<>();
             Map<String,String> groupEntries = new HashMap<>();

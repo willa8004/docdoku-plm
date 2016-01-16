@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -127,9 +127,15 @@ public class UserGroupDAO {
         UserGroup group = loadUserGroup(pKey);
         removeUserGroupMembership(new WorkspaceUserGroupMembershipKey(pKey.getWorkspaceId(), pKey.getWorkspaceId(), pKey.getId()));
         em.remove(group);
-
     }
 
+    public boolean hasACLConstraint(UserGroupKey pKey){
+        Query query = em.createQuery("SELECT DISTINCT a FROM ACLUserGroupEntry a WHERE a.principal.id = :id AND a.principal.workspaceId = :workspaceId");
+        query.setParameter("id",pKey.getId());
+        query.setParameter("workspaceId",pKey.getWorkspaceId());
+        return !query.getResultList().isEmpty();
+    }
+    
     public void createUserGroup(UserGroup pUserGroup) throws CreationException, UserGroupAlreadyExistsException {
         try {
             //the EntityExistsException is thrown only when flush occurs

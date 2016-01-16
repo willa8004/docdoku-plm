@@ -7,7 +7,7 @@ define([
 	'use strict';
     var CadInstanceView = Backbone.View.extend({
 
-        className: 'cadInstance',
+        className: 'cad-instance',
 
         events: {
             'change input[name=tx]': 'changeTX',
@@ -16,44 +16,50 @@ define([
             'change input[name=rx]': 'changeRX',
             'change input[name=ry]': 'changeRY',
             'change input[name=rz]': 'changeRZ',
-            'change select[name=position]': 'changePosition',
-            'click .remove-cadInstance': 'removeCadInstance'
+            'change input':'onChange',
+            'click .delete-cad-instance': 'removeCadInstance'
         },
 
         initialize: function () {
         },
 
-        setInstance: function (instance) {
-            this.instance = instance;
-            return this;
-        },
-
         render: function () {
-            this.$el.html(Mustache.render(template, {instance: this.instance, i18n: App.config.i18n}));
+            var disabled = this.options.editMode ? '':'disabled';
+            this.$el.html(Mustache.render(template, {
+                canRemove:this.options.editMode,
+                disabled:disabled,
+                instance: this.model.attributes,
+                i18n: App.config.i18n
+            }));
             return this;
         },
 
         changeTX: function (e) {
-            this.instance.tx = e.target.value;
+            this.model.set('tx', e.target.value);
         },
+
         changeTY: function (e) {
-            this.instance.ty = e.target.value;
+            this.model.set('ty',e.target.value);
         },
+
         changeTZ: function (e) {
-            this.instance.tz = e.target.value;
+            this.model.set('tz', e.target.value);
         },
+
         changeRX: function (e) {
-            this.instance.rx = e.target.value;
+            this.model.set('rx', e.target.value);
         },
+
         changeRY: function (e) {
-            this.instance.ry = e.target.value;
+            this.model.set('ry', e.target.value);
         },
+
         changeRZ: function (e) {
-            this.instance.rz = e.target.value;
+            this.model.set('rz', e.target.value);
         },
 
         removeCadInstance: function () {
-            this.trigger('instance:remove');
+            this.model.collection.remove(this.model);
             this.remove();
         }
 

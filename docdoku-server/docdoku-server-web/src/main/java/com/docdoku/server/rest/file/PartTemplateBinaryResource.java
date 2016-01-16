@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -26,6 +26,7 @@ import com.docdoku.core.product.PartMasterTemplateKey;
 import com.docdoku.core.security.UserGroupMapping;
 import com.docdoku.core.services.IDataManagerLocal;
 import com.docdoku.core.services.IProductManagerLocal;
+import com.docdoku.server.helpers.Streams;
 import com.docdoku.server.rest.exceptions.NotModifiedException;
 import com.docdoku.server.rest.exceptions.PreconditionFailedException;
 import com.docdoku.server.rest.exceptions.RequestedRangeNotSatisfiableException;
@@ -36,8 +37,8 @@ import com.docdoku.server.rest.interceptors.Compress;
 
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
@@ -49,15 +50,19 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.text.Normalizer;
 import java.util.Collection;
 
-@Stateless
+@RequestScoped
 @DeclareRoles({UserGroupMapping.REGULAR_USER_ROLE_ID})
 @RolesAllowed({UserGroupMapping.REGULAR_USER_ROLE_ID})
 public class PartTemplateBinaryResource {
-    @EJB
+
+    @Inject
     private IDataManagerLocal dataManager;
-    @EJB
+
+    @Inject
     private IProductManagerLocal productService;
 
     public PartTemplateBinaryResource() {
@@ -78,7 +83,7 @@ public class PartTemplateBinaryResource {
             Collection<Part> formParts = request.getParts();
 
             for(Part formPart : formParts){
-                fileName = formPart.getSubmittedFileName();
+                fileName = Normalizer.normalize(formPart.getSubmittedFileName(), Normalizer.Form.NFC);
                 // Init the binary resource with a null length
                 binaryResource= productService.saveFileInTemplate(templatePK, fileName, 0);
                 OutputStream outputStream = dataManager.getBinaryResourceOutputStream(binaryResource);
@@ -87,7 +92,7 @@ public class PartTemplateBinaryResource {
             }
 
             if(formParts.size()==1) {
-                return BinaryResourceUpload.tryToRespondCreated(request.getRequestURI()+fileName);
+                return BinaryResourceUpload.tryToRespondCreated(request.getRequestURI()+ URLEncoder.encode(fileName, "UTF-8"));
             }
             return Response.ok().build();
 
@@ -118,11 +123,14 @@ public class PartTemplateBinaryResource {
             return rb.build();
         }
 
+        InputStream binaryContentInputStream = null;
         try {
-            InputStream binaryContentInputStream = dataManager.getBinaryResourceInputStream(binaryResource);
+            binaryContentInputStream = dataManager.getBinaryResourceInputStream(binaryResource);
             return BinaryResourceDownloadResponseBuilder.prepareResponse(binaryContentInputStream, binaryResourceDownloadMeta, range);
         } catch (StorageException e) {
+            Streams.close(binaryContentInputStream);
             return BinaryResourceDownloadResponseBuilder.downloadError(e, fullName);
         }
+
     }
 }

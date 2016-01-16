@@ -3,7 +3,7 @@ define([
     'backbone',
     'common-objects/utils/date',
     'common-objects/utils/acl-checker'
-], function (Backbone,date, ACLChecker) {
+], function (Backbone, Date, ACLChecker) {
 	'use strict';
     var ChangeItemModel = Backbone.Model.extend({
         priorities: {
@@ -45,19 +45,19 @@ define([
             return this.get('assignee');
         },
 
+        getAssigneeName: function () {
+            return this.get('assigneeName');
+        },
+
         getCreationDate: function () {
             return this.get('creationDate');
         },
 
         getFormattedCreationDate: function () {
-            var _date = this.getCreationDate();
-            if (_date) {
-                return date.formatTimestamp(
-                    App.config.i18n._DATE_FORMAT,
-                    _date
-                );
-            }
-            return 'Now';
+            return Date.formatTimestamp(
+                App.config.i18n._DATE_FORMAT,
+                this.getCreationDate()
+            );
         },
 
         getDescription: function () {
@@ -89,7 +89,7 @@ define([
                 context: this,
                 type: 'POST',
                 url: this.url() + '/tags',
-                data: JSON.stringify(tags),
+                data: JSON.stringify({tags:tags}),
                 contentType: 'application/json; charset=utf-8',
                 success: function () {
                 }
@@ -129,8 +129,8 @@ define([
             $.ajax({
                 context: this,
                 type: 'PUT',
-                url: this.url() + '/affectedDocuments',
-                data: JSON.stringify(documents),
+                url: this.url() + '/affected-documents',
+                data: JSON.stringify({documents:documents}),
                 contentType: 'application/json; charset=utf-8',
                 success: function () {
                     if (callback) {
@@ -144,8 +144,8 @@ define([
             $.ajax({
                 context: this,
                 type: 'PUT',
-                url: this.url() + '/affectedParts',
-                data: JSON.stringify(parts),
+                url: this.url() + '/affected-parts',
+                data: JSON.stringify({parts:parts}),
                 contentType: 'application/json; charset=utf-8',
                 success: function () {
                     if (callback) {

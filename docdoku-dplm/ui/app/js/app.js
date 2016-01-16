@@ -35,6 +35,7 @@
         'dplm.services.folders',
         'dplm.services.workspaces',
         'dplm.services.confirm',
+        'dplm.services.prompt',
 
         'dplm.services.3d',
         'dplm.directives.filechange',
@@ -43,8 +44,10 @@
         'dplm.filters.fileshortname',
         'dplm.filters.timeago',
         'dplm.filters.last',
+        'dplm.filters.join',
 
-        'dplm.contextmenu'
+        'dplm.contextmenu',
+        'dplm.menu'
 
     ])
 
@@ -70,32 +73,8 @@
                 }
             };
 
-            $scope.isActive = function(route) {
-                return route === $location.path();
-            };
-
-        })
-
-        .controller('MenuController', function ($scope,FolderService) {
-            $scope.toggleFolders = function(){
-                $scope.foldersExpanded=!$scope.foldersExpanded;
-            };
-            $scope.toggleWorkspaces = function(){
-                $scope.workspacesExpanded=!$scope.workspacesExpanded;
-            };
-            $scope.onFileDropped = function(path){
-                if(path){
-                    FolderService.add(path);
-                }
-            };
-        })
-
-        .controller('FolderMenuController', function ($scope) {
-            $scope.onDrop = function () {
-            };
-        })
-        .controller('WorkspaceMenuController', function ($scope) {
-            $scope.onDrop = function () {
+            $scope.isSameBaseRoute = function(route) {
+                return $location.path().indexOf(route)!==-1;
             };
         });
 

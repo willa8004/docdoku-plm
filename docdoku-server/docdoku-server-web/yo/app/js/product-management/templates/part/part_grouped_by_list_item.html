@@ -1,0 +1,30 @@
+{{#columns}}
+<td>
+    {{#isDate}}
+    <a class="date-popover">{{value}}</a>
+    {{/isDate}}
+
+    {{#isStringArray}}
+    {{#value}}
+    <span class="part_attribute_value well">{{.}}</span>
+    {{/value}}
+    {{/isStringArray}}
+
+    {{#isStringValue}}
+    {{#value}}
+        {{.}}<br/>
+    {{/value}}
+    {{/isStringValue}}
+
+    {{#isLinkedDocuments}}
+    {{#value}}
+        <a target="_blank" class="linkedDocument" href="{{link}}">{{name}}</a>
+    {{/value}}
+    {{/isLinkedDocuments}}
+
+    {{#isPartNumber}}
+    <span class="part_number_value">{{value}}</span>
+    {{/isPartNumber}}
+
+</td>
+{{/columns}}

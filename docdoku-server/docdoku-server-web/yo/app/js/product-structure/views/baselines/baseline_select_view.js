@@ -1,190 +1,235 @@
-/*global define,bootbox,App*/
+/*global _,define,App,$*/
 define([
 	'backbone',
 	'mustache',
 	'common-objects/collections/baselines',
     'common-objects/collections/product_instances',
-	'text!templates/baselines/baseline_select.html',
-	'common-objects/views/baselines/snap_baseline_view'
-], function (Backbone, Mustache, Baselines, ProductInstances, template, SnapBaselineView) {
+	'text!templates/baselines/baseline_select.html'
+], function (Backbone, Mustache, Baselines, ProductInstances, template) {
 	'use strict';
 
 	var BaselineSelectView = Backbone.View.extend({
+
 		events:{
-			'change select' : 'onSelectorChanged',
-			'click button.newBaseline':'createBaseline',
-			'click button.deleteBaseline':'deleteBaseline'
+			'change #config_spec_type_selector_list' : 'onTypeChanged',
+			'change #latest_selector_list' : 'changeLatest',
+			'change #baseline_selector_list' : 'changeBaseline',
+			'change #product_instance_selector_list' : 'changeInstance',
+			'change #path_to_path_link_selector_list' : 'changePathToPathLink',
+            'click .toggle_substitutes': 'toggleSubstitutes'
 		},
 
+        availableFilters:['wip','latest','latest-released'],
+
+        type:'product',
+
 		initialize:function(){
-			this.type = (this.options && this.options.type) ? this.options.type : 'product';
-            if(!this.baselineCollection){
-                this.baselineCollection = new Baselines({},{type : this.type,productId : App.config.productId});
-                this.listenToOnce(this.baselineCollection,'reset',this.onBaselineCollectionReset);
-            }
-            if(!this.productInstanceCollection){
-                this.productInstanceCollection = new ProductInstances({},{productId : App.config.productId});
-                this.listenToOnce(this.productInstanceCollection,'reset',this.onProductInstanceCollectionReset);
-            }
+            this.baselineCollection = new Baselines({},{type : this.type, productId : App.config.productId});
+            this.listenToOnce(this.baselineCollection,'reset',this.onBaselineCollectionReset);
+            this.productInstanceCollection = new ProductInstances({},{productId : App.config.productId});
+            this.listenToOnce(this.productInstanceCollection,'reset',this.onProductInstanceCollectionReset);
+            this.showSubstitutes = true;
 		},
 
 		render:function(){
+
 			this.$el.html(Mustache.render(template, {i18n:App.config.i18n}));
 			this.bindDomElements();
-			this.hideMenu();
+
             this.$selectBaselineSpec.hide();
             this.$selectProdInstSpec.hide();
+
 			this.baselineCollection.fetch({reset:true});
             this.productInstanceCollection.fetch({reset:true});
-			return this ;
+
+            if(_.contains(this.availableFilters,App.config.productConfigSpec)){
+                this.$selectLatestFilter.val(App.config.productConfigSpec);
+            }
+
+            this.fetchPathToPathLinkTypes();
+
+			return this;
 		},
 
 		bindDomElements:function(){
+            // Main selector
 			this.$selectConfSpec = this.$('#config_spec_type_selector_list');
+            // Sub selectors
+			this.$selectLatestFilter = this.$('#latest_selector_list');
 			this.$selectBaselineSpec = this.$('#baseline_selector_list');
-			this.$selectProdInstSpec = this.$('#product_instance1_selector_list');
-			this.$menu = this.$('.ConfigSpecSelector-menu');
-			this.$newBaselineBtn = this.$('.btn.newBaseline');
-			this.$deleteBaselineBtn = this.$('.btn.deleteBaseline');
-			if(App.config.configSpec==='latest' || App.config.configSpec==='released'){
-				this.$deleteBaselineBtn.attr('disabled', 'disabled');
-				this.$deleteBaselineBtn.hide();
-			}
-		},
+			this.$selectProdInstSpec = this.$('#product_instance_selector_list');
+			this.$selectPathToPathLink = this.$('#path_to_path_link_selector_list');
+            this.$divergeSwitchContainer = this.$('#diverge-selector');
+            this.$toggleSubstitutes = this.$('.toggle_substitutes');
+        },
 
 		onBaselineCollectionReset:function(){
-			this.onBaselineCollectionChange();
-			this.listenTo(this.baselineCollection,'change',this.onBaselineCollectionChange);
-		},
 
-		onBaselineCollectionChange:function(){
-			var that = this ;
-            this.onCollectionChange();
-            if(this.$selectBaselineSpec) {
-                this.$selectBaselineSpec.find('option').remove();
-                that.$selectBaselineSpec.append('<option disabled>'+App.config.i18n.BASELINE+'</option>');
-                this.baselineCollection.each(function(baseline){
-                    that.$selectBaselineSpec.append('<option value="'+baseline.getId()+'">'+baseline.getName()+'</option>');
-                });
+            var selected;
+
+            this.baselineCollection.each(function(baseline){
+                this.$selectBaselineSpec.append('<option value="'+baseline.getId()+'">'+baseline.getName()+'</option>');
+                if(App.config.productConfigSpec === ''+baseline.getId()){
+                    selected = baseline;
+                }
+            },this);
+
+            this.$selectConfSpec.find('[value="baseline"]').prop('disabled',!this.baselineCollection.size());
+
+            if(selected){
+                this.$selectConfSpec.val('baseline');
+                this.$selectProdInstSpec.hide();
+                this.$selectLatestFilter.hide();
+                this.$selectBaselineSpec.val(selected.getId()).show();
+                this.$divergeSwitchContainer.hide();
+                this.setDescription(selected.getDescription());
             }
-            this.selectCurrentBaseline();
 		},
 
         onProductInstanceCollectionReset:function(){
-            this.onProductInstanceCollectionChange();
-            this.listenTo(this.productInstanceCollection,'change',this.onProductInstanceCollectionChange);
+            var selected;
+            this.productInstanceCollection.each(function(productInstance){
+                this.$selectProdInstSpec.append('<option value="pi-'+productInstance.getSerialNumber()+'">'+productInstance.getSerialNumber()+'</option>');
+                if(App.config.productConfigSpec === 'pi-' + productInstance.getSerialNumber()){
+                    selected = productInstance;
+                }
+            },this);
+
+            this.$selectConfSpec.find('[value="serial-number"]').prop('disabled',!this.productInstanceCollection.size());
+
+            if(selected){
+                this.$selectConfSpec.val('serial-number');
+                this.$selectBaselineSpec.hide();
+                this.$selectLatestFilter.hide();
+                this.$divergeSwitchContainer.hide();
+                this.$selectProdInstSpec.val('pi-'+selected.getSerialNumber()).show();
+                this.setDescription('');
+            }
         },
 
-        onProductInstanceCollectionChange:function(){
-            var that = this ;
-            this.onCollectionChange();
-            if(this.$selectProdInstSpec) {
-                this.$selectProdInstSpec.find('option').remove();
-                that.$selectProdInstSpec.append('<option disabled>'+App.config.i18n.SERIAL_NUMBER+'</option>');
-                this.productInstanceCollection.each(function(productInstance){
-                    that.$selectProdInstSpec.append('<option value="pi-'+productInstance.getSerialNumber()+'">'+productInstance.getSerialNumber()+'</option>');
+        onTypeChanged:function(){
+            this.$selectConfSpec.show();
+            App.config.linkType = null;
+            var selectedType = this.$selectConfSpec.val();
+
+			if (selectedType==='latest-filters') {
+                this.changeLatest();
+                this.fetchPathToPathLinkTypes();
+
+			} else if (selectedType==='baseline') {
+                this.changeBaseline();
+
+			} else if (selectedType==='serial-number') {
+                this.changeInstance();
+            }
+		},
+
+        isSerialNumberSelected:function(){
+            return this.$selectConfSpec.val() === 'serial-number';
+        },
+
+        isBaselineSelected:function(){
+            return this.$selectConfSpec.val() === 'baseline';
+        },
+
+        changeLatest:function(){
+            this.$selectBaselineSpec.hide();
+            this.$selectProdInstSpec.hide();
+            this.$selectLatestFilter.show();
+            this.$divergeSwitchContainer.show();
+            this.trigger('config_spec:changed', this.$selectLatestFilter.val());
+            this.setDescription('');
+        },
+
+        changeBaseline:function(){
+            this.$selectProdInstSpec.hide();
+            this.$selectLatestFilter.hide();
+            this.$selectBaselineSpec.show();
+            this.$divergeSwitchContainer.hide();
+
+            var baseline = this.baselineCollection.findWhere({id:parseInt(this.$selectBaselineSpec.val(),10)});
+            this.setDescription(baseline ? baseline.getDescription() : '');
+
+            App.config.linkType = null;
+            this.fetchPathToPathLinkTypes();
+            this.trigger('config_spec:changed', this.$selectBaselineSpec.val());
+        },
+
+        changeInstance:function(){
+            this.$selectBaselineSpec.hide();
+            this.$selectLatestFilter.hide();
+            this.$selectProdInstSpec.show();
+            this.$divergeSwitchContainer.hide();
+
+            this.setDescription('');
+
+            App.config.linkType = null;
+            this.fetchPathToPathLinkTypes();
+            this.trigger('config_spec:changed', this.$selectProdInstSpec.val());
+        },
+
+        fetchPathToPathLinkTypes:function(){
+            var url = App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/products/' + App.config.productId ;
+
+            var selectedType = this.$selectConfSpec.val();
+            if (selectedType === 'serial-number') {
+                url+= '/product-instances/' + this.$selectProdInstSpec.val().substr(3);
+            } else if (selectedType === 'baseline') {
+                url+= '/baselines/' + this.$selectBaselineSpec.val();
+            }
+            url+= '/path-to-path-links-types';
+
+            var $select = this.$selectPathToPathLink;
+            $select.empty();
+            $select.append('<option value="">'+App.config.i18n.STRUCTURE+'</option>');
+
+            $.getJSON(url).success(function(data){
+                data.map(function(link){
+                    $select.append('<option value="'+link.type+'">'+link.type+'</option>');
                 });
-            }
-            this.selectCurrentBaseline();
+            });
         },
 
-        onCollectionChange:function(){
-            var that = this ;
-            if(this.$selectConfSpec) {
-                this.$selectConfSpec.find('option').remove();
-
-                this.$selectConfSpec.append('<option value="latest">'+App.config.i18n.LATEST_SHORT+'</option>');
-                if(this.baselineCollection && this.baselineCollection.length > 0){
-                    this.$selectConfSpec.append('<option value="baseline">'+App.config.i18n.BASELINE+'</option>');
-                }
-                if(this.productInstanceCollection && this.productInstanceCollection.length > 0){
-                    this.$selectConfSpec.append('<option value="serial-number">'+App.config.i18n.SERIAL_NUMBER+'</option>');
-                }
-
-                // Todo https://github.com/docdoku/docdoku-plm/issues/321
-                //this.baselineCollection.getLastReleaseRevision({
-                //    success: function (lastReleaseRevision) {
-                //        var alreadyExist = false;
-                //        that.$selectConfSpec.find('option').each(function(){
-                //            if (this.value === 'released') {
-                //                alreadyExist = true;
-                //                return false;
-                //            }
-                //        });
-                //        if (lastReleaseRevision && !alreadyExist) {
-                //            that.$selectConfSpec.prepend('<option value="released">' + App.config.i18n.RELEASED_SHORT + '</option>');
-                //        }
-                //    }
-                //});
-            }
+        changePathToPathLink:function(e){
+            App.config.linkType = e.target.value;
+            this.trigger('config_spec:changed', App.config.productConfigSpec);
         },
 
-		onSelectorChanged:function(e){
-			if(this.$selectConfSpec[0].value==='latest' || this.$selectConfSpec[0].value==='released'){
+        setDescription:function(desc){
+            this.$('.description').text(desc);
+        },
+
+        refresh:function(){
+            var selectedConfigSpecOption = this.$('option[value="'+App.config.productConfigSpec+'"]');
+
+            if(selectedConfigSpecOption){
                 this.$selectBaselineSpec.hide();
+                this.$selectLatestFilter.hide();
                 this.$selectProdInstSpec.hide();
-                this.trigger('config_spec:changed', e.target.value);
-			}else if(this.$selectConfSpec[0].value==="baseline"){
-                this.$selectBaselineSpec.show();
-                this.$selectProdInstSpec.hide();
-                this.trigger('config_spec:changed', this.$selectBaselineSpec[0].value);
-			}else if(this.$selectConfSpec[0].value==="serial-number"){
-                this.$selectBaselineSpec.hide();
-                this.$selectProdInstSpec.show();
-                this.trigger('config_spec:changed', this.$selectProdInstSpec[0].value);
-            }
-            //this.trigger('config_spec:changed', e.target.value);
-		},
 
-		createBaseline:function(){
-            //Todo Allow to add baseline on product-structure
-            //var snapBaselineView;
-            //SnapBaselineView = new SnapBaselineView({type: 'PRODUCT', collection: this.baselineCollection});
-            //$('body').append(snapBaselineView.render().el);
-            //snapBaselineView.openModal();
-		},
+                selectedConfigSpecOption.parent().val(App.config.productConfigSpec).show();
 
-		deleteBaseline:function(){
-			//Todo Allow to delete baseline on product-structure
-			//var that = this;
-            //bootbox.confirm(App.config.i18n.DELETE_SELECTION_QUESTION, function(result){
-            //    if(result){
-            //        that.baselineCollection.each(function(baseline){
-            //            if(parseInt(that.$selectConfSpec.val(),10)===baseline.getId()){
-            //                baseline.destroy({
-            //                    dataType: 'text', // server doesn't send a json hash in the response body
-            //                    success:function(){
-            //                        that.$selectConfSpec.find('option[value='+baseline.getId()+']').remove();
-            //                        that.$selectConfSpec.val('latest').change();
-            //                    },
-            //                    error:function(model,err){
-            //                        alert(err.responseText);
-            //                    }});
-            //            }
-            //        });
-            //    }
-            //});
-		},
-
-		showMenu: function(){
-			this.$menu.show();
-		},
-
-		hideMenu: function(){
-			this.$menu.hide();
-		},
-
-        selectCurrentBaseline:function(){
-            if(App.config.configSpec){
-                if(App.config.configSpec==='latest' || App.config.configSpec==='released'){
-                    this.$selectConfSpec.val(App.config.configSpec);
-                }else if(App.config.configSpec.indexOf('pi-')===0){
-                    this.$selectProdInstSpec.val(App.config.configSpec);
+                if(_.contains(this.availableFilters,App.config.productConfigSpec)){
+                    this.$selectConfSpec.val('latest-filters');
+                }else if(App.config.productConfigSpec.match(/^pi-/)){
+                    this.$selectConfSpec.val('serial-number');
                 }else{
-                    this.$selectBaselineSpec.val(App.config.configSpec);
+                    this.$selectConfSpec.val('baseline');
                 }
-
             }
+        },
+
+        toggleSubstitutes: function () {
+            if (this.showSubstitutes) {
+                this.$toggleSubstitutes.html(App.config.i18n.HIDE_SUBSTITUTES);
+            } else {
+                this.$toggleSubstitutes.html(App.config.i18n.SHOW_SUBSTITUTES);
+            }
+
+            this.showSubstitutes = !this.showSubstitutes;
+
+            App.config.diverge = !App.config.diverge;
+            this.trigger('config_spec:changed', App.config.productConfigSpec);
         }
 
 	});

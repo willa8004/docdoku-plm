@@ -19,8 +19,8 @@ define([
             $.ajax({
                 context: this,
                 type: 'PUT',
-                url: this.url() + '/affectedIssues',
-                data: JSON.stringify(issues),
+                url: this.url() + '/affected-issues',
+                data: JSON.stringify({issues:issues}),
                 contentType: 'application/json; charset=utf-8',
                 success: function () {
                     this.fetch();

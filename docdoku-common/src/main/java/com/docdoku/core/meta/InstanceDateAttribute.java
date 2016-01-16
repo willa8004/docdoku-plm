@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -29,7 +29,7 @@ import java.util.Date;
 import java.util.TimeZone;
 
 /**
- * Defines a date type custom attribute of a document.
+ * Defines a date type custom attribute of a document, part, product and other objects.
  * 
  * @author Florent Garin
  * @version 1.0, 02/06/08
@@ -62,6 +62,7 @@ public class InstanceDateAttribute extends InstanceAttribute{
             return true;
         }else if(pValue instanceof String){
             try {
+                //TODO: could use DateAdpater instead
                 TimeZone tz = TimeZone.getTimeZone("UTC");
                 DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
                 df.setTimeZone(tz);
@@ -73,7 +74,6 @@ public class InstanceDateAttribute extends InstanceAttribute{
                     dateValue = new Date(Long.parseLong((String) pValue));
                     return true;
                 }catch(NumberFormatException nfe){
-                    dateValue = null;
                     return false;
                 }
             }

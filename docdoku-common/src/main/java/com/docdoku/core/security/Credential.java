@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,10 +20,12 @@
 
 package com.docdoku.core.security;
 
-import javax.persistence.Column;
 import javax.persistence.Table;
+import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Useful class for storing credential, login/password pair, to the persistence
@@ -37,13 +39,14 @@ import java.security.NoSuchAlgorithmException;
 @javax.persistence.Entity
 public class Credential implements java.io.Serializable {
 
-    @Column(length = 50)
+
     @javax.persistence.Id
     private String login="";
     
     private String password;
-    
-    
+
+    private static final Logger LOGGER = Logger.getLogger(Credential.class.getName());
+
     public Credential() {
     }
     
@@ -52,14 +55,14 @@ public class Credential implements java.io.Serializable {
         credential.login = pLogin;
         try {
             credential.password=md5Sum(pClearPassword);
-        } catch (NoSuchAlgorithmException pEx) {
-            System.err.println(pEx.getMessage());
+        } catch (NoSuchAlgorithmException | UnsupportedEncodingException pEx) {
+            LOGGER.log(Level.SEVERE, null, pEx);
         }
         return credential;
     }
     
-    private static String md5Sum(String pText) throws NoSuchAlgorithmException{
-        byte[] digest = MessageDigest.getInstance("MD5").digest(pText.getBytes());
+    private static String md5Sum(String pText) throws NoSuchAlgorithmException, UnsupportedEncodingException {
+        byte[] digest = MessageDigest.getInstance("MD5").digest(pText.getBytes("UTF-8"));
         StringBuffer hexString = new StringBuffer();
         for (byte aDigest : digest) {
             String hex = Integer.toHexString(0xFF & aDigest);
@@ -70,5 +73,21 @@ public class Credential implements java.io.Serializable {
             }
         }
         return hexString.toString();
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
     }
 }

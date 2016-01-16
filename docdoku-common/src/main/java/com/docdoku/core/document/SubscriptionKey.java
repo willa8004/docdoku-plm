@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -98,7 +98,7 @@ public class SubscriptionKey implements Serializable {
             return false;
         }
         SubscriptionKey key = (SubscriptionKey) pObj;
-        return ((key.subscriberWorkspaceId.equals(subscriberWorkspaceId)) && (key.subscriberLogin.equals(subscriberLogin)) && (key.observedDocumentRevisionId.equals(observedDocumentRevisionId)) && (key.observedDocumentRevisionWorkspaceId.equals(observedDocumentRevisionWorkspaceId)) && (key.observedDocumentRevisionVersion.equals(observedDocumentRevisionVersion)));
+        return key.subscriberWorkspaceId.equals(subscriberWorkspaceId) && key.subscriberLogin.equals(subscriberLogin) && key.observedDocumentRevisionId.equals(observedDocumentRevisionId) && key.observedDocumentRevisionWorkspaceId.equals(observedDocumentRevisionWorkspaceId) && key.observedDocumentRevisionVersion.equals(observedDocumentRevisionVersion);
     }
 
     @Override

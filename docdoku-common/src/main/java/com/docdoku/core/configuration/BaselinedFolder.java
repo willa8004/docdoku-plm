@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -38,7 +38,7 @@ import java.util.logging.Logger;
  *
  * @author Taylor LABEJOF
  * @version 2.0, 25/08/14
- * @since   V2.0
+ * @since V2.0
  */
 
 @Table(name="BASELINEDFOLDER")
@@ -47,7 +47,7 @@ public class BaselinedFolder implements Serializable, Comparable<BaselinedFolder
     @EmbeddedId
     private BaselinedFolderKey baselinedFolderKey;
 
-    @ManyToOne( optional=false, fetch=FetchType.EAGER)
+    @ManyToOne(optional=false, fetch=FetchType.EAGER)
     @JoinColumn(name="FOLDERCOLLECTION_ID", referencedColumnName="ID")
     private FolderCollection folderCollection;
 
@@ -56,12 +56,13 @@ public class BaselinedFolder implements Serializable, Comparable<BaselinedFolder
 
     @ManyToOne
     @JoinColumns({
-            @JoinColumn(name="PARENTFOLDER_FOLDERCOLLECTION_ID", referencedColumnName="FOLDERCOLLECTION_ID", insertable = true, updatable = true),
-            @JoinColumn(name="PARENTFOLDER_COMPLETEPATH", referencedColumnName="COMPLETEPATH", insertable = true, updatable = true),
+            @JoinColumn(name="PARENT_FOLDERCOLLECTION_ID", referencedColumnName="FOLDERCOLLECTION_ID", insertable = true, updatable = true),
+            @JoinColumn(name="PARENT_COMPLETEPATH", referencedColumnName="COMPLETEPATH", insertable = true, updatable = true),
     })
     private BaselinedFolder parentFolder;
 
-    @OneToMany
+    @ManyToMany
+    @JoinTable(name = "BASELINEDFOLDER_DOCITERATION")
     private List<DocumentIteration> documentIterations = new ArrayList<>();
 
 

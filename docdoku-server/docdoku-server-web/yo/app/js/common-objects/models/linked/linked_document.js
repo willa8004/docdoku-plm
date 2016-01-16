@@ -1,4 +1,4 @@
-/*global _,define,App*/
+/*global _,define*/
 define(['backbone'], function (Backbone) {
 	'use strict';
     var linkedDocument = Backbone.Model.extend({
@@ -18,33 +18,35 @@ define(['backbone'], function (Backbone) {
             return this.get('id');
         },
 
-        getIteration: function () {
-            return this.get('iteration');
-        },
-
         getDocumentMasterId: function () {
-            return  this.get('documentMasterId');
+            return this.get('documentMasterId');
         },
 
-        getDocumentRevisionVersion: function () {
-            return  this.get('documentRevisionVersion');
+        getTitle: function () {
+            return this.get('title');
+        },
+
+        getVersion: function () {
+            return this.get('version');
         },
 
         getDocKey: function () {
-            return  this.getDocumentMasterId() + '-' + this.getDocumentRevisionVersion();
+            return this.getDocumentMasterId() + '-' + this.getVersion();
         },
 
-        getDocumentMasterPermalink: function () {
-            return encodeURI(
-                    window.location.origin +
-                    App.config.contextPath +
-                    '/documents/' +
-                    this.getWorkspace() +
-                    '/' +
-                    this.getDocumentMasterId() +
-                    '/' +
-                    this.getDocumentRevisionVersion()
-            );
+        getDisplayDocKey: function () {
+            if (this.getTitle()) {
+                return this.getTitle() + ' < ' + this.getDocumentMasterId() + '-' + this.getVersion() + ' >';
+            }
+            return '< ' + this.getDocumentMasterId() + '-' + this.getVersion() + ' >';
+        },
+
+        setDocumentLinkComment:function(comment){
+            this.set('commentLink', comment);
+        },
+
+        getDocumentLinkComment:function(){
+            return this.get('commentLink');
         }
     });
     return linkedDocument;

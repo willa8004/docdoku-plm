@@ -1,5 +1,6 @@
 /*global define,App*/
 define([
+    'backbone',
     'mustache',
     'common-objects/views/components/modal',
     'common-objects/views/attributes/attributes',
@@ -8,7 +9,7 @@ define([
     'common-objects/views/workflow/workflow_mapping',
     'common-objects/views/security/acl',
     'text!templates/document/document_new.html'
-], function (Mustache, ModalView, AttributesView, DocumentTemplateListView, DocumentWorkflowListView, DocumentWorkflowMappingView, ACLView, template) {
+], function (Backbone, Mustache, ModalView, AttributesView, DocumentTemplateListView, DocumentWorkflowListView, DocumentWorkflowMappingView, ACLView, template) {
     'use strict';
     var DocumentNewView = ModalView.extend({
 
@@ -16,28 +17,11 @@ define([
 
         initialize: function () {
             ModalView.prototype.initialize.apply(this, arguments);
-            this.events["click .modal-footer button.btn-primary"] = "interceptSubmit";
+            this.events['click .modal-footer button.btn-primary'] = 'interceptSubmit';
             this.events['submit #form-' + this.cid] = 'onSubmitForm';
         },
 
         rendered: function () {
-
-            this.attributesView = this.addSubView(
-                new AttributesView({
-                    el: '#tab-attributes-' + this.cid
-                })
-            );
-
-            this.attributesView.render();
-
-            this.templatesView = this.addSubView(
-                new DocumentTemplateListView({
-                    el: '#templates-' + this.cid,
-                    attributesView: this.attributesView
-                })
-            );
-
-            this.templatesView.collection.fetch({reset: true});
 
             this.workflowsView = this.addSubView(
                 new DocumentWorkflowListView({
@@ -52,6 +36,24 @@ define([
             );
 
             this.workflowsView.on('workflow:change', this.workflowsMappingView.updateMapping);
+
+            this.attributesView = this.addSubView(
+                new AttributesView({
+                    el: '#tab-attributes-' + this.cid
+                })
+            );
+
+            this.attributesView.render();
+
+            this.templatesView = this.addSubView(
+                new DocumentTemplateListView({
+                    el: '#templates-' + this.cid,
+                    workflowsView: this.workflowsView,
+                    attributesView: this.attributesView
+                })
+            );
+
+            this.templatesView.collection.fetch({reset: true});
 
             this.workspaceMembershipsView = new ACLView({
                 el: this.$('#acl-mapping-' + this.cid),
@@ -93,14 +95,22 @@ define([
             return false;
         },
 
-        success: function (model, response) {
+        success: function (model) {
             var that = this;
             model.getLastIteration().save({
                 instanceAttributes: this.attributesView.collection.toJSON()
             }, {
                 success: function () {
-                    that.hide();
-                    model.fetch();
+                    if(that.options.autoAddTag){
+                        model.addTags([that.options.autoAddTag]).success(function(){
+                            that.hide();
+                            model.fetch();
+                        });
+                    }else{
+                        that.hide();
+                        model.fetch();
+                    }
+                    Backbone.Events.trigger('document:iterationChange');
                 },
                 error: this.error
             });

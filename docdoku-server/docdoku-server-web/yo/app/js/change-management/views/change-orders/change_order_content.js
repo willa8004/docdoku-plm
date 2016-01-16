@@ -115,7 +115,9 @@ define([
                             aclEditView.closeModal();
                             self.listView.redraw();
                         },
-                        error: self.onError
+                        error: function(model, error){
+                            aclEditView.onError(model, error);
+                        }
                     });
 
                 });
@@ -139,15 +141,14 @@ define([
             }
         },
 
-        onError:function(model, error){
+        onError: function(model, error) {
             var errorMessage = error ? error.responseText : model;
-
             this.$notifications.append(new AlertView({
                 type: 'error',
                 message: errorMessage
             }).render().$el);
-            this.collection.fetch();
         }
+
     });
 
     return ChangeOrderContentView;

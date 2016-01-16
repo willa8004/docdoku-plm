@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,7 +27,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * <a href="ParallelActivity.html">ParallelActivity</a> is a kind of activity where 
+ * ParallelActivity is a kind of activity where
  * all its tasks start at the same time as the activity itself.
  * Thus, there is no order between the executions of tasks.
  * The <code>tasksToComplete</code> attribute specifies the number of tasks that

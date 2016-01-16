@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,6 +23,9 @@ package com.docdoku.server.mainchannel.util;
 import javax.json.Json;
 
 public class ChannelMessagesBuilder {
+
+    private ChannelMessagesBuilder() {
+    }
 
     // Peer declaration
     public static String buildWelcomeMessage(String userLogin) {

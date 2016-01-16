@@ -7,7 +7,7 @@ define(['backbone', 'common-objects/utils/date'],
         ComponentModule.Model = Backbone.Model.extend({
 
             initialize: function () {
-                if (this.isAssembly()) {
+                if(this.isAssembly()||App.config.linkType){
                     this.children = new ComponentModule.Collection([], { parentUsageLinkId: this.getPartUsageLinkId(), path: this.getPath() });
                 }
                 _.bindAll(this);
@@ -62,6 +62,13 @@ define(['backbone', 'common-objects/utils/date'],
                 return this.isCheckout() ? this.getCheckoutUser().login === App.config.login : false;
             },
 
+            hasUnreadModificationNotifications: function () {
+                // TODO: get the modification notification collection
+                return _.select(this.get('notifications') || [], function(notif) {
+                    return !notif.acknowledged;
+                }).length;
+            },
+
             isAssembly: function () {
                 return this.get('assembly');
             },
@@ -80,6 +87,10 @@ define(['backbone', 'common-objects/utils/date'],
 
             getAmount: function () {
                 return this.get('amount');
+            },
+
+            getUnit: function () {
+                return this.get('unit');
             },
 
             getName: function () {
@@ -123,22 +134,155 @@ define(['backbone', 'common-objects/utils/date'],
                 return this.get('accessDeny');
             },
 
-            getInstancesUrl: function () {
-                return App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/products/' + App.config.productId + '/instances?configSpec=' + App.config.configSpec + '&path=' + this.getPath();
+            isReleased : function(){
+                return this.get('released');
             },
 
+            isObsolete : function(){
+                return this.get('obsolete');
+            },
+
+            isSubstitute : function(){
+                return this.get('substitute');
+            },
+
+            hasSubstitutes : function(){
+                var substitutesIds = this.getSubstituteIds();
+                return substitutesIds && substitutesIds.length;
+            },
+
+            getSubstituteIds : function(){
+                return this.get('substituteIds');
+            },
+
+            isSubstituteOf:function(otherComponent){
+                if(!this.hasSubstitutes()){
+                    return false;
+                }
+                if(!this.isOnSameBasePath(otherComponent)){
+                    return false;
+                }
+                return this.getSubstituteIds().indexOf(otherComponent.getPartUsageLinkId()) !== -1;
+            },
+
+            getBasePath:function(){
+                var path = this.getPath();
+                var lastDash = path.lastIndexOf('-');
+                if(lastDash !== -1){
+                    return path.substr(0,lastDash);
+                }else{
+                    return path;
+                }
+            },
+
+            isOnSameBasePath:function(otherComponent){
+                return this.getBasePath() === otherComponent.getBasePath();
+            },
+
+            hasPathData : function(){
+                return this.get('hasPathData');
+            },
+
+            isOptional : function(){
+                return this.get('optional');
+            },
+            isVirtual : function(){
+                return this.get('virtual');
+            },
+            getPartUsageLinkReferenceDescription:function(){
+                return this.get('partUsageLinkReferenceDescription');
+            },
+
+            getInstancesUrl: function () {
+                return this.getProductUrl() + '/instances?configSpec=' + App.config.productConfigSpec + '&path=' + this.getEncodedPath();
+            },
+
+            getEncodedPath : function(){
+                return this.getPath();
+            },
+
+            getProductUrl: function() {
+                return App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/products/' + App.config.productId;
+            },
             getUrlForBom: function () {
 
+                var url;
+
                 if (this.isAssembly()) {
-                    return App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/products/' + App.config.productId + '/bom?configSpec=' + App.config.configSpec + '&partUsageLink=' + this.getPartUsageLinkId();
+                    url = this.getProductUrl() +
+                        '/bom?configSpec=' + App.config.productConfigSpec +
+                        '&path=' + this.getEncodedPath();
+
+                    if(App.config.diverge) {
+                        url += '&diverge=true';
+                    }
+
                 } else {
-                    return App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/parts/' + this.getNumber() + '-' + this.getVersion();
+                    url = App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/parts/' + this.getNumber() + '-' + this.getVersion();
                 }
 
+                return url;
             },
 
             getRootUrlForBom: function () {
                 return App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/parts/' + this.getNumber() + '-' + this.getVersion();
+            },
+
+            cascadeCheckin: function(callback) {
+                var that = this;
+                return $.ajax({
+                    context: this,
+                    type: 'PUT',
+                    url: that.getProductUrl() + '/cascade-checkin?path='+this.getEncodedPath() + '&configSpec='+App.config.productConfigSpec,
+                    success:callback
+                });
+            },
+
+            cascadeCheckout: function(callback) {
+                var that = this;
+                return $.ajax({
+                    context: this,
+                    type: 'PUT',
+                    url: that.getProductUrl() + '/cascade-checkout?path='+this.getEncodedPath() + '&configSpec='+App.config.productConfigSpec,
+                    success:callback
+                });
+            },
+
+            cascadeUndoCheckout: function(callback) {
+                var that = this;
+                return $.ajax({
+                    context: this,
+                    type: 'PUT',
+                    url: that.getProductUrl() + '/cascade-undocheckout?path='+this.getEncodedPath() + '&configSpec='+App.config.productConfigSpec,
+                    success:callback
+                });
+            },
+
+            checkin: function() {
+                var that = this;
+                return $.ajax({
+                    context: this,
+                    type: 'PUT',
+                    url: that.getRootUrlForBom() + '/checkin'
+                });
+            },
+
+            checkout: function() {
+                var that = this;
+                return $.ajax({
+                    context: this,
+                    type: 'PUT',
+                    url: that.getRootUrlForBom() + '/checkout'
+                });
+            },
+
+            undocheckout: function() {
+                var that = this;
+                return $.ajax({
+                    context: this,
+                    type: 'PUT',
+                    url: that.getRootUrlForBom() + '/undocheckout'
+                });
             }
 
         });
@@ -148,18 +292,35 @@ define(['backbone', 'common-objects/utils/date'],
 
             initialize: function (models, options) {
                 this.isRoot = _.isUndefined(options.isRoot) ? false : options.isRoot;
+
                 if (!this.isRoot) {
                     this.parentUsageLinkId = options.parentUsageLinkId;
                     this.path = options.path;
+                } else if(!App.config.linkType){
+                    this.parentUsageLinkId = '-1';
+                    this.path = '-1';
                 }
+
             },
 
             url: function () {
-                if (this.isRoot) {
-                    return this.urlBase() + '?configSpec=' + App.config.configSpec + '&depth=0';
-                } else {
-                    return this.urlBase() + '?configSpec=' + App.config.configSpec + '&partUsageLink=' + this.parentUsageLinkId + '&depth=1';
+                var path = this.path;
+
+                var url = this.urlBase() + '/filter?configSpec=' + App.config.productConfigSpec + '&depth=1';
+
+                if(path){
+                    url+= '&path=' + path;
                 }
+
+                if(App.config.linkType){
+                    url += '&linkType='+App.config.linkType;
+                }
+
+                if(App.config.diverge) {
+                    url += '&diverge=true';
+                }
+
+                return url;
             },
 
             urlBase: function () {
@@ -167,15 +328,13 @@ define(['backbone', 'common-objects/utils/date'],
             },
 
             parse: function (response) {
-                if (this.isRoot) {
-                    response.path = null;
-                    return [response];
-                } else {
-                    var self = this;
-                    return _.map(response.components, function (component) {
-                        var path = self.path === null ? component.partUsageLinkId : self.path + '-' + component.partUsageLinkId;
-                        return _.extend(component, {path: path});
-                    });
+                if (response) {
+                    if (this.isRoot) {
+                        response.path = response.partUsageLinkId;
+                        return [response];
+                    } else {
+                        return response.components;
+                    }
                 }
             }
         });

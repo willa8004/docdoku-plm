@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2013 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,21 +22,31 @@ package com.docdoku.server.rest.util;
 
 import com.docdoku.core.query.DocumentSearchQuery;
 import com.docdoku.core.query.PartSearchQuery;
+import com.docdoku.core.query.SearchQuery;
 
+import javax.ws.rs.core.MultivaluedMap;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.text.NumberFormat;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.TimeZone;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class SearchQueryParser {
-    private SearchQueryParser(){
-        super();
-    }
 
-    public static DocumentSearchQuery parseDocumentStringQuery(String workspaceId , String pQuery){
+    private static final SimpleDateFormat SIMPLE_DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+    private static final Logger LOGGER = Logger.getLogger(SearchQueryParser.class.getName());
+    private static final String ATTRIBUTES_DELIMITER = ";";
+    private static final String ATTRIBUTES_SPLITTER = ":";
+    private static final String FILTERS_DELIMITER = "=";
+    private static final String QUERY_DELIMITER = "&";
+
+    public static DocumentSearchQuery parseDocumentStringQuery(String workspaceId , MultivaluedMap<String,String> query){
         String fullText = null;
         String pDocMId = null;
         String pTitle = null;
@@ -45,48 +55,77 @@ public class SearchQueryParser {
         String pType = null;
         Date pCreationDateFrom = null;
         Date pCreationDateTo = null;
+        Date pModificationDateFrom = null;
+        Date pModificationDateTo = null;
         List<DocumentSearchQuery.AbstractAttributeQuery> pAttributes = new ArrayList<>();
         String[] pTags = null;
         String pContent = null;
 
-        String[] query = pQuery.split("&");
 
-        for(String filters : query){
-            String[] filter = filters.split("=");
-            if(filter.length == 2){
-                switch (filter[0]){
+        for(String filter : query.keySet()){
+            List<String> values = query.get(filter);
+            if(values.size() == 1){
+                String value = null;
+                try {
+                    value = URLDecoder.decode(values.get(0), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    LOGGER.log(Level.FINEST,null,e);
+                }
+                switch (filter){
                     case "q" :
-                        fullText = filter[1];
+                        fullText = value;
                         break;
                     case "id" :
-                        pDocMId = filter[1];
+                        pDocMId = value;
                         break;
                     case "title" :
-                        pTitle = filter[1];
+                        pTitle = value;
                         break;
                     case "version" :
-                        pVersion = filter[1];
+                        pVersion = value;
                         break;
                     case "author" :
-                        pAuthor = filter[1];
+                        pAuthor = value;
                         break;
                     case "type" :
-                        pType = filter[1];
+                        pType = value;
                         break;
-                    case "from" :
-                        pCreationDateFrom = new Date(Long.valueOf(filter[1]));
+                    case "createdFrom" :
+                        try {
+                            pCreationDateFrom =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
                         break;
-                    case "to" :
-                        pCreationDateTo = new Date(Long.valueOf(filter[1]));
+                    case "createdTo" :
+                        try {
+                            pCreationDateTo =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
+                        break;
+                    case "modifiedFrom" :
+                        try {
+                            pModificationDateFrom =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
+                        break;
+                    case "modifiedTo" :
+                        try {
+                            pModificationDateTo =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
                         break;
                     case "tags" :
-                        pTags = filter[1].split(",");
+                        pTags = value.split(",");
                         break;
                     case "content" :
-                        pContent = filter[1];
+                        pContent = value;
                         break;
                     case "attributes" :
-                        pAttributes = parseDocumentAttributeStringQuery(filter[1]);
+                        pAttributes = parseAttributeStringQuery(value);
                         break;
                     default:
                         break;
@@ -98,11 +137,13 @@ public class SearchQueryParser {
 
         DocumentSearchQuery.AbstractAttributeQuery[] pAttributesArray = pAttributes.toArray(new DocumentSearchQuery.AbstractAttributeQuery[pAttributes.size()]);
 
-        return  new DocumentSearchQuery(workspaceId, fullText, pDocMId, pTitle, pVersion, pAuthor,
-                pType, pCreationDateFrom, pCreationDateTo, pAttributesArray, pTags, pContent);
+        return  new DocumentSearchQuery(workspaceId, fullText, pDocMId, pTitle, pVersion, pAuthor, pType,
+                pCreationDateFrom, pCreationDateTo, pModificationDateFrom, pModificationDateTo,
+                pAttributesArray, pTags, pContent);
 
     }
-    public static PartSearchQuery parsePartStringQuery(String workspaceId , String pQuery){
+
+    public static PartSearchQuery parsePartStringQuery(String workspaceId , MultivaluedMap<String,String> query){
         String fullText = null;
         String pNumber = null;
         String pName = null;
@@ -111,44 +152,80 @@ public class SearchQueryParser {
         String pType = null;
         Date pCreationDateFrom = null;
         Date pCreationDateTo = null;
+        Date pModificationDateFrom = null;
+        Date pModificationDateTo = null;
         List<PartSearchQuery.AbstractAttributeQuery> pAttributes = new ArrayList<>();
+        String[] pTags = null;
         Boolean standardPart = null;
+        String content = null;
 
-        String[] query = pQuery.split("&");
-
-        for(String filters : query){
-            String[] filter = filters.split("=");
-            if(filter.length == 2){
-                switch (filter[0]){
+        for(String filter : query.keySet()){
+            List<String> values = query.get(filter);
+            if(values.size() == 1) {
+                String value = null;
+                try {
+                    value = URLDecoder.decode(values.get(0), "UTF-8");
+                } catch (UnsupportedEncodingException e) {
+                    LOGGER.log(Level.FINEST,null,e);
+                }
+                switch (filter) {
                     case "q" :
-                        fullText = filter[1];
+                        fullText = value;
                         break;
-                    case "number" :
-                        pNumber = filter[1];
+                    case "number":
+                        pNumber = value;
                         break;
                     case "name" :
-                        pName = filter[1];
+                        pName = value;
                         break;
                     case "version" :
-                        pVersion = filter[1];
+                        pVersion = value;
                         break;
                     case "author" :
-                        pAuthor = filter[1];
+                        pAuthor = value;
                         break;
                     case "type" :
-                        pType = filter[1];
+                        pType = value;
                         break;
-                    case "from" :
-                        pCreationDateFrom = new Date(Long.valueOf(filter[1]));
+                    case "createdFrom" :
+                        try {
+                            pCreationDateFrom =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
                         break;
-                    case "to" :
-                        pCreationDateTo = new Date(Long.valueOf(filter[1]));
+                    case "createdTo" :
+                        try {
+                            pCreationDateTo =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
+                        break;
+                    case "modifiedFrom" :
+                        try {
+                            pModificationDateFrom =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
+                        break;
+                    case "modifiedTo" :
+                        try {
+                            pModificationDateTo =  SIMPLE_DATE_FORMAT.parse(value);
+                        } catch (ParseException e) {
+                            LOGGER.log(Level.FINEST, null, e);
+                        }
+                        break;
+                    case "tags" :
+                        pTags = value.split(",");
                         break;
                     case "standardPart" :
-                        standardPart = Boolean.valueOf(filter[1]);
+                        standardPart = Boolean.valueOf(value);
                         break;
-                    case "attributes" :
-                        pAttributes = parsePartAttributeStringQuery(filter[1]);
+                    case "content":
+                        content = value;
+                        break;
+                    case "attributes":
+                        pAttributes = parseAttributeStringQuery(value);
                         break;
                 }
             }
@@ -156,87 +233,76 @@ public class SearchQueryParser {
 
         PartSearchQuery.AbstractAttributeQuery[] pAttributesArray = pAttributes.toArray(new PartSearchQuery.AbstractAttributeQuery[pAttributes.size()]);
 
-        return  new PartSearchQuery(workspaceId, fullText, pNumber, pName, pVersion, pAuthor,
-                pType, pCreationDateFrom, pCreationDateTo, pAttributesArray,standardPart);
+        return  new PartSearchQuery(workspaceId, fullText, pNumber, pName, pVersion, pAuthor, pType,
+                pCreationDateFrom, pCreationDateTo, pModificationDateFrom, pModificationDateTo,
+                pAttributesArray,pTags,standardPart,content);
 
     }
 
-    private static List<DocumentSearchQuery.AbstractAttributeQuery> parseDocumentAttributeStringQuery(String attributeQuery){
-        List<DocumentSearchQuery.AbstractAttributeQuery> pAttributes = new ArrayList<>();
-        String[] attributesString = attributeQuery.split(";");
-        for(String attributeString : attributesString){
-            String[] attribute = attributeString.split(":");
-            if(attribute.length == 3){
-                switch(attribute[0]){
-                    case "BOOLEAN" :
-                        DocumentSearchQuery.BooleanAttributeQuery baq = new DocumentSearchQuery.BooleanAttributeQuery(attribute[1],Boolean.valueOf(attribute[2]));
-                        pAttributes.add(baq);
-                        break;
-                    case "DATE" :
-                        DocumentSearchQuery.DateAttributeQuery daq = new DocumentSearchQuery.DateAttributeQuery();
-                        daq.setName(attribute[1]);
-                        daq.setFromDate(new Date(Long.valueOf(attribute[2])));
-                        pAttributes.add(daq);
-                        break;
-                    case "TEXT" :
-                        DocumentSearchQuery.TextAttributeQuery taq = new DocumentSearchQuery.TextAttributeQuery(attribute[1],attribute[2]);
-                        pAttributes.add(taq);
-                        break;
-                    case "NUMBER" :
-                        try {
-                            DocumentSearchQuery.NumberAttributeQuery naq = new DocumentSearchQuery.NumberAttributeQuery(attribute[1], NumberFormat.getInstance().parse(attribute[2]).floatValue());
-                            pAttributes.add(naq);
-                        } catch (ParseException e) {
-                            Logger.getLogger(SearchQueryParser.class.getName()).log(Level.INFO, null, e);
-                        }
-                        break;
-                    default:
-                        break;
+    private static List<SearchQuery.AbstractAttributeQuery> parseAttributeStringQuery(String attributeQuery){
+        List<SearchQuery.AbstractAttributeQuery> pAttributes = new ArrayList<>();
+        String[] attributesString = attributeQuery.split(ATTRIBUTES_DELIMITER);
 
-                }
+        for(String attributeString : attributesString){
+
+            int firstColon = attributeString.indexOf(ATTRIBUTES_SPLITTER);
+            String attributeType = attributeString.substring(0,firstColon);
+            attributeString = attributeString.substring(firstColon+1);
+
+            int secondColon = attributeString.indexOf(ATTRIBUTES_SPLITTER);
+            String attributeName = attributeString.substring(0,secondColon);
+            String attributeValue = attributeString.substring(secondColon+1);
+
+            switch(attributeType){
+                case "BOOLEAN" :
+                    SearchQuery.BooleanAttributeQuery baq = new SearchQuery.BooleanAttributeQuery(attributeName,Boolean.valueOf(attributeValue));
+                    pAttributes.add(baq);
+                    break;
+                case "DATE" :
+                    SearchQuery.DateAttributeQuery daq = new SearchQuery.DateAttributeQuery();
+                    daq.setName(attributeName);
+                    try {
+                        //Date attributes are always UTC, should not use the default timezone
+                        SimpleDateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
+                        df.setTimeZone(TimeZone.getTimeZone("UTC"));
+                        daq.setDate(df.parse(attributeValue));
+                        pAttributes.add(daq);
+                    } catch (ParseException e) {
+                        LOGGER.log(Level.FINEST,null,e);
+                    }
+                    break;
+                case "TEXT" :
+                    SearchQuery.TextAttributeQuery taq = new SearchQuery.TextAttributeQuery(attributeName,attributeValue);
+                    pAttributes.add(taq);
+                    break;
+                case "NUMBER" :
+                    try {
+                        SearchQuery.NumberAttributeQuery naq = new SearchQuery.NumberAttributeQuery(attributeName, NumberFormat.getInstance().parse(attributeValue).floatValue());
+                        pAttributes.add(naq);
+                    } catch (ParseException e) {
+                        LOGGER.log(Level.INFO, null, e);
+                    }
+                    break;
+                case "URL" :
+                    SearchQuery.URLAttributeQuery uaq = new SearchQuery.URLAttributeQuery(attributeName,attributeValue);
+                    pAttributes.add(uaq);
+                    break;
+
+                case "LOV":
+                    SearchQuery.LovAttributeQuery laq = new SearchQuery.LovAttributeQuery(attributeName,attributeValue);
+                    pAttributes.add(laq);
+                    break;
+
+                default :
+                    break;
             }
+
         }
         return  pAttributes;
     }
 
-    private static List<PartSearchQuery.AbstractAttributeQuery> parsePartAttributeStringQuery(String attributeQuery){
-        List<PartSearchQuery.AbstractAttributeQuery> pAttributes = new ArrayList<>();
-        String[] attributesString = attributeQuery.split(";");
-        for(String attributeString : attributesString){
-            String[] attribute = attributeString.split(":");
-            if(attribute.length == 3){
-                switch(attribute[0]){
-                    case "BOOLEAN" :
-                        PartSearchQuery.BooleanAttributeQuery baq = new PartSearchQuery.BooleanAttributeQuery(attribute[1],Boolean.valueOf(attribute[2]));
-                        pAttributes.add(baq);
-                        break;
-                    case "DATE" :
-                        PartSearchQuery.DateAttributeQuery daq = new PartSearchQuery.DateAttributeQuery();
-                        daq.setName(attribute[1]);
-                        daq.setFromDate(new Date(Long.valueOf(attribute[2])));
-                        pAttributes.add(daq);
-                        break;
-                    case "TEXT" :
-                        PartSearchQuery.TextAttributeQuery taq = new PartSearchQuery.TextAttributeQuery(attribute[1],attribute[2]);
-                        pAttributes.add(taq);
-                        break;
-                    case "NUMBER" :
-                        try {
-                            PartSearchQuery.NumberAttributeQuery naq = new PartSearchQuery.NumberAttributeQuery(attribute[1], NumberFormat.getInstance().parse(attribute[2]).floatValue());
-                            pAttributes.add(naq);
-                        } catch (ParseException e) {
-                            Logger.getLogger(SearchQueryParser.class.getName()).log(Level.INFO, null, e);
-                        }
-                        break;
-                    case "URL" :
-                        PartSearchQuery.URLAttributeQuery uaq = new PartSearchQuery.URLAttributeQuery(attribute[0],attribute[1]);
-                        pAttributes.add(uaq);
-                        break;
-                    default :
-                        break;
-                }
-            }
-        }
-        return  pAttributes;
+    private SearchQueryParser(){
+        super();
     }
+
 }

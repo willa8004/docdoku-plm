@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -32,8 +32,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * This class stands between <a href="DocumentMaster.html">DocumentMaster</a>
- * and <a href="DocumentIteration.html">DocumentIteration</a>.
+ * This class stands between {@link DocumentMaster} and {@link DocumentIteration}.
  * It represents a formal revision of a document and can have an attached workflow.
  * 
  * @author Florent Garin
@@ -44,14 +43,15 @@ import java.util.*;
 @IdClass(DocumentRevisionKey.class)
 @Entity
 @NamedQueries ({
+        @NamedQuery(name="DocumentRevision.findLinks", query = "SELECT l FROM DocumentLink l WHERE l.targetDocument = :target"),
         @NamedQuery(name="DocumentRevision.findWithAssignedTasksForUser", query="SELECT d FROM DocumentRevision d, Task t WHERE t.activity.workflow = d.workflow AND d.workflow IS NOT NULL AND t.worker.login = :assignedUserLogin AND d.documentMasterWorkspaceId = :workspaceId"),
         @NamedQuery(name="DocumentRevision.findWithOpenedTasksForUser", query="SELECT d FROM DocumentRevision d, Task t WHERE t.activity.workflow = d.workflow AND d.workflow IS NOT NULL AND t.worker.login = :assignedUserLogin AND d.documentMasterWorkspaceId = :workspaceId AND t.status = com.docdoku.core.workflow.Task.Status.IN_PROGRESS"),
-        @NamedQuery(name="DocumentRevision.findByReference", query="SELECT d FROM DocumentRevision d WHERE d.documentMasterId LIKE :id AND d.documentMasterWorkspaceId = :workspaceId"),
+        @NamedQuery(name="DocumentRevision.findByReferenceOrTitle", query="SELECT d FROM DocumentRevision d WHERE (d.documentMasterId LIKE :id OR d.title LIKE :title) AND d.documentMasterWorkspaceId = :workspaceId"),
         @NamedQuery(name="DocumentRevision.countByWorkspace", query="SELECT COUNT(d) FROM DocumentRevision d WHERE d.documentMasterWorkspaceId = :workspaceId"),
         @NamedQuery(name="DocumentRevision.findByWorkspace.filterUserACLEntry", query="SELECT dr FROM DocumentRevision dr WHERE dr.documentMasterWorkspaceId = :workspaceId and (dr.acl is null or exists(SELECT au from ACLUserEntry au WHERE au.principal = :user AND au.permission not like com.docdoku.core.security.ACL.Permission.FORBIDDEN AND au.acl = dr.acl)) AND dr.location.completePath NOT LIKE :excludedFolders ORDER BY dr.documentMasterId ASC"),
         @NamedQuery(name="DocumentRevision.countByWorkspace.filterUserACLEntry", query="SELECT count(dr) FROM DocumentRevision dr WHERE dr.documentMasterWorkspaceId = :workspaceId and (dr.acl is null or exists(SELECT au from ACLUserEntry au WHERE au.principal = :user AND au.permission not like com.docdoku.core.security.ACL.Permission.FORBIDDEN AND au.acl = dr.acl)) AND dr.location.completePath NOT LIKE :excludedFolders")
 })
-public class DocumentRevision implements Serializable, Comparable<DocumentRevision>, Cloneable {
+public class DocumentRevision implements Serializable, Comparable<DocumentRevision> {
 
 
     @Id
@@ -170,8 +170,8 @@ public class DocumentRevision implements Serializable, Comparable<DocumentRevisi
     }
     public void setDocumentMaster(DocumentMaster documentMaster) {
         this.documentMaster = documentMaster;
-        documentMasterId=documentMaster.getId();
-        documentMasterWorkspaceId=documentMaster.getWorkspaceId();
+        setDocumentMasterId(documentMaster.getId());
+        setDocumentMasterWorkspaceId(documentMaster.getWorkspaceId());
     }
 
     public DocumentRevisionKey getKey() {
@@ -268,9 +268,7 @@ public class DocumentRevision implements Serializable, Comparable<DocumentRevisi
     }
 
     public DocumentIteration createNextIteration(User pUser){
-        DocumentIteration lastDoc=getLastIteration();
-        int iteration = lastDoc==null?1:lastDoc.getIteration() + 1;
-        DocumentIteration doc = new DocumentIteration(this,iteration,pUser);
+        DocumentIteration doc = new DocumentIteration(this, pUser);
         documentIterations.add(doc);
         return doc;
     }
@@ -284,19 +282,13 @@ public class DocumentRevision implements Serializable, Comparable<DocumentRevisi
     }
     public DocumentIteration getLastCheckedInIteration() {
         int index;
-        if(this.isCheckedOut()){
+        if(isCheckedOut()){
             index = documentIterations.size()-2;
         }else{
             index = documentIterations.size()-1;
         }
         if(index < 0) {
-            List<DocumentRevision> documentRevisions = this.getDocumentMaster().getDocumentRevisions();
-            int position = documentRevisions.indexOf(this);
-            if (position > 0 ) {
-                return documentRevisions.get(position - 1).getLastCheckedInIteration();
-            }else{
-                return null;
-            }
+           return null;
         }else {
             return documentIterations.get(index);
         }
@@ -347,6 +339,14 @@ public class DocumentRevision implements Serializable, Comparable<DocumentRevisi
     }
 
 
+    public void setDocumentMasterId(String pDocumentMasterId) {
+        documentMasterId=pDocumentMasterId;
+    }
+
+    public void setDocumentMasterWorkspaceId(String pDocumentMasterWorkspaceId) {
+        documentMasterWorkspaceId=pDocumentMasterWorkspaceId;
+    }
+
     public String getDocumentMasterId() {
         return documentMasterId;
     }
@@ -386,7 +386,14 @@ public class DocumentRevision implements Serializable, Comparable<DocumentRevisi
     public boolean removeTag(Tag pTag){
         return tags.remove(pTag);
     }
-    
+
+    public boolean isAttributesLocked(){
+        if (this.documentMaster != null){
+            return this.documentMaster.isAttributesLocked();
+        }
+        return false;
+    }
+
     @Override
     public String toString() {
         return documentMaster.getId() + "-" + version;

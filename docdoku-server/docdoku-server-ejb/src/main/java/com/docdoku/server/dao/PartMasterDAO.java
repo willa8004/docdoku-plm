@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -98,9 +98,10 @@ public class PartMasterDAO {
         em.remove(pPartM);
     }
 
-    public List<PartMaster> findPartMasters(String workspaceId, String partNumber, int maxResults){
-        return em.createNamedQuery("PartMaster.findByNumber", PartMaster.class)
+    public List<PartMaster> findPartMasters(String workspaceId, String partNumber, String partName, int maxResults){
+        return em.createNamedQuery("PartMaster.findByNameOrNumber", PartMaster.class)
             .setParameter("partNumber", partNumber)
+            .setParameter("partName", partNumber)
             .setParameter("workspaceId", workspaceId)
             .setMaxResults(maxResults)
             .getResultList();

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -30,7 +30,7 @@ import java.util.Set;
  * 
  * @author Florent Garin
  * @version 1.1, 8/07/09
- * @since   V1.1
+ * @since V1.1
  */
 @Table(name="USERGROUP")
 @javax.persistence.IdClass(com.docdoku.core.common.UserGroupKey.class)
@@ -38,7 +38,7 @@ import java.util.Set;
 @NamedQueries({
         @NamedQuery(name="UserGroup.findUserGroups", query="SELECT u FROM UserGroup u WHERE :user member of u.users AND u.workspaceId = :workspaceId")
 })
-public class UserGroup implements Serializable, Cloneable {
+public class UserGroup implements Serializable {
 
     @Column(length=100)
     @javax.persistence.Id

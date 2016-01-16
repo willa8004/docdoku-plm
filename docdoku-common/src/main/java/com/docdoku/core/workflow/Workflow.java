@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -32,7 +32,7 @@ import java.util.*;
  */
 @Table(name="WORKFLOW")
 @javax.persistence.Entity
-public class Workflow implements Serializable, Cloneable {
+public class Workflow implements Serializable {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
@@ -115,6 +115,14 @@ public class Workflow implements Serializable, Cloneable {
         } else {
             return new ArrayList<>();
         }
+    }
+
+    public Collection<Task> getTasks(){
+        Collection<Task> tasks = new ArrayList<>();
+        for(Activity activity:activities){
+            tasks.addAll(activity.getTasks());
+        }
+        return tasks;
     }
 
     public int numberOfSteps() {

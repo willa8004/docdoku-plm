@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -38,9 +38,9 @@ import com.docdoku.server.dao.WorkflowDAO;
 
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
 import javax.ejb.Local;
 import javax.ejb.Stateless;
+import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.util.Collection;
@@ -55,19 +55,22 @@ public class DocumentWorkflowManagerBean implements IDocumentWorkflowManagerLoca
     @PersistenceContext
     private EntityManager em;
 
-    @EJB
+    @Inject
     private IUserManagerLocal userManager;
-    @EJB
+
+    @Inject
     private IDocumentManagerLocal documentManager;
-    @EJB
+
+    @Inject
     private IMailerLocal mailer;
-    @EJB
+
+    @Inject
     private IGCMSenderLocal gcmNotifier;
 
     @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
     @Override
     public Workflow getCurrentWorkflow(DocumentRevisionKey documentRevisionKey) throws UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException, DocumentRevisionNotFoundException, AccessRightException, WorkflowNotFoundException {
-        User user = userManager.checkWorkspaceReadAccess(documentRevisionKey.getWorkspaceId());
+        User user = userManager.checkWorkspaceReadAccess(documentRevisionKey.getDocumentMaster().getWorkspace());
         if(!documentManager.canUserAccess(user, documentRevisionKey)) {
             throw new AccessRightException(new Locale(user.getLanguage()), user);
         }
@@ -80,7 +83,7 @@ public class DocumentWorkflowManagerBean implements IDocumentWorkflowManagerLoca
     @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
     @Override
     public Workflow[] getAbortedWorkflow(DocumentRevisionKey documentRevisionKey) throws UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException, DocumentRevisionNotFoundException, AccessRightException {
-        User user = userManager.checkWorkspaceReadAccess(documentRevisionKey.getWorkspaceId());
+        User user = userManager.checkWorkspaceReadAccess(documentRevisionKey.getDocumentMaster().getWorkspace());
         if(!documentManager.canUserAccess(user, documentRevisionKey)) {
             throw new AccessRightException(new Locale(user.getLanguage()), user);
         }
@@ -89,22 +92,6 @@ public class DocumentWorkflowManagerBean implements IDocumentWorkflowManagerLoca
         DocumentRevision docR = new DocumentRevisionDAO(locale, em).loadDocR(documentRevisionKey);
         List<Workflow> abortedWorkflows= docR.getAbortedWorkflows();
         return abortedWorkflows.toArray(new Workflow[abortedWorkflows.size()]);
-    }
-
-    @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
-    @Override
-    public DocumentRevision[] getDocumentRevisionsWithAssignedTasksForGivenUser(String pWorkspaceId, String assignedUserLogin) throws WorkspaceNotFoundException, UserNotFoundException, UserNotActiveException {
-        User user = userManager.checkWorkspaceReadAccess(pWorkspaceId);
-        List<DocumentRevision> docRs = new DocumentRevisionDAO(new Locale(user.getLanguage()), em).findDocsWithAssignedTasksForGivenUser(pWorkspaceId, assignedUserLogin);
-        return docRs.toArray(new DocumentRevision[docRs.size()]);
-    }
-
-    @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
-    @Override
-    public DocumentRevision[] getDocumentRevisionsWithOpenedTasksForGivenUser(String pWorkspaceId, String assignedUserLogin) throws WorkspaceNotFoundException, UserNotFoundException, UserNotActiveException {
-        User user = userManager.checkWorkspaceReadAccess(pWorkspaceId);
-        List<DocumentRevision> docRs = new DocumentRevisionDAO(new Locale(user.getLanguage()), em).findDocsWithOpenedTasksForGivenUser(pWorkspaceId, assignedUserLogin);
-        return docRs.toArray(new DocumentRevision[docRs.size()]);
     }
 
     @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)

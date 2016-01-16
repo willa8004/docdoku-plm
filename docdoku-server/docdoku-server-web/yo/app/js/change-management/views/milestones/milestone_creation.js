@@ -9,8 +9,10 @@ define([
     'use strict';
     var MilestoneCreationView = Backbone.View.extend({
         events: {
+            'click .modal-footer .btn-primary': 'interceptSubmit',
             'submit #milestone_creation_form': 'onSubmitForm',
-            'hidden #milestone_creation_modal': 'onHidden'
+            'hidden #milestone_creation_modal': 'onHidden',
+            'shown #milestone_creation_modal': 'onShown'
         },
 
 
@@ -20,7 +22,11 @@ define([
         },
 
         render: function () {
-            this.$el.html(Mustache.render(template, {timeZone:App.config.timeZone,i18n: App.config.i18n}));
+            this.$el.html(Mustache.render(template, {
+                timeZone:App.config.timeZone,
+                language : App.config.locale,
+                i18n: App.config.i18n
+            }));
             this.bindDomElements();
             this.$('input[required]').customValidity(App.config.i18n.REQUIRED_FIELD);
             return this;
@@ -32,19 +38,24 @@ define([
             this.$inputMilestoneDescription = this.$('#inputMilestoneDescription');
             this.$inputMilestoneDueDate = this.$('#inputMilestoneDueDate');
         },
+        interceptSubmit : function(){
+            this.isValid = ! this.$('#milestone_creation_form').invalidFormTabSwitcher();
+        },
 
         onSubmitForm: function (e) {
-            var data = {
-                title: this.$inputMilestoneTitle.val(),
-                description: this.$inputMilestoneDescription.val(),
-                dueDate: date.toUTCWithTimeZoneOffset(this.$inputMilestoneDueDate.val())
-            };
+            if(this.isValid) {
+                var data = {
+                    title: this.$inputMilestoneTitle.val(),
+                    description: this.$inputMilestoneDescription.val(),
+                    dueDate: date.toUTCWithTimeZoneOffset(this.$inputMilestoneDueDate.val())
+                };
 
-            this.model.save(data, {
-                success: this.onMilestoneCreated,
-                error: this.onError,
-                wait: true
-            });
+                this.model.save(data, {
+                    success: this.onMilestoneCreated,
+                    error: this.onError,
+                    wait: true
+                });
+            }
 
             e.preventDefault();
             e.stopPropagation();
@@ -66,6 +77,10 @@ define([
 
         closeModal: function () {
             this.$modal.modal('hide');
+        },
+
+        onShown: function () {
+            this.$modal.addClass('ready');
         },
 
         onHidden: function () {

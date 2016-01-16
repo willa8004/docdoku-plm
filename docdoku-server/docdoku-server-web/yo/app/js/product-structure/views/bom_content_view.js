@@ -1,14 +1,15 @@
-/*global _,define,App,window*/
+/*global _,define,App,window,$*/
 define([
-	'backbone',
-	'mustache',
-	'views/bom_item_view',
-	'text!templates/bom_content.html',
-	'collections/part_collection',
+    'backbone',
+    'mustache',
+    'async',
+    'views/bom_item_view',
+    'text!templates/bom_content.html',
+    'collections/part_collection',
     'common-objects/views/prompt',
     'common-objects/views/security/acl_edit'
-],function (Backbone, Mustache, BomItemView, template, PartList, PromptView, ACLEditView) {
-	'use strict';
+], function (Backbone, Mustache, Async, BomItemView, template, PartList, PromptView, ACLEditView) {
+    'use strict';
     var BomContentView = Backbone.View.extend({
 
         el: '#bom_table_container',
@@ -31,7 +32,7 @@ define([
         },
 
         onHeaderSelectionChanged: function (e) {
-            _.invoke(this.itemViews, 'setSelectionState', e.target.checked);
+            this.setCheckAll(e.target.checked);
             this.notifySelectionChanged();
         },
 
@@ -45,18 +46,22 @@ define([
 
         update: function (component) {
             this.itemViews = [];
-            this.partsCollection = new PartList();
-            this.partsCollection.setFilterUrl(component.getUrlForBom());
-            this.listenTo(this.partsCollection, 'reset', this.addAllBomItem);
-            this.partsCollection.fetch({reset: true});
+            if (component && !component.isVirtual()) {
+                this.partsCollection = new PartList();
+                this.partsCollection.setFilterUrl(component.getUrlForBom());
+                this.listenTo(this.partsCollection, 'reset', this.addAllBomItem);
+                this.partsCollection.fetch({reset: true});
+            }
         },
 
         showRoot: function (rootComponent) {
             this.itemViews = [];
-            this.partsCollection = new PartList();
-            this.partsCollection.setFilterUrl(rootComponent.getRootUrlForBom());
-            this.listenTo(this.partsCollection, 'reset', this.addAllBomItem);
-            this.partsCollection.fetch({reset: true});
+            if (rootComponent && !rootComponent.isVirtual()) {
+                this.partsCollection = new PartList();
+                this.partsCollection.setFilterUrl(rootComponent.getRootUrlForBom());
+                this.listenTo(this.partsCollection, 'reset', this.addAllBomItem);
+                this.partsCollection.fetch({reset: true});
+            }
         },
 
         addAllBomItem: function (parts) {
@@ -66,11 +71,8 @@ define([
             this.dataTable();
         },
 
-        addBomItem: function (part) {
-            var bomItemView = new BomItemView({model: part}).render();
-            this.listenTo(bomItemView.model, 'change', this.notifySelectionChanged);
-            this.itemViews.push(bomItemView);
-            this.tbody.append(bomItemView.el);
+        setCheckAll: function(status) {
+            _.invoke(this.itemViews, 'setSelectionState', status);
         },
 
         checkedViews: function () {
@@ -79,55 +81,83 @@ define([
             });
         },
 
+        addBomItem: function (part) {
+            var bomItemView = new BomItemView({model: part}).render();
+            this.listenTo(bomItemView.model, 'change', this.notifySelectionChanged);
+            this.itemViews.push(bomItemView);
+            this.tbody.append(bomItemView.el);
+        },
+
         actionCheckout: function () {
-            _.each(this.checkedViews(), function (view) {
-                view.model.checkout();
+            var listViews = this.checkedViews();
+
+            var ajaxes = [];
+            _(listViews).each(function (view) {
+                ajaxes.push(view.model.checkout());
             });
+            $.when.apply($, ajaxes).then(this.onSuccess);
+
+
             return false;
         },
 
         actionUndocheckout: function () {
-            _.each(this.checkedViews(), function (view) {
-                view.model.undocheckout();
+            var listViews = this.checkedViews();
+
+            var ajaxes = [];
+            _(listViews).each(function (view) {
+                ajaxes.push(view.model.undocheckout());
             });
+            $.when.apply($, ajaxes).then(this.onSuccess);
+
+
             return false;
         },
 
         actionCheckin: function () {
-            var self = this ;
-            _.each(this.checkedViews(), function (view) {
-                if (!view.model.getLastIteration().get('iterationNote')) {
-                    var promptView = new PromptView();
-                    promptView.setPromptOptions(App.config.i18n.ITERATION_NOTE, App.config.i18n.ITERATION_NOTE_PROMPT_LABEL, App.config.i18n.ITERATION_NOTE_PROMPT_OK, App.config.i18n.ITERATION_NOTE_PROMPT_CANCEL);
-                    window.document.body.appendChild(promptView.render().el);
-                    promptView.openModal();
+            var self = this;
+            var listViews = this.checkedViews();
+            var promptView = new PromptView();
+            promptView.setPromptOptions(App.config.i18n.REVISION_NOTE, App.config.i18n.REVISION_NOTE_PROMPT_LABEL, App.config.i18n.REVISION_NOTE_PROMPT_OK, App.config.i18n.REVISION_NOTE_PROMPT_CANCEL);
+            window.document.body.appendChild(promptView.render().el);
+            promptView.openModal();
 
-                    self.listenTo(promptView, 'prompt-ok', function (args) {
-                        var iterationNote = args[0];
-                        if (_.isEqual(iterationNote, '')) {
-                            iterationNote = null;
-                        }
+            self.listenTo(promptView, 'prompt-ok', function (args) {
+                var iterationNote = args[0];
+                if (_.isEqual(iterationNote, '')) {
+                    iterationNote = null;
+                }
+
+                Async.each(listViews, function (view, callback) {
                         view.model.getLastIteration().save({
                             iterationNote: iterationNote
                         }).success(function () {
-                            view.model.checkin();
+                            view.model.checkin().success(callback);
                         });
-
+                    },
+                    function (err) {
+                        if (!err) {
+                            self.onSuccess();
+                        }
                     });
 
-                    self.listenTo(promptView, 'prompt-cancel', function () {
-                        view.model.checkin();
-                    });
+            });
 
-                } else {
-                    view.model.checkin();
-                }
-
+            this.listenTo(promptView, 'prompt-cancel', function () {
+                var ajaxes = [];
+                _(listViews).each(function (view) {
+                    ajaxes.push(view.model.checkin());
+                });
+                $.when.apply($, ajaxes).then(this.onSuccess);
             });
             return false;
         },
 
-        actionUpdateACL:function(){
+        onSuccess: function () {
+            Backbone.Events.trigger('part:saved');
+        },
+
+        actionUpdateACL: function () {
             var _this = this;
 
             var selectedPart = this.checkedViews()[0].model;
@@ -179,14 +209,15 @@ define([
                 },
                 sDom: 'ft',
                 aoColumnDefs: [
-                    { 'bSortable': false, 'aTargets': [ 0, 10, 11 ] },
-                    { 'sType': App.config.i18n.DATE_SORT, 'aTargets': [7, 8] }
+                    {'bSortable': false, 'aTargets': [0, 1, 11, 12, 13]},
+                    {'sType': App.config.i18n.DATE_SORT, 'aTargets': [8]},
+                    {'sType': 'strip_html', 'aTargets': [2]}
                 ]
             });
             this.$el.parent().find('.dataTables_filter input').attr('placeholder', App.config.i18n.FILTER);
         },
 
-        onError:function(model, error){
+        onError: function (model, error) {
             var errorMessage = error ? error.responseText : model;
             window.alert(errorMessage);
         }

@@ -1,4 +1,4 @@
-/*global _,define,App,bootbox,window*/
+/*global _,define,App,bootbox*/
 define([
     'backbone',
     'mustache',
@@ -137,13 +137,14 @@ define([
                     _(that.listItemViews).each(function (view) {
                         if (view.isChecked()) {
                             view.model.destroy({
+                                wait:true,
                                 dataType: 'text', // server doesn't send a json hash in the response body
                                 success: function () {
                                     that.removeMilestone(view.model);
                                     that.onSelectionChanged();
                                 },
                                 error: function (model, err) {
-                                    window.alert(err.responseText);
+                                    that.trigger('error', model, err);
                                     that.onSelectionChanged();
                                 }
                             });
@@ -180,7 +181,8 @@ define([
                 },
                 sDom: 'ft',
                 aoColumnDefs: [
-                    { 'bSortable': false, 'aTargets': [ 0, 5 ] }
+                    { 'bSortable': false, 'aTargets': [ 0, 5 ] },
+                    { 'sType': 'strip_html', 'aTargets': [1] }
                 ]
             });
             this.$el.parent().find('.dataTables_filter input').attr('placeholder', App.config.i18n.FILTER);

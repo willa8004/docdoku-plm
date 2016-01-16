@@ -16,14 +16,14 @@ function (Backbone, Mustache, template) {
 
         initialize: function () {
             _.bindAll(this);
-
-            if (!this.options.nullable && !this.model.get('defaultUserMapped')) {
-                this.model.set('defaultUserMapped', {login: this.options.userList.first().getLogin()});
-            }
         },
 
         render: function () {
-            this.$el.html(Mustache.render(template, {i18n: App.config.i18n, model: this.model}));
+            this.$el.html(Mustache.render(template, {
+                i18n: App.config.i18n,
+                model: this.model,
+                required: !this.options.nullable
+            }));
             this.$select = this.$('select');
             this.fillUserList();
             return this;
@@ -32,9 +32,7 @@ function (Backbone, Mustache, template) {
         fillUserList: function () {
             var self = this;
 
-            if (this.options.nullable) {
-                this.$select.append('<option value=""></option>');
-            }
+            this.$select.append('<option value=""></option>');
 
             this.options.userList.each(function (user) {
                 var selected = '';
@@ -60,11 +58,11 @@ function (Backbone, Mustache, template) {
         },
 
         changeModel: function () {
-            var userDTO;
+            var user;
             if (this.$select.val()) {
-                userDTO = {login: this.$select.val()};
+                user = {login: this.$select.val()};
             }
-            this.model.set({defaultUserMapped: userDTO});
+            this.model.set({defaultAssignee: user});
         }
 
     });

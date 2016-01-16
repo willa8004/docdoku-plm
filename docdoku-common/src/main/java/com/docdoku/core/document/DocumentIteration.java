@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -30,8 +30,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * This <a href="DocumentIteration.html">DocumentIteration</a>
- * class represents the iterated part of a document.
+ * This DocumentIteration class represents the iterated part of a document.
  * The iteration attribute indicates the order in which the modifications
  * have been made on the document.
  * 
@@ -42,7 +41,6 @@ import java.util.*;
 @Table(name = "DOCUMENTITERATION")
 @javax.persistence.IdClass(com.docdoku.core.document.DocumentIterationKey.class)
 @NamedQueries ({
-    @NamedQuery(name="DocumentIteration.findLinks", query = "SELECT l FROM DocumentLink l WHERE l.targetDocument = :target"),
     @NamedQuery(name="DocumentIteration.findByBinaryResource", query = "SELECT d FROM DocumentIteration d WHERE :binaryResource member of d.attachedFiles")
 })
 @javax.persistence.Entity
@@ -82,6 +80,12 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
     
     @javax.persistence.Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date creationDate;
+
+    @javax.persistence.Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    private Date modificationDate;
+
+    @javax.persistence.Temporal(javax.persistence.TemporalType.TIMESTAMP)
+    private Date checkInDate;
     
     @OneToMany(orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JoinTable(name = "DOCUMENTITERATION_DOCUMENTLINK",
@@ -97,7 +101,7 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
     private Set<DocumentLink> linkedDocuments = new HashSet<>();
     
     @OneToMany(orphanRemoval = true, cascade = CascadeType.ALL, fetch = FetchType.EAGER)
-    @MapKey(name = "name")
+    @OrderColumn(name="ATTRIBUTE_ORDER")
     @JoinTable(name = "DOCUMENTITERATION_ATTRIBUTE",
     inverseJoinColumns = {
         @JoinColumn(name = "INSTANCEATTRIBUTE_ID", referencedColumnName = "ID")
@@ -108,15 +112,25 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         @JoinColumn(name = "DOCUMENTREVISION_VERSION", referencedColumnName = "DOCUMENTREVISION_VERSION"),
         @JoinColumn(name = "ITERATION", referencedColumnName = "ITERATION")
     })
-    private Map<String, InstanceAttribute> instanceAttributes = new HashMap<>();
+    private List<InstanceAttribute> instanceAttributes = new ArrayList<>();
 
     public DocumentIteration() {
     }
 
-    public DocumentIteration(DocumentRevision pDocumentRevision, int pIteration, User pAuthor) {
+    public DocumentIteration(DocumentRevision pDocumentRevision, User pAuthor) {
+        DocumentIteration lastDoc = pDocumentRevision.getLastIteration();
+        int newIteration = 1;
+
+        if (lastDoc != null) {
+            newIteration = lastDoc.getIteration() + 1;
+            Date lastModificationDate = lastDoc.modificationDate;
+            modificationDate = lastModificationDate;
+        }
+
         setDocumentRevision(pDocumentRevision);
-        iteration = pIteration;
+        iteration = newIteration;
         author = pAuthor;
+        checkInDate = null;
     }
 
     public void setDocumentRevision(DocumentRevision documentRevision) {
@@ -132,16 +146,12 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         return documentRevision==null?"":documentRevision.getId();
     }
 
-    public String getDocumentVersion() {
+    public String getVersion() {
         return documentRevision==null?"":documentRevision.getVersion();
     }
 
     public String getDocumentMasterId() {
         return getId();
-    }
-
-    public String getDocumentRevisionVersion(){
-        return getDocumentVersion();
     }
 
     public int getIteration() {
@@ -206,6 +216,22 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         return (creationDate!=null) ? (Date) creationDate.clone() : null;
     }
 
+    public void setModificationDate(Date modificationDate) {
+        this.modificationDate = (modificationDate!=null) ? (Date) modificationDate.clone() : null;
+    }
+
+    public Date getModificationDate() {
+        return (modificationDate!=null) ? (Date) modificationDate.clone() : null;
+    }
+
+    public void setCheckInDate(Date checkInDate) {
+        this.checkInDate = (checkInDate!=null) ? (Date) checkInDate.clone() : null;
+    }
+
+    public Date getCheckInDate() {
+        return (checkInDate!=null) ? (Date) checkInDate.clone() : null;
+    }
+
     public Set<DocumentLink> getLinkedDocuments() {
         return linkedDocuments;
     }
@@ -214,12 +240,16 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         linkedDocuments=pLinkedDocuments;
     }
 
-    public Map<String, InstanceAttribute> getInstanceAttributes() {
+    public List<InstanceAttribute> getInstanceAttributes() {
         return instanceAttributes;
     }
 
-    public void setInstanceAttributes(Map<String, InstanceAttribute> pInstanceAttributes) {
+    public void setInstanceAttributes(List<InstanceAttribute> pInstanceAttributes) {
         instanceAttributes=pInstanceAttributes;
+    }
+
+    public String getTitle() {
+        return documentRevision==null ? "" : this.documentRevision.getTitle();
     }
 
     @Override
@@ -232,7 +262,7 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         int hash = 1;
         hash = 31 * hash + getWorkspaceId().hashCode();
         hash = 31 * hash + getId().hashCode();
-        hash = 31 * hash + getDocumentVersion().hashCode();
+        hash = 31 * hash + getVersion().hashCode();
         hash = 31 * hash + iteration;
         return hash;
     }
@@ -248,7 +278,7 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         DocumentIteration docI = (DocumentIteration) pObj;
         return docI.getId().equals(getId()) &&
                 docI.getWorkspaceId().equals(getWorkspaceId()) &&
-                docI.getDocumentVersion().equals(getDocumentVersion()) &&
+                docI.getVersion().equals(getVersion()) &&
                 docI.iteration==iteration;
     }
 
@@ -266,7 +296,7 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         if (docmIdComp != 0) {
             return docmIdComp;
         }
-        int docmVersionComp = getDocumentVersion().compareTo(pDoc.getDocumentVersion());
+        int docmVersionComp = getVersion().compareTo(pDoc.getVersion());
         if (docmVersionComp != 0) {
             return docmVersionComp;
         } else {
@@ -296,15 +326,21 @@ public class DocumentIteration implements Serializable, FileHolder, Comparable<D
         clone.linkedDocuments = clonedLinks;
 
         //perform a deep copy
-        Map<String, InstanceAttribute> clonedInstanceAttributes = new HashMap<>();
-        for (InstanceAttribute attribute : instanceAttributes.values()) {
+        List<InstanceAttribute> clonedInstanceAttributes = new ArrayList<>();
+        for (InstanceAttribute attribute : instanceAttributes) {
             InstanceAttribute clonedAttribute = attribute.clone();
-            clonedInstanceAttributes.put(clonedAttribute.getName(), clonedAttribute);
+            clonedInstanceAttributes.add(clonedAttribute);
         }
         clone.instanceAttributes = clonedInstanceAttributes;
 
         if (creationDate != null) {
             clone.creationDate = (Date) creationDate.clone();
+        }
+        if (modificationDate != null) {
+            clone.modificationDate = (Date) modificationDate.clone();
+        }
+        if (checkInDate != null) {
+            clone.checkInDate = (Date) checkInDate.clone();
         }
         return clone;
     }

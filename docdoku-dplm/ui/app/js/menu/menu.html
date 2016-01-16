@@ -13,7 +13,7 @@
 
 <md-content class="md-padding">
 
-   <h3>
+   <h3 class="subtitle">
     <i class="fa fa-folder-open"></i> 
     {{ 'FOLDERS' | translate }}
        <md-button style="float:right" class="md-raised md-primary file-input" md-theme="default" aria-label="Profile">
@@ -24,16 +24,18 @@
            </md-tooltip>
        </md-button>
     </h3>
-
   <md-content class="menu-list" ng-class="{expanded: foldersExpanded}" droppable on-file-dropped="onFileDropped(path)">
    <md-list>
     <md-item ng-repeat="folder in folders | orderBy:'-favorite'" ng-controller="FolderMenuController">
       <md-item-content>
             <div class="md-tile-content small">
-              <md-button aria-label="" href="#/folder/{{folder.uuid}}" class="md-primary">
-                  <i ng-if="isActive('/folder/'+folder.uuid)" class="fa fa-folder-open"></i>
+                <md-button ng-class="{'md-raised':isSameBaseRoute('/folder/'+folder.uuid)}"  aria-label="" href="#/folder/{{folder.uuid}}" class="md-primary">
+                  <i ng-if="isSameBaseRoute('/folder/'+folder.uuid)" class="fa fa-folder-open"></i>
                   <i ng-if="folder.newStuff" class="fa fa-download" title="{{'NEW_STUFF'|translate}}"></i>
                   {{folder.path | fileshortname}}
+                    <md-tooltip>
+                        {{folder.path}}
+                    </md-tooltip>
               </md-button>
             </div>
       </md-item-content>
@@ -42,7 +44,7 @@
   </md-content>
   <i class="list-toggle fa" ng-class="{'fa-caret-up': foldersExpanded,'fa-caret-down': !foldersExpanded}" ng-click="toggleFolders()"></i>
 
-  <h3>
+  <h3 class="subtitle">
     <i class="fa fa-globe"></i> 
     {{ configuration.host + ':' + configuration.port }}
   </h3>
@@ -55,8 +57,8 @@
         ui-on-drop="onDrop($data,$event)"
         drag-hover-class="dropzone-selected">
             <div class="md-tile-content small">
-              <md-button aria-label="" href="#/workspace/{{workspace}}" class="md-primary">
-                  <i ng-if="isActive('/workspace/'+workspace)" class="fa fa-globe"></i>
+              <md-button ng-class="{'md-raised':isSameBaseRoute('/workspace/'+workspace)}" aria-label="" href="#/workspace/{{workspace}}" class="md-primary">
+                  <i ng-if="isSameBaseRoute('/workspace/'+workspace)" class="fa fa-globe"></i>
                   {{workspace}}
               </md-button>
             </div>         

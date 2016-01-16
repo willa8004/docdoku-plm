@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,7 +23,7 @@ package com.docdoku.core.product;
 import java.io.Serializable;
 
 /**
- * Identity class of <a href="PartMaster.html">PartMaster</a> objects.
+ * Identity class of {@link PartMaster} objects.
  * 
  * @author Florent Garin
  */
@@ -73,7 +73,7 @@ public class PartMasterKey implements Serializable, Comparable<PartMasterKey>, C
             return false;
         }
         PartMasterKey key = (PartMasterKey) pObj;
-        return (key.number.equals(number) && (key.workspace.equals(workspace)));
+        return key.number.equals(number) && key.workspace.equals(workspace);
     }
 
     @Override

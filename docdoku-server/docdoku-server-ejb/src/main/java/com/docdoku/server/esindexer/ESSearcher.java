@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2013 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -17,6 +17,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
  */
+
 package com.docdoku.server.esindexer;
 
 import com.docdoku.core.common.Workspace;
@@ -36,34 +37,33 @@ import com.docdoku.server.dao.WorkspaceDAO;
 import org.elasticsearch.action.search.*;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.NoNodeAvailableException;
-import org.elasticsearch.index.query.BoolQueryBuilder;
-import org.elasticsearch.index.query.QueryBuilder;
-import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.*;
+import org.elasticsearch.indices.IndexMissingException;
 import org.elasticsearch.search.SearchHit;
 
 import javax.ejb.Stateless;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Locale;
-import java.util.ResourceBundle;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
  * Search Method using ElasticSearch API.
+ *
  * @author Taylor LABEJOF
  */
-@Stateless(name="ESSearcher")
+@Stateless(name = "ESSearcher")
 public class ESSearcher {
     private static final String I18N_CONF = "com.docdoku.core.i18n.LocalStrings";
     private static final Logger LOGGER = Logger.getLogger(ESSearcher.class.getName());
-    private static final String ESTYPE_DOCUMENT = "document";
-    private static final String ESTYPE_PART = "part";
+    private static final String ES_TYPE_DOCUMENT = "document";
+    private static final String ES_TYPE_PART = "part";
     private static final String ES_SEARCH_ERROR_1 = "ES_SearchError1";
+    private static final String ES_SEARCH_ERROR_2 = "ES_SearchError2";
     private static final String ES_SERVER_ERROR_1 = "IndexerServerException";
+    private static final String ES_SERVER_ERROR_2 ="MissingIndexException";
 
     @PersistenceContext
     private EntityManager em;
@@ -82,30 +82,35 @@ public class ESSearcher {
      * @return List of document master
      */
     public List<DocumentRevision> search(DocumentSearchQuery docQuery) throws ESServerException {
+        Client client = null;
         try {
-            Client client = ESTools.createClient();
+            client = ESTools.createClient();
             QueryBuilder qr = getQueryBuilder(docQuery);
-            SearchRequestBuilder srb = getSearchRequest(client, ESTools.formatIndexName(docQuery.getWorkspaceId()), ESTYPE_DOCUMENT, qr);
+            SearchRequestBuilder srb = getSearchRequest(client, ESTools.formatIndexName(docQuery.getWorkspaceId()), ES_TYPE_DOCUMENT, qr);
             SearchResponse sr = srb.execute().actionGet();
-
 
             List<DocumentRevision> listOfDocuments = new ArrayList<>();
             for (int i = 0; i < sr.getHits().getHits().length; i++) {
                 SearchHit hit = sr.getHits().getAt(i);
                 DocumentRevision docR = getDocumentRevision(hit);
-                if(docR != null && !listOfDocuments.contains(docR)){
+                if (docR != null && !listOfDocuments.contains(docR)) {
                     listOfDocuments.add(docR);
                 }
             }
 
             //Todo FilterConfigSpec
 
-            client.close();
             return listOfDocuments;
         } catch (NoNodeAvailableException e) {
             String logMessage = ResourceBundle.getBundle(I18N_CONF, Locale.getDefault()).getString(ES_SEARCH_ERROR_1);
             LOGGER.log(Level.WARNING, logMessage, e);
             throw new ESServerException(Locale.getDefault(), ES_SERVER_ERROR_1);
+        } catch (IndexMissingException e) {
+            String logMessage = ResourceBundle.getBundle(I18N_CONF,Locale.getDefault()).getString(ES_SEARCH_ERROR_2);
+            LOGGER.log(Level.WARNING,logMessage,e);
+            throw new ESServerException(Locale.getDefault(),ES_SERVER_ERROR_2);
+        } finally {
+            ESTools.closeClient(client);
         }
     }
 
@@ -116,75 +121,36 @@ public class ESSearcher {
      * @return List of part revision
      */
     public List<PartRevision> search(PartSearchQuery partQuery) throws ESServerException {
+        Client client = null;
         try {
-            Client client = ESTools.createClient();
+            client = ESTools.createClient();
             QueryBuilder qr = getQueryBuilder(partQuery);
-            SearchRequestBuilder srb = getSearchRequest(client, ESTools.formatIndexName(partQuery.getWorkspaceId()), ESTYPE_PART, qr);
+            SearchRequestBuilder srb = getSearchRequest(client, ESTools.formatIndexName(partQuery.getWorkspaceId()), ES_TYPE_PART, qr);
             SearchResponse sr = srb.execute().actionGet();
 
-            List<PartRevision> listOfParts = new ArrayList<>();
+            Set<PartRevision> setOfParts = new HashSet<>();
             for (int i = 0; i < sr.getHits().getHits().length; i++) {
                 SearchHit hit = sr.getHits().getAt(i);
                 PartRevision partRevision = getPartRevision(hit);
-                if (partRevision!=null && !listOfParts.contains(partRevision)) {
-                    listOfParts.add(partRevision);
+                if (partRevision != null) {
+                    setOfParts.add(partRevision);
                 }
             }
 
             //Todo FilterConfigSpec
-
-            client.close();
-            return listOfParts;
+            return new ArrayList<>(setOfParts);
         } catch (NoNodeAvailableException e) {
             String logMessage = ResourceBundle.getBundle(I18N_CONF, Locale.getDefault()).getString(ES_SEARCH_ERROR_1);
             LOGGER.log(Level.WARNING, logMessage, e);
             throw new ESServerException(Locale.getDefault(), ES_SERVER_ERROR_1);
+        } catch (IndexMissingException e) {
+            String logMessage = ResourceBundle.getBundle(I18N_CONF,Locale.getDefault()).getString(ES_SEARCH_ERROR_2);
+            LOGGER.log(Level.WARNING,logMessage,e);
+            throw new ESServerException(Locale.getDefault(),ES_SERVER_ERROR_2);
+        } finally {
+            ESTools.closeClient(client);
         }
 
-    }
-
-    /**
-     * Search a DocdokuPLM item
-     *
-     * @param query The search query
-     * @return List of object matching the search query
-     */
-    public List<Object> search(SearchQuery query) throws ESServerException {
-        try {
-            Client client = ESTools.createClient();
-            QueryBuilder qr = getQueryBuilder(query);
-            MultiSearchRequestBuilder srbm = client.prepareMultiSearch();
-            srbm.add(getSearchRequest(client, ESTools.formatIndexName(query.getWorkspaceId()), ESTYPE_DOCUMENT, qr));
-            srbm.add(getSearchRequest(client, ESTools.formatIndexName(query.getWorkspaceId()), "part", qr));
-            MultiSearchResponse srm = srbm.execute().actionGet();
-
-            List<Object> ret = new ArrayList<>();
-            MultiSearchResponse.Item sri = srm.getResponses()[0];
-            SearchResponse sr = sri.getResponse();
-            for (int i = 0; i < sr.getHits().getHits().length; i++) {
-                SearchHit hit = sr.getHits().getAt(i);
-                DocumentRevision docR = getDocumentRevision(hit);
-                if(docR != null && !ret.contains(docR)){
-                    ret.add(docR);
-                }
-            }
-
-            sri = srm.getResponses()[1];
-            sr = sri.getResponse();
-            for (int i = 0; i < sr.getHits().getHits().length; i++) {
-                SearchHit hit = sr.getHits().getAt(i);
-                PartRevision partRevision = getPartRevision(hit);
-                if (partRevision!=null && !ret.contains(partRevision)) {
-                    ret.add(partRevision);
-                }
-            }
-            client.close();
-            return ret;
-        } catch (NoNodeAvailableException e) {
-            String logMessage = ResourceBundle.getBundle(I18N_CONF, Locale.getDefault()).getString(ES_SEARCH_ERROR_1);
-            LOGGER.log(Level.WARNING, logMessage, e);
-            throw new ESServerException(Locale.getDefault(), ES_SERVER_ERROR_1);
-        }
     }
 
     /**
@@ -194,13 +160,14 @@ public class ESSearcher {
      * @return List of document master
      */
     public List<DocumentRevision> searchInAllWorkspace(DocumentSearchQuery docQuery) throws ESServerException {
+        Client client = null;
         try {
-            Client client = ESTools.createClient();
+           client = ESTools.createClient();
             QueryBuilder qr = getQueryBuilder(docQuery);
             MultiSearchRequestBuilder srbm = client.prepareMultiSearch();
             WorkspaceDAO wDAO = new WorkspaceDAO(em);
             for (Workspace w : wDAO.getAll()) {
-                srbm.add(getSearchRequest(client, ESTools.formatIndexName(w.getId()), ESTYPE_DOCUMENT, qr));
+                srbm.add(getSearchRequest(client, ESTools.formatIndexName(w.getId()), ES_TYPE_DOCUMENT, qr));
             }
             MultiSearchResponse srm = srbm.execute().actionGet();
 
@@ -212,18 +179,19 @@ public class ESSearcher {
                     for (int i = 0; i < sr.getHits().getHits().length; i++) {
                         SearchHit hit = sr.getHits().getAt(i);
                         DocumentRevision docR = getDocumentRevision(hit);
-                        if(docR != null && !listOfDocuments.contains(docR)){
+                        if (docR != null && !listOfDocuments.contains(docR)) {
                             listOfDocuments.add(docR);
                         }
                     }
                 }
             }
-            client.close();
             return listOfDocuments;
         } catch (NoNodeAvailableException e) {
             String logMessage = ResourceBundle.getBundle(I18N_CONF, Locale.getDefault()).getString(ES_SEARCH_ERROR_1);
             LOGGER.log(Level.WARNING, logMessage, e);
             throw new ESServerException(Locale.getDefault(), ES_SERVER_ERROR_1);
+        } finally {
+            ESTools.closeClient(client);
         }
     }
 
@@ -234,13 +202,15 @@ public class ESSearcher {
      * @return List of part revision
      */
     public List<PartRevision> searchInAllWorkspace(PartSearchQuery partQuery) throws ESServerException {
+        Client client = null;
+
         try {
-            Client client = ESTools.createClient();
+            client = ESTools.createClient();
             QueryBuilder qr = getQueryBuilder(partQuery);
             MultiSearchRequestBuilder srbm = client.prepareMultiSearch();
             WorkspaceDAO wDAO = new WorkspaceDAO(em);
             for (Workspace w : wDAO.getAll()) {
-                srbm.add(getSearchRequest(client, ESTools.formatIndexName(w.getId()), "part", qr));
+                srbm.add(getSearchRequest(client, ESTools.formatIndexName(w.getId()), ES_TYPE_PART, qr));
             }
             MultiSearchResponse srm = srbm.execute().actionGet();
 
@@ -252,20 +222,29 @@ public class ESSearcher {
                     for (int i = 0; i < sr.getHits().getHits().length; i++) {
                         SearchHit hit = sr.getHits().getAt(i);
                         PartRevision partRevision = getPartRevision(hit);
-                        if (partRevision!=null && !listOfParts.contains(partRevision)) {
+                        if (partRevision != null && !listOfParts.contains(partRevision)) {
                             listOfParts.add(partRevision);
                         }
                     }
                 }
             }
 
-            client.close();
             return listOfParts;
         } catch (NoNodeAvailableException e) {
             String logMessage = ResourceBundle.getBundle(I18N_CONF, Locale.getDefault()).getString(ES_SEARCH_ERROR_1);
             LOGGER.log(Level.WARNING, logMessage, e);
             throw new ESServerException(Locale.getDefault(), ES_SERVER_ERROR_1);
+        } finally {
+            ESTools.closeClient(client);
         }
+    }
+
+    private QueryBuilder getFullTextQuery(SearchQuery query) {
+        // TODO Cut the query and make a boolQuery() with all the words
+        QueryBuilder fullTextQuery = QueryBuilders.matchQuery("_all",query.getFullText())
+                .operator(MatchQueryBuilder.Operator.OR)
+                .fuzziness("AUTO");
+        return fullTextQuery;
     }
 
     /**
@@ -275,59 +254,72 @@ public class ESSearcher {
      * @return a ElasticSearch.QueryBuilder
      */
     private QueryBuilder getQueryBuilder(DocumentSearchQuery docQuery) {
-        QueryBuilder qr;
+        ESQueryBuilder queryBuilder = new ESQueryBuilder();
+
         if (docQuery.getFullText() != null) {
-            qr = QueryBuilders.disMaxQuery()                                                                            // TODO Cut the query and make a boolQuery() with all the words
-                    .add(QueryBuilders.fuzzyLikeThisQuery()
-                            .likeText(docQuery.getFullText()))
-                    .add(QueryBuilders.queryString("*"+docQuery.getFullText() + "*")
-                            .boost(2.5f))
-                    .tieBreaker(1.2f);
+            QueryBuilder query = getFullTextQuery(docQuery);
+            queryBuilder.add(query);
         } else {
-            qr = QueryBuilders.boolQuery();
             if (docQuery.getDocMId() != null) {
-                ((BoolQueryBuilder) qr).should(
-                        QueryBuilders.fuzzyLikeThisFieldQuery("docMId").likeText(docQuery.getDocMId()));
+                queryBuilder.add(QueryBuilders.fuzzyQuery(ESMapper.DOCUMENT_ID_KEY, docQuery.getDocMId()));
             }
             if (docQuery.getTitle() != null) {
-                ((BoolQueryBuilder) qr).should(
-                        QueryBuilders.fuzzyLikeThisFieldQuery("title").likeText(docQuery.getTitle()));
+               queryBuilder.add(QueryBuilders.fuzzyQuery(ESMapper.TITLE_KEY, docQuery.getTitle()));
             }
-            if (docQuery.getVersion() != null) {
-                ((BoolQueryBuilder) qr).should(
-                        QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.VERSION_KEY).likeText(docQuery.getVersion()));
-            }
-            if (docQuery.getAuthor() != null) {
-                ((BoolQueryBuilder) qr).should(
-                        QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.AUTHOR_KEY).likeText(docQuery.getAuthor()));
-            }
-            if (docQuery.getType() != null) {
-                ((BoolQueryBuilder) qr).should(
-                        QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.TYPE_KEY).likeText(docQuery.getType()));
-            }
-            if (docQuery.getCreationDateFrom() != null && docQuery.getCreationDateTo() != null) {
-                ((BoolQueryBuilder) qr).should(
-                        QueryBuilders.rangeQuery(ESMapper.CREATION_DATE_KEY).from(docQuery.getCreationDateFrom()).to(docQuery.getCreationDateTo()));
-            }
-            if (docQuery.getAttributes() != null) {
-                for (DocumentSearchQuery.AbstractAttributeQuery attr : docQuery.getAttributes()) {
-                    if (attr instanceof DocumentSearchQuery.DateAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.rangeQuery(attr.getNameWithoutWhiteSpace()).from(((DocumentSearchQuery.DateAttributeQuery) attr).getFromDate()).to(((DocumentSearchQuery.DateAttributeQuery) attr).getToDate()));
-                    } else if (attr instanceof DocumentSearchQuery.TextAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText(((DocumentSearchQuery.TextAttributeQuery) attr).getTextValue()));
-                    } else if (attr instanceof DocumentSearchQuery.NumberAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText("" + ((DocumentSearchQuery.NumberAttributeQuery) attr).getNumberValue()));
-                    } else if (attr instanceof DocumentSearchQuery.BooleanAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText("" + ((DocumentSearchQuery.BooleanAttributeQuery) attr).isBooleanValue()));
-                    } else if (attr instanceof DocumentSearchQuery.URLAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText(((DocumentSearchQuery.URLAttributeQuery) attr).getUrlValue()));
-                    }
-                }
-            }
-            if (docQuery.getContent() != null)
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery("files").likeText(docQuery.getContent()));
+            addCommonQuery(queryBuilder,docQuery);
         }
-        return qr;
+        return queryBuilder.getFilteredQuery();
+    }
+
+    /**
+     * Add queries common to both part and doc.
+     *
+     * @param searchQuery The search query wanted
+     * @param queryBuilder The QueryBuilder initialized with the specific (doc/part) values
+     */
+    private void addCommonQuery(ESQueryBuilder queryBuilder, SearchQuery searchQuery) {
+
+        if (searchQuery.getVersion() != null) {
+            queryBuilder.add(FilterBuilders.termFilter(ESMapper.VERSION_KEY, searchQuery.getVersion()));
+        }
+        if (searchQuery.getAuthor() != null) {
+            queryBuilder.add(QueryBuilders.fuzzyQuery(ESMapper.AUTHOR_SEARCH_KEY, searchQuery.getAuthor()));
+        }
+        if (searchQuery.getType() != null) {
+            queryBuilder.add(QueryBuilders.fuzzyQuery(ESMapper.TYPE_KEY, searchQuery.getType()));
+        }
+
+        if (searchQuery.getCreationDateFrom() != null) {
+            queryBuilder.add(FilterBuilders.rangeFilter(ESMapper.CREATION_DATE_KEY).from(searchQuery.getCreationDateFrom()));
+        }
+        if (searchQuery.getCreationDateTo() != null) {
+            queryBuilder.add(FilterBuilders.rangeFilter(ESMapper.CREATION_DATE_KEY).to(searchQuery.getCreationDateTo()));
+        }
+        if (searchQuery.getModificationDateFrom() != null) {
+            queryBuilder.add(FilterBuilders.rangeFilter(ESMapper.MODIFICATION_DATE_KEY).from(searchQuery.getModificationDateFrom()));
+        }
+        if (searchQuery.getModificationDateTo() != null) {
+            queryBuilder.add(FilterBuilders.rangeFilter(ESMapper.MODIFICATION_DATE_KEY).to(searchQuery.getModificationDateTo()));
+        }
+        if (searchQuery.getContent() != null) {
+            queryBuilder.add(QueryBuilders.matchQuery(ESMapper.CONTENT_KEY, searchQuery.getContent()));
+        }
+        if (searchQuery.getAttributes() != null) {
+            for (SearchQuery.AbstractAttributeQuery attr : searchQuery.getAttributes()) {
+                BoolFilterBuilder b = FilterBuilders.boolFilter();
+                b.must(FilterBuilders.termFilter(ESMapper.ATTR_NESTED_PATH+ "." + ESMapper.ATTRIBUTE_NAME, attr.getNameWithoutWhiteSpace()));
+
+                if(attr.hasValue()) {
+                    b.must(FilterBuilders.termFilter(ESMapper.ATTR_NESTED_PATH + "." + ESMapper.ATTRIBUTE_VALUE, attr.toString()));
+                }
+
+                NestedFilterBuilder nested = FilterBuilders.nestedFilter(ESMapper.ATTR_NESTED_PATH, b);
+                queryBuilder.add(nested);
+            }
+        }
+        if (searchQuery.getTags() != null) {
+            queryBuilder.add(FilterBuilders.inFilter(ESMapper.TAGS_KEY, searchQuery.getTags()));
+        }
     }
 
     /**
@@ -337,101 +329,24 @@ public class ESSearcher {
      * @return a ElasticSearch.QueryBuilder
      */
     private QueryBuilder getQueryBuilder(PartSearchQuery partQuery) {
-        QueryBuilder qr;
-        if (partQuery.getFullText() != null) {                                                                          // TODO Cut the query and make a boolQuery() with all the words
-            qr = QueryBuilders.disMaxQuery()
-                    .add(QueryBuilders.fuzzyLikeThisQuery()
-                            .likeText(partQuery.getFullText()))
-                    .add(QueryBuilders.queryString("*"+partQuery.getFullText() + "*")
-                            .boost(2.5f))
-                    .tieBreaker(1.2f);
+        ESQueryBuilder queryBuilder = new ESQueryBuilder();
+        if (partQuery.getFullText() != null) {
+            QueryBuilder query = getFullTextQuery(partQuery);
+            queryBuilder.add(query);
         } else {
-            qr = QueryBuilders.boolQuery();
             if (partQuery.getPartNumber() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery("partNumber").likeText(partQuery.getPartNumber()));
+                queryBuilder.add(QueryBuilders.fuzzyQuery(ESMapper.PART_NUMBER_KEY, partQuery.getPartNumber()));
             }
             if (partQuery.getName() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery("name").likeText(partQuery.getName()));
-            }
-            if (partQuery.getVersion() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.VERSION_KEY).likeText(partQuery.getVersion()));
-            }
-            if (partQuery.getAuthor() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.AUTHOR_KEY).likeText(partQuery.getAuthor()));
-            }
-            if (partQuery.getType() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.TYPE_KEY).likeText(partQuery.getType()));
+                queryBuilder.add(QueryBuilders.fuzzyQuery(ESMapper.PART_NAME_KEY, partQuery.getName()));
             }
             if (partQuery.isStandardPart() != null) {
-                if (partQuery.isStandardPart()) {
-                    ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery("standardPart").likeText("TRUE"));
-                } else {
-                    ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery("standardPart").likeText("FALSE"));
-                }
+                queryBuilder.add(FilterBuilders.termFilter(ESMapper.STANDARD_PART_KEY, partQuery.isStandardPart()));
             }
-            if (partQuery.getCreationDateFrom() != null && partQuery.getCreationDateTo() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.rangeQuery(ESMapper.CREATION_DATE_KEY).from(partQuery.getCreationDateFrom()).to(partQuery.getCreationDateTo()));
-            }
-            if (partQuery.getAttributes() != null) {
-                for (PartSearchQuery.AbstractAttributeQuery attr : partQuery.getAttributes()) {
-                    if (attr instanceof PartSearchQuery.DateAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.rangeQuery(attr.getNameWithoutWhiteSpace()).from(((PartSearchQuery.DateAttributeQuery) attr).getFromDate()).to(((PartSearchQuery.DateAttributeQuery) attr).getToDate()));
-                    } else if (attr instanceof PartSearchQuery.TextAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText(((PartSearchQuery.TextAttributeQuery) attr).getTextValue()));
-                    } else if (attr instanceof PartSearchQuery.NumberAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText("" + ((PartSearchQuery.NumberAttributeQuery) attr).getNumberValue()));
-                    } else if (attr instanceof PartSearchQuery.BooleanAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText("" + ((PartSearchQuery.BooleanAttributeQuery) attr).isBooleanValue()));
-                    } else if (attr instanceof PartSearchQuery.URLAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText(((PartSearchQuery.URLAttributeQuery) attr).getUrlValue()));
-                    }
-                }
-            }
+            addCommonQuery(queryBuilder,partQuery);
         }
-        return qr;
-    }
 
-    /**
-     * Return a ElasticSearch Query for a document or a part research
-     *
-     * @param query SearchQuery wanted
-     * @return a ElasticSearch.QueryBuilder
-     */
-    private QueryBuilder getQueryBuilder(SearchQuery query) {
-        QueryBuilder qr;
-        if (query.getFullText() != null) {
-            qr = QueryBuilders.fuzzyLikeThisQuery().likeText(query.getFullText());
-        } else {
-            qr = QueryBuilders.boolQuery();
-            if (query.getVersion() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.VERSION_KEY).likeText(query.getVersion()));
-            }
-            if (query.getAuthor() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.AUTHOR_KEY).likeText(query.getAuthor()));
-            }
-            if (query.getType() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(ESMapper.TYPE_KEY).likeText(query.getType()));
-            }
-            if (query.getCreationDateFrom() != null && query.getCreationDateTo() != null) {
-                ((BoolQueryBuilder) qr).should(QueryBuilders.rangeQuery(ESMapper.CREATION_DATE_KEY).from(query.getCreationDateFrom()).to(query.getCreationDateTo()));
-            }
-            if (query.getAttributes() != null) {
-                for (PartSearchQuery.AbstractAttributeQuery attr : query.getAttributes()) {
-                    if (attr instanceof PartSearchQuery.DateAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.rangeQuery(attr.getNameWithoutWhiteSpace()).from(((PartSearchQuery.DateAttributeQuery) attr).getFromDate()).to(((PartSearchQuery.DateAttributeQuery) attr).getToDate()));
-                    } else if (attr instanceof PartSearchQuery.TextAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText(((PartSearchQuery.TextAttributeQuery) attr).getTextValue()));
-                    } else if (attr instanceof PartSearchQuery.NumberAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText("" + ((PartSearchQuery.NumberAttributeQuery) attr).getNumberValue()));
-                    } else if (attr instanceof PartSearchQuery.BooleanAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText("" + ((PartSearchQuery.BooleanAttributeQuery) attr).isBooleanValue()));
-                    } else if (attr instanceof PartSearchQuery.URLAttributeQuery) {
-                        ((BoolQueryBuilder) qr).should(QueryBuilders.fuzzyLikeThisFieldQuery(attr.getNameWithoutWhiteSpace()).likeText(((PartSearchQuery.URLAttributeQuery) attr).getUrlValue()));
-                    }
-                }
-            }
-        }
-        return qr;
+        return queryBuilder.getFilteredQuery();
     }
 
     /**
@@ -442,7 +357,7 @@ public class ESSearcher {
      * @param pQuery      Search criterion
      * @return the uniWorkspace Search Request
      */
-    private SearchRequestBuilder getSearchRequest(Client client, String workspaceId, String type, QueryBuilder pQuery){
+    private SearchRequestBuilder getSearchRequest(Client client, String workspaceId, String type, QueryBuilder pQuery) {
         return client.prepareSearch(workspaceId)
                 .setTypes(type)
                 .setSearchType(SearchType.QUERY_THEN_FETCH)
@@ -451,6 +366,7 @@ public class ESSearcher {
 
     /**
      * Get a document matching a search hit
+     *
      * @param hit The search hit provide by ElasticSearch
      */
     private DocumentRevision getDocumentRevision(SearchHit hit) {
@@ -459,7 +375,7 @@ public class ESSearcher {
             return new DocumentRevisionDAO(em).loadDocR(docRevisionKey);
         } catch (DocumentRevisionNotFoundException e) {
             String logMessage = ResourceBundle.getBundle(I18N_CONF, Locale.getDefault()).getString("DocumentRevisionNotFoundException");
-            logMessage = MessageFormat.format(logMessage, docRevisionKey.getDocumentMasterId(), docRevisionKey.getVersion());
+            logMessage = MessageFormat.format(logMessage, docRevisionKey.getDocumentMaster().getWorkspace(), docRevisionKey.getVersion());
             LOGGER.log(Level.INFO, logMessage, e);
             return null;
         }
@@ -467,6 +383,7 @@ public class ESSearcher {
 
     /**
      * Get a document matching a search hit
+     *
      * @param hit The search hit provide by ElasticSearch
      */
     private PartRevision getPartRevision(SearchHit hit) {

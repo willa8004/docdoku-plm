@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -28,12 +28,12 @@ import javax.persistence.*;
 import java.util.Date;
 
 /**
- * Represents an identified order.
- * The order may result in one or more <a href="ChangeRequest.html">ChangeRequest</a>.
+ * Represents an identified issue.
+ * The issue may result in one or more {@link ChangeRequest}.
  *
  * @author Florent Garin
  * @version 2.0, 06/01/14
- * @since   V2.0
+ * @since V2.0
  */
 @Table(name="CHANGEISSUE")
 @Entity

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -62,10 +62,12 @@ public class ComponentDTKSaxHandler extends DefaultHandler {
 
     @Override
     public void startDocument() throws SAXException {
+        // Nothing to do
     }
 
     @Override
     public void endDocument() throws SAXException {
+        // Nothing to do
     }
 
     @Override

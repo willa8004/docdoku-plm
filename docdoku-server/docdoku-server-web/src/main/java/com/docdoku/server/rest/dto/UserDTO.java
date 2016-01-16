@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,30 +20,31 @@
 
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 
 /**
- *
  * @author Florent Garin
  */
-public class UserDTO implements Serializable{
+@XmlRootElement
+public class UserDTO implements Serializable {
 
     private String workspaceId;
     private String login;
     private String name;
     private String email;
     private String language;
-    
+
     private WorkspaceMembership membership;
 
-    public UserDTO(){
+    public UserDTO() {
 
     }
 
     public UserDTO(String workspaceId, String login, String name) {
-        this.workspaceId=workspaceId;
-        this.login=login;
-        this.name=name;
+        this.workspaceId = workspaceId;
+        this.login = login;
+        this.name = name;
     }
 
     public String getName() {
@@ -79,7 +80,6 @@ public class UserDTO implements Serializable{
     }
 
 
-
     public void setWorkspaceId(String workspaceId) {
         this.workspaceId = workspaceId;
     }
@@ -88,12 +88,12 @@ public class UserDTO implements Serializable{
         this.login = login;
     }
 
-	public void setEmail(String email) {
-		this.email = email;
-	}
+    public void setEmail(String email) {
+        this.email = email;
+    }
 
-	public String getEmail() {
-		return email;
-	}
+    public String getEmail() {
+        return email;
+    }
 
 }

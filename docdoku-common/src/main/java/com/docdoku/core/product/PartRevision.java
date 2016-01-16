@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,6 +21,7 @@ package com.docdoku.core.product;
 
 import com.docdoku.core.common.User;
 import com.docdoku.core.common.Version;
+import com.docdoku.core.meta.Tag;
 import com.docdoku.core.security.ACL;
 import com.docdoku.core.workflow.Workflow;
 
@@ -30,8 +31,7 @@ import java.io.Serializable;
 import java.util.*;
 
 /**
- * This class stands between <a href="PartMaster.html">PartMaster</a>
- * and <a href="PartIteration.html">PartIteration</a>.
+ * This class stands between {@link PartMaster} and {@link PartIteration}.
  * Its main purpose is to hold effectivities. It represents a formal revision of a part.
  *
  * @author Florent Garin
@@ -46,9 +46,9 @@ import java.util.*;
         @NamedQuery(name="PartRevision.findByWorkspace.filterUserACLEntry", query="SELECT pr FROM PartRevision pr WHERE pr.partMaster.workspace.id = :workspaceId and (pr.acl is null or exists(SELECT au from ACLUserEntry au WHERE au.principal = :user AND au.permission not like com.docdoku.core.security.ACL.Permission.FORBIDDEN AND au.acl = pr.acl)) ORDER BY pr.partMaster.number ASC"),
         @NamedQuery(name="PartRevision.countByWorkspace.filterUserACLEntry", query="SELECT count(pr) FROM PartRevision pr WHERE pr.partMaster.workspace.id = :workspaceId and (pr.acl is null or exists(SELECT au from ACLUserEntry au WHERE au.principal = :user AND au.permission not like com.docdoku.core.security.ACL.Permission.FORBIDDEN AND au.acl = pr.acl))"),
         @NamedQuery(name="PartRevision.countByWorkspace", query="SELECT count(pr) FROM PartRevision pr WHERE pr.partMasterWorkspaceId = :workspaceId"),
-        @NamedQuery(name="PartRevision.findByReference", query="SELECT pr FROM PartRevision pr WHERE pr.partMaster.number LIKE :partNumber AND pr.partMaster.workspace.id = :workspaceId")
+        @NamedQuery(name="PartRevision.findByReferenceOrName", query="SELECT pr FROM PartRevision pr WHERE (pr.partMaster.number LIKE :partNumber OR pr.partMaster.name LIKE :partName) AND pr.partMaster.workspace.id = :workspaceId")
 })
-public class PartRevision implements Serializable, Comparable<PartRevision>, Cloneable {
+public class PartRevision implements Serializable, Comparable<PartRevision> {
 
 
     @Id
@@ -72,7 +72,6 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
        
     @Temporal(TemporalType.TIMESTAMP)
     private java.util.Date creationDate;
-
 
     @Lob
     private String description;
@@ -129,12 +128,59 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
     @OneToOne(orphanRemoval = true, cascade=CascadeType.ALL, fetch=FetchType.EAGER)
     private ACL acl;
 
+    @ManyToMany(fetch=FetchType.EAGER)
+    @JoinTable(name="PARTREVISION_TAG",
+            inverseJoinColumns={
+                    @JoinColumn(name="TAG_LABEL", referencedColumnName="LABEL"),
+                    @JoinColumn(name="TAG_WORKSPACE_ID", referencedColumnName="WORKSPACE_ID")
+            },
+            joinColumns={
+                    @JoinColumn(name="PARTMASTER_PARTNUMBER", referencedColumnName="PARTMASTER_PARTNUMBER"),
+                    @JoinColumn(name="PARTREVISION_VERSION", referencedColumnName="VERSION"),
+                    @JoinColumn(name="PARTMASTER_WORKSPACE_ID", referencedColumnName="WORKSPACE_ID")
+            })
+    private Set<Tag> tags=new HashSet<>();
+
     private boolean publicShared;
 
     private RevisionStatus status=RevisionStatus.WIP;
 
+
+
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(
+                    name="statusModificationDate",
+                    column=@Column(name="RELEASE_DATE"))
+    })
+    @AssociationOverrides({
+            @AssociationOverride(
+                    name="statusChangeAuthor",
+                    joinColumns={
+                            @JoinColumn(name="RELEASE_USER_LOGIN", referencedColumnName = "LOGIN"),
+                            @JoinColumn(name="RELEASE_USER_WORKSPACE", referencedColumnName = "WORKSPACE_ID")
+                    })
+    })
+    private StatusChange releaseStatusChange;
+
+    @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(
+                    name="statusModificationDate",
+                    column=@Column(name="OBSOLETE_DATE"))
+    })
+    @AssociationOverrides({
+            @AssociationOverride(
+                    name="statusChangeAuthor",
+                    joinColumns={
+                            @JoinColumn(name="OBSOLETE_USER_LOGIN", referencedColumnName = "LOGIN"),
+                            @JoinColumn(name="OBSOLETE_USER_WORKSPACE", referencedColumnName = "WORKSPACE_ID")
+                    })
+    })
+    private StatusChange obsoleteStatusChange;
+
     public enum RevisionStatus {
-        WIP, RELEASED
+        WIP, RELEASED, OBSOLETE
     }
 
     public PartRevision(){
@@ -180,7 +226,7 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
     public PartRevisionKey getKey() {
         return new PartRevisionKey(getPartMasterKey(),version);
     }
-    
+
     public boolean isCheckedOut() {
         return checkOutUser != null;
     }
@@ -220,6 +266,10 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
         this.version = version;
     }
 
+    public String getType() {
+        return partMaster.getType();
+    }
+
     public Workflow getWorkflow() {
         return workflow;
     }
@@ -246,6 +296,25 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
         this.acl = acl;
     }
 
+    public Set<Tag> getTags() {
+        return tags;
+    }
+
+    public void setTags(Set<Tag> pTags) {
+       if (pTags != null){
+           tags.retainAll(pTags);
+           pTags.removeAll(tags);
+           tags.addAll(pTags);
+       }
+
+    }
+
+    public boolean addTag(Tag pTag) {
+        return tags.add(pTag);
+    }
+    public boolean removeTag(Tag pTag){
+        return tags.remove(pTag);
+    }
     public List<Workflow> getAbortedWorkflows() {
         return abortedWorkflows;
     }
@@ -254,9 +323,7 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
     }
     
     public PartIteration createNextIteration(User pUser){
-        PartIteration lastPart=getLastIteration();
-        int iteration = lastPart==null?1:lastPart.getIteration() + 1;
-        PartIteration part = new PartIteration(this,iteration,pUser);
+        PartIteration part = new PartIteration(this, pUser);
         partIterations.add(part);
         return part;
     }
@@ -279,19 +346,13 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
 
     public PartIteration getLastCheckedInIteration() {
         int index;
-        if(this.isCheckedOut()){
+        if(isCheckedOut()){
             index = partIterations.size()-2;
         }else{
             index = partIterations.size()-1;
         }
         if(index < 0) {
-            List<PartRevision> partRevisions = this.getPartMaster().getPartRevisions();
-            int position = partRevisions.indexOf(this);
-            if (position > 0 ) {
-                return partRevisions.get(position - 1).getLastCheckedInIteration();
-            }else{
-                return null;
-            }
+           return null;
         }else {
             return partIterations.get(index);
         }
@@ -341,6 +402,11 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
         return partMaster==null?"":partMaster.getNumber();
     }
 
+    public String getPartName() {
+        return partMaster==null?"":partMaster.getName();
+    }
+
+
     public String getPartMasterNumber() {
         return partMasterNumber;
     }
@@ -381,8 +447,72 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
     public boolean isReleased(){
         return status==RevisionStatus.RELEASED;
     }
-    public void release(){
-        this.status=RevisionStatus.RELEASED;
+    public boolean isObsolete(){
+        return status==RevisionStatus.OBSOLETE;
+    }
+    public boolean release(User user){
+        if(this.status==RevisionStatus.WIP){
+            this.status=RevisionStatus.RELEASED;
+            StatusChange statusChange = new StatusChange();
+            statusChange.setStatusChangeAuthor(user);
+            statusChange.setStatusModificationDate(new Date());
+            this.setReleaseStatusChange(statusChange);
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+    public boolean markAsObsolete(User user){
+        if(this.status==RevisionStatus.RELEASED){
+            this.status=RevisionStatus.OBSOLETE;
+            StatusChange statusChange = new StatusChange();
+            statusChange.setStatusChangeAuthor(user);
+            statusChange.setStatusModificationDate(new Date());
+            this.setObsoleteStatusChange(statusChange);
+            return true;
+        }else{
+            return false;
+        }
+
+    }
+
+    public boolean isAttributesLocked(){
+        if (this.partMaster != null){
+            return this.partMaster.isAttributesLocked();
+        }
+        return false;
+    }
+
+    public StatusChange getObsoleteStatusChange() {
+        return obsoleteStatusChange;
+    }
+
+    public void setObsoleteStatusChange(StatusChange statusChange) {
+        this.obsoleteStatusChange = statusChange;
+    }
+
+    public StatusChange getReleaseStatusChange() {
+        return releaseStatusChange;
+    }
+
+    public void setReleaseStatusChange(StatusChange statusChange) {
+        this.releaseStatusChange = statusChange;
+    }
+
+    public User getObsoleteAuthor() {
+        return obsoleteStatusChange == null ? null : obsoleteStatusChange.getStatusChangeAuthor();
+    }
+
+    public Date getObsoleteDate() {
+        return obsoleteStatusChange == null ? null : obsoleteStatusChange.getStatusModificationDate();
+    }
+    public User getReleaseAuthor() {
+        return releaseStatusChange == null ? null : releaseStatusChange.getStatusChangeAuthor();
+    }
+
+    public Date getReleaseDate() {
+        return releaseStatusChange == null ? null : releaseStatusChange.getStatusModificationDate();
     }
 
     @Override
@@ -424,5 +554,17 @@ public class PartRevision implements Serializable, Comparable<PartRevision>, Clo
         } else {
             return version.compareTo(pPartR.version);
         }
+    }
+
+    public PartIteration getLastAccessibleIteration(User user) {
+        if(isCheckoutByAnotherUser(user)) {
+            return partIterations.size() <= 1 ? null : partIterations.get(partIterations.size() -2);
+        } else {
+            return getLastIteration();
+        }
+    }
+
+    private boolean isCheckoutByAnotherUser(User user) {
+        return isCheckedOut() && !getCheckOutUser().equals(user);
     }
 }

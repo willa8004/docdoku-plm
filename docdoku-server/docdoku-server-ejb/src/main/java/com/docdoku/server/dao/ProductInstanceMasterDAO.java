@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,6 +27,7 @@ import com.docdoku.core.configuration.ProductInstanceMasterKey;
 import com.docdoku.core.exceptions.CreationException;
 import com.docdoku.core.exceptions.ProductInstanceAlreadyExistsException;
 import com.docdoku.core.exceptions.ProductInstanceMasterNotFoundException;
+import com.docdoku.core.product.PartRevision;
 
 import javax.persistence.EntityExistsException;
 import javax.persistence.EntityManager;
@@ -54,10 +55,16 @@ public class ProductInstanceMasterDAO {
                 .getResultList();
     }
 
-    public List<ProductInstanceMaster> findProductInstanceMasters(String ciId, String workspaceId){
+    public List<ProductInstanceMaster> findProductInstanceMasters(String ciId, String workspaceId) {
         return em.createNamedQuery("ProductInstanceMaster.findByConfigurationItemId", ProductInstanceMaster.class)
                 .setParameter("ciId", ciId)
                 .setParameter("workspaceId",workspaceId)
+                .getResultList();
+    }
+
+    public List<ProductInstanceMaster> findProductInstanceMasters(PartRevision partRevision) {
+        return em.createNamedQuery("ProductInstanceMaster.findByPart", ProductInstanceMaster.class)
+                .setParameter("partRevision", partRevision)
                 .getResultList();
     }
 
@@ -87,10 +94,12 @@ public class ProductInstanceMasterDAO {
             for(BaselinedPart baselinedPart : productInstanceIteration.getBaselinedParts().values()){
                 em.remove(baselinedPart);
             }
+            
             em.refresh(productInstanceIteration.getPartCollection());
             em.remove(productInstanceIteration.getPartCollection());
             em.remove(productInstanceIteration);
         }
+
         em.remove(productInstanceMaster);
         em.flush();
     }

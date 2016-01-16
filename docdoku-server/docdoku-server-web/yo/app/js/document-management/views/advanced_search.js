@@ -6,10 +6,10 @@ define([
     'common-objects/collections/users',
     'common-objects/views/attributes/attribute_list',
     'collections/template',
-    'common-objects/utils/date'
-],
-function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templates, date) {
-	'use strict';
+    'common-objects/utils/date',
+    'common-objects/collections/lovs'
+], function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templates, date,LOVCollection) {
+    'use strict';
     var AdvancedSearchView = Backbone.View.extend({
 
         events: {
@@ -18,6 +18,8 @@ function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templat
             'click #search-add-attributes': 'addAttribute',
             'change #template-attributes-helper': 'changeAttributes'
         },
+
+        lovs : new LOVCollection(),
 
         initialize: function () {
             _.bindAll(this);
@@ -36,11 +38,16 @@ function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templat
 
             this.attributes = new Backbone.Collection();
 
-            this.attributesView = new DocumentAttributeListView({
-                collection: this.attributes
-            });
+            var that = this;
+            this.lovs.fetch().success(function(){
+                that.attributesView = new DocumentAttributeListView({
+                    collection: that.attributes,
+                    lovs : that.lovs,
+                    displayOnly: true
+                });
 
-            this.$('#attributes-list').html(this.attributesView.$el);
+                that.$('#attributes-list').html(that.attributesView.$el);
+            });
 
         },
 
@@ -98,7 +105,7 @@ function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templat
         onSubmitForm: function () {
             var queryString = this.constructQueryString();
             if (queryString) {
-                App.router.navigate(App.config.workspaceId + '/search/' + queryString, {trigger: true});
+                App.router.navigate(App.config.workspaceId + '/search/' + encodeURIComponent(queryString), {trigger: true});
                 this.closeModal();
             }
             return false;
@@ -113,8 +120,10 @@ function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templat
             this.$author = this.$('#search-author');
             this.$tags = this.$('#search-tags');
             this.$content = this.$('#search-content');
-            this.$from = this.$('#search-from');
-            this.$to = this.$('#search-to');
+            this.$createdFrom = this.$('#search-creation-from');
+            this.$createdTo = this.$('#search-creation-to');
+            this.$modifiedFrom = this.$('#search-modification-from');
+            this.$modifiedTo = this.$('#search-modification-to');
             this.$templatesId = this.$('#template-attributes-helper');
         },
 
@@ -138,13 +147,15 @@ function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templat
             var author = this.$author.val();
             var tags = this.$tags.val().replace(/ /g, '');
             var content = this.$content.val();
-            var from = this.$from.val();
-            var to = this.$to.val();
+            var createdFrom = this.$createdFrom.val();
+            var createdTo = this.$createdTo.val();
+            var modifiedFrom = this.$modifiedFrom.val();
+            var modifiedTo = this.$modifiedTo.val();
 
             var queryString = '';
 
             if (id) {
-                queryString += 'id=' + id;
+                queryString += '&id=' + id;
             }
             if (title) {
                 queryString += '&title=' + title;
@@ -164,11 +175,17 @@ function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templat
             if (content) {
                 queryString += '&content=' + content;
             }
-            if (from) {
-                queryString += '&from=' + date.toUTCWithTimeZoneOffset(from);
+            if (createdFrom) {
+                queryString += '&createdFrom=' + date.toUTCWithTimeZoneOffset(createdFrom);
             }
-            if (to) {
-                queryString += '&to=' + date.toUTCWithTimeZoneOffset(to);
+            if (createdTo) {
+                queryString += '&createdTo=' + date.toUTCWithTimeZoneOffset(createdTo);
+            }
+            if (modifiedFrom) {
+                queryString += '&modifiedFrom=' + date.toUTCWithTimeZoneOffset(modifiedFrom);
+            }
+            if (modifiedTo) {
+                queryString += '&modifiedTo=' + date.toUTCWithTimeZoneOffset(modifiedTo);
             }
 
             if (this.attributes.length) {
@@ -177,7 +194,8 @@ function (Backbone,Mustache, template, Users, DocumentAttributeListView, Templat
                     var type = attribute.get('type');
                     var name = attribute.get('name');
                     var value = attribute.get('value');
-                    value = type === 'BOOLEAN' ? (value ? '1' : '0') : value;
+                    value = type === 'BOOLEAN' ? (value ? 'true' : 'false') : value;
+                    value = type === 'LOV' ? attribute.get('items')[value].name : value;
                     queryString += type + ':' + name + ':' + value + ';';
                 });
                 // remove last '+'

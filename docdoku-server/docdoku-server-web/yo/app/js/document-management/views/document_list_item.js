@@ -3,7 +3,7 @@ define([
     'backbone',
     'common-objects/utils/date',
     'common-objects/views/documents/checkbox_list_item',
-    'views/iteration/document_iteration',
+    'common-objects/views/document/document_iteration',
     'text!templates/document_list_item.html',
     'common-objects/views/share/share_entity'
 ], function (Backbone, date, CheckboxListItemView, IterationView, template, ShareView) {
@@ -25,27 +25,24 @@ define([
             this.events['click .state-subscription'] = this.toggleStateSubscription;
             this.events['click .iteration-subscription'] = this.toggleIterationSubscription;
             this.events['click .document-master-share i'] = this.shareDocument;
+            this.events['click .document-attached-files i'] = this.openDocumentModal;
             this.events['dragstart a.dochandle'] = this.dragStart;
             this.events['dragend a.dochandle'] = this.dragEnd;
             this.events['dragstart td.doc-ref'] = this.dragStart;
             this.events['dragend td.doc-ref'] = this.dragEnd;
+
         },
 
         modelToJSON: function () {
 
             var data = this.model.toJSON();
+            data.reference = this.model.getReference();
+
             if (this.model.hasIterations()) {
                 data.lastIteration = this.model.getLastIteration().toJSON();
-                data.lastIteration.creationDate = date.formatTimestamp(
+                data.lastIteration.modificationDate = date.formatTimestamp(
                     App.config.i18n._DATE_FORMAT,
-                    data.lastIteration.creationDate
-                );
-            }
-
-            if (this.model.isCheckout()) {
-                data.checkOutDate = date.formatTimestamp(
-                    App.config.i18n._DATE_FORMAT,
-                    data.checkOutDate
+                    data.lastIteration.modificationDate
                 );
             }
 
@@ -56,6 +53,9 @@ define([
 
             data.isCheckoutByConnectedUser = this.model.isCheckoutByConnectedUser();
             data.isCheckout = this.model.isCheckout();
+            if (this.model.getLastIteration()){
+                data.hasAttachedFiles = this.model.getLastIteration().getAttachedFiles().length;
+            }
 
             return data;
         },
@@ -83,6 +83,8 @@ define([
 
             date.dateHelper(this.$('.date-popover'));
 
+            this.$el.attr('title',this.model.getReference());
+
         },
 
         dragStart: function (e) {
@@ -100,6 +102,9 @@ define([
                 that.$el.removeClass('moving');
             });
             var data = JSON.stringify(this.model);
+            var img = document.createElement('img');
+            img.src = App.config.contextPath + '/images/icon-action-document-move.png';
+            e.dataTransfer.setDragImage(img, 0, 0);
             e.dataTransfer.setData('document:text/plain', data);
             e.dataTransfer.dropEffect = 'none';
             e.dataTransfer.effectAllowed = 'copyMove';
@@ -110,8 +115,8 @@ define([
             if (e.dataTransfer.dropEffect === 'none') {
                 Backbone.Events.off('document-moved');
                 Backbone.Events.off('document-error-moved');
-                this.$el.removeClass('moving');
             }
+            this.$el.removeClass('moving');
         },
 
         actionEdit: function () {
@@ -123,6 +128,18 @@ define([
             });
         },
 
+        openDocumentModal: function(){
+            var that = this;
+            this.model.fetch().success(function () {
+                var view = new IterationView({
+                    model: that.model
+                });
+                view.show();
+                view.activateFileTab();
+
+            });
+
+        },
         toggleStateSubscription: function () {
             this.model.toggleStateSubscribe(this.model.isStateChangedSubscribed());
         },

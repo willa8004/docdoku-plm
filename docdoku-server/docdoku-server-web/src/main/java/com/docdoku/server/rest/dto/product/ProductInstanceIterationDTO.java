@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,22 +20,38 @@
 
 package com.docdoku.server.rest.dto.product;
 
+import com.docdoku.server.rest.dto.*;
 import com.docdoku.server.rest.dto.baseline.BaselinedPartDTO;
+import com.docdoku.server.rest.dto.baseline.ProductBaselineDTO;
 
 import javax.xml.bind.annotation.XmlRootElement;
-import java.util.Date;
-import java.util.List;
+import java.io.Serializable;
+import java.util.*;
 
 @XmlRootElement
-public class ProductInstanceIterationDTO {
+public class ProductInstanceIterationDTO implements Serializable {
     private String serialNumber;
     private int iteration;
     private String iterationNote;
     private String configurationItemId;
     private String updateAuthor;
     private String updateAuthorName;
-    private Date updateDate;
-    private List<BaselinedPartDTO> baselinedPartsList;
+    private Date modificationDate;
+    private List<BaselinedPartDTO> baselinedParts;
+    private List<String> substituteLinks;
+    private List<String> optionalUsageLinks;
+    private UserDTO author;
+    private Date creationDate;
+    private List<LightPartLinkListDTO> substitutesParts;
+    private List<LightPartLinkListDTO> optionalsParts;
+    private List<PathToPathLinkDTO> pathToPathLinks;
+
+    private ProductBaselineDTO basedOn;
+    private List<PathDataMasterDTO> pathDataMasterList;
+    private List<LightPartLinkListDTO> pathDataPaths;
+    private List<InstanceAttributeDTO> instanceAttributes = new ArrayList<>();
+    private Set<DocumentRevisionDTO> linkedDocuments = new HashSet<>();
+    private List<String> attachedFiles;
 
     public ProductInstanceIterationDTO() {
     }
@@ -82,17 +98,121 @@ public class ProductInstanceIterationDTO {
         this.updateAuthorName = updateAuthorName;
     }
 
-    public Date getUpdateDate() {
-        return updateDate;
+    public Date getModificationDate() {
+        return modificationDate;
     }
-    public void setUpdateDate(Date updateDate) {
-        this.updateDate = updateDate;
+    public void setModificationDate(Date modificationDate) {
+        this.modificationDate = modificationDate;
     }
 
-    public List<BaselinedPartDTO> getBaselinedPartsList() {
-        return baselinedPartsList;
+    public List<BaselinedPartDTO> getBaselinedParts() {
+        return baselinedParts;
     }
-    public void setBaselinedPartsList(List<BaselinedPartDTO> baselinedPartsList) {
-        this.baselinedPartsList = baselinedPartsList;
+
+    public void setBaselinedParts(List<BaselinedPartDTO> baselinedParts) {
+        this.baselinedParts = baselinedParts;
+    }
+
+    public List<String> getOptionalUsageLinks() {
+        return optionalUsageLinks;
+    }
+
+    public void setOptionalUsageLinks(List<String> optionalUsageLinks) {
+        this.optionalUsageLinks = optionalUsageLinks;
+    }
+
+    public List<InstanceAttributeDTO> getInstanceAttributes() {
+        return instanceAttributes;
+    }
+
+    public void setInstanceAttributes(List<InstanceAttributeDTO> instanceAttributes) {
+        this.instanceAttributes = instanceAttributes;
+    }
+
+    public Set<DocumentRevisionDTO> getLinkedDocuments() {
+        return linkedDocuments;
+    }
+
+    public void setLinkedDocuments(Set<DocumentRevisionDTO> linkedDocuments) {
+        this.linkedDocuments = linkedDocuments;
+    }
+
+    public List<String> getAttachedFiles() {
+        return attachedFiles;
+    }
+
+    public void setAttachedFiles(List<String> attachedFiles) {
+        this.attachedFiles = attachedFiles;
+    }
+
+    public ProductBaselineDTO getBasedOn() {
+        return basedOn;
+    }
+
+    public void setBasedOn(ProductBaselineDTO basedOn) {
+        this.basedOn = basedOn;
+    }
+
+    public List<PathDataMasterDTO> getPathDataMasterList() {
+        return pathDataMasterList;
+    }
+
+    public void setPathDataMasterList(List<PathDataMasterDTO> pathDataMasterList) {
+        this.pathDataMasterList = pathDataMasterList;
+    }
+
+    public List<String> getSubstituteLinks() {
+        return substituteLinks;
+    }
+
+    public void setSubstituteLinks(List<String> substituteLinks) {
+        this.substituteLinks = substituteLinks;
+    }
+
+    public List<LightPartLinkListDTO> getSubstitutesParts() {
+        return substitutesParts;
+    }
+
+    public void setSubstitutesParts(List<LightPartLinkListDTO> substitutesParts) {
+        this.substitutesParts = substitutesParts;
+    }
+
+    public List<LightPartLinkListDTO> getOptionalsParts() {
+        return optionalsParts;
+    }
+
+    public void setOptionalsParts(List<LightPartLinkListDTO> optionalsParts) {
+        this.optionalsParts = optionalsParts;
+    }
+
+    public UserDTO getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(UserDTO author) {
+        this.author = author;
+    }
+
+    public Date getCreationDate() {
+        return creationDate;
+    }
+
+    public void setCreationDate(Date creationDate) {
+        this.creationDate = creationDate;
+    }
+
+    public List<LightPartLinkListDTO> getPathDataPaths() {
+        return pathDataPaths;
+    }
+
+    public void setPathDataPaths(List<LightPartLinkListDTO> pathDataPaths) {
+        this.pathDataPaths = pathDataPaths;
+    }
+
+    public List<PathToPathLinkDTO> getPathToPathLinks() {
+        return this.pathToPathLinks;
+    }
+    public void setPathToPathLinks(List<PathToPathLinkDTO> pathToPathLinks) {
+        this.pathToPathLinks = pathToPathLinks;
     }
 }

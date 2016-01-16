@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,7 +25,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * The <code>WorkspaceLog</code> class represents an entry in the log
+ * The WorkspaceLog class represents an entry in the log
  * table that keeps track of all activities around a specific workspace.
  * 
  * @author Florent Garin
@@ -37,7 +37,7 @@ import java.util.Date;
 @NamedQueries ({
     @NamedQuery(name="findLogByWorkspaceAndUserAndEvent", query="SELECT l FROM WorkspaceLog l WHERE l.userLogin = :userLogin AND l.workspaceId = :workspaceId AND l.event = :event ORDER BY l.logDate")
 })
-public class WorkspaceLog implements Serializable, Cloneable {
+public class WorkspaceLog implements Serializable {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
@@ -53,7 +53,9 @@ public class WorkspaceLog implements Serializable, Cloneable {
     public WorkspaceLog() {
     }
 
-
+    public int getId() {
+        return id;
+    }
 
     public String getWorkspaceId() {
         return workspaceId;

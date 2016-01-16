@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -26,8 +26,7 @@ import java.io.Serializable;
 
 /**
  * Represents a CAD instance of a specific part defined in a
- * <a href="PartUsageLink.html">PartUsageLink</a>
- * or <a href="PartSubstituteLink.html">PartSubstituteLink</a>. 
+ * {@link PartUsageLink} {@link PartSubstituteLink}.
  * Using its attributes: translation and orientation on the three axis we'll be
  * able to create the mesh to render it.
  * 

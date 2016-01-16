@@ -6,8 +6,10 @@ define([
     'common-objects/models/product_instance',
     'collections/configuration_items',
     'common-objects/collections/baselines',
+    'common-objects/views/attributes/attributes',
+    'common-objects/views/security/acl',
     'common-objects/views/alert'
-], function (Backbone, Mustache, template, ProductInstanceModel, ConfigurationItemCollection, BaselinesCollection, AlertView) {
+], function (Backbone, Mustache, template, ProductInstanceModel, ConfigurationItemCollection, BaselinesCollection,AttributesView,ACLView, AlertView) {
     'use strict';
 
     var ProductInstanceCreationView = Backbone.View.extend({
@@ -15,6 +17,7 @@ define([
         model: new ProductInstanceModel(),
 
         events: {
+            'click .modal-footer .btn-primary': 'interceptSubmit',
             'submit #product_instance_creation_form': 'onSubmitForm',
             'hidden #product_instance_creation_modal': 'onHidden'
         },
@@ -22,7 +25,7 @@ define([
         initialize: function () {
             this._subViews = [];
             _.bindAll(this);
-            this.$el.on('remove', this.removeSubviews);                                                                  // Remove cascade
+            this.$el.on('remove', this.removeSubviews);
         },
 
         removeSubviews: function () {
@@ -32,8 +35,19 @@ define([
         render: function () {
             this.$el.html(Mustache.render(template, {i18n: App.config.i18n}));
             this.bindDomElements();
+            this.bindAttributesView();
+            this.workspaceMembershipsView = new ACLView({
+                el: this.$('#acl-mapping'),
+                editMode: true
+            }).render();
             this.$inputSerialNumber.customValidity(App.config.i18n.REQUIRED_FIELD);
-            new ConfigurationItemCollection().fetch({success: this.fillConfigurationItemList});
+
+            if(this.options.baseline){
+                this.$inputBaseline.append('<option value="' + this.options.baseline.getId() + '" >' + this.options.baseline.getName() + '</option>');
+                this.$inputConfigurationItem.append('<option value="' + this.options.baseline.getConfigurationItemId() + '" >' + this.options.baseline.getConfigurationItemId() + '</option>');
+            }else{
+                new ConfigurationItemCollection().fetch({success: this.fillConfigurationItemList});
+            }
             return this;
         },
 
@@ -68,15 +82,28 @@ define([
             this.$inputConfigurationItem = this.$('#inputConfigurationItem');
             this.$inputBaseline = this.$('#inputBaseline');
         },
+        bindAttributesView: function () {
+            this.attributesView = new AttributesView({
+                el: this.$('#tab-products-instances-attributes')
+            }).render();
+        },
+
+        interceptSubmit: function () {
+            this.isValid = !this.$('.tabs').invalidFormTabSwitcher();
+        },
 
         onSubmitForm: function (e) {
             var data = {
                 serialNumber: this.$inputSerialNumber.val(),
                 configurationItemId: this.$inputConfigurationItem.val(),
-                baselineId: this.$inputBaseline.val()
+                baselineId: this.$inputBaseline.val(),
+                instanceAttributes: this.attributesView.collection.toJSON(),
+                acl: this.workspaceMembershipsView.toList()
+
             };
 
             if (data.serialNumber && data.configurationItemId && data.baselineId) {
+                this.model.unset('identifier');
                 this.model.unset('serialNumber');
                 this.model.save(data, {
                     success: this.onProductInstanceCreated,
@@ -91,7 +118,11 @@ define([
         },
 
         onProductInstanceCreated: function () {
-            this.collection.fetch();
+            this.trigger('info',App.config.i18n.PRODUCT_INSTANCE_CREATED);
+
+            if(this.collection){
+                this.collection.fetch();
+            }
             this.closeModal();
         },
 

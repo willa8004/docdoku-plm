@@ -35,6 +35,7 @@
     <filter>
         <filter-name>AuthFilter</filter-name>
         <filter-class>com.docdoku.server.filters.AuthFilter</filter-class>
+        <async-supported>true</async-supported>
         <init-param>
             <param-name>excludedPaths</param-name>
             <param-value>/api/files/*/documents/**,/api/files/*/parts/**</param-value>
@@ -45,8 +46,14 @@
         </init-param>
     </filter>
     <filter>
+        <filter-name>AuthMayFilter</filter-name>
+        <filter-class>com.docdoku.server.filters.AuthMayFilter</filter-class>
+        <async-supported>true</async-supported>
+    </filter>
+    <filter>
         <filter-name>PermalinkFilter</filter-name>
         <filter-class>com.docdoku.server.filters.PermalinkFilter</filter-class>
+        <async-supported>true</async-supported>
     </filter>
     <filter-mapping>
         <filter-name>AuthFilter</filter-name>
@@ -59,6 +66,10 @@
         <url-pattern>/change-management/*</url-pattern>
         <url-pattern>/visualization/*</url-pattern>
         <url-pattern>/home</url-pattern>
+    </filter-mapping>
+    <filter-mapping>
+        <filter-name>AuthMayFilter</filter-name>
+        <url-pattern>/faces/download.xhtml</url-pattern>
     </filter-mapping>
     <filter-mapping>
         <filter-name>PermalinkFilter</filter-name>
@@ -148,16 +159,17 @@
     </servlet-mapping>
 
     <servlet>
-        <servlet-name>com.docdoku.server.rest.ApplicationConfig</servlet-name>
+        <servlet-name>javax.ws.rs.core.Application</servlet-name>
+        <load-on-startup>1</load-on-startup>
+        <async-supported>true</async-supported>
         <multipart-config>
             <file-size-threshold>1048576</file-size-threshold>
         </multipart-config>
     </servlet>
     <servlet-mapping>
-        <servlet-name>com.docdoku.server.rest.ApplicationConfig</servlet-name>
+        <servlet-name>javax.ws.rs.core.Application</servlet-name>
         <url-pattern>/api/*</url-pattern>
     </servlet-mapping>
-
     <security-constraint>
         <display-name>HTTP actions</display-name>
         <web-resource-collection>
@@ -196,5 +208,11 @@
             com.docdoku.server.http.WebSessionListener
         </listener-class>
     </listener>
+    <jsp-config>
+        <jsp-property-group>
+            <url-pattern>*.html</url-pattern>
+            <page-encoding>UTF-8</page-encoding>
+        </jsp-property-group>
+    </jsp-config>
 </web-app>
 

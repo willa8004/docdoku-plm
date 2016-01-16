@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,17 +20,14 @@
 
 package com.docdoku.server.rest;
 
+import com.docdoku.core.change.ModificationNotification;
 import com.docdoku.core.common.User;
 import com.docdoku.core.common.UserGroup;
 import com.docdoku.core.configuration.BaselinedFolder;
 import com.docdoku.core.configuration.BaselinedPart;
 import com.docdoku.core.configuration.DocumentBaseline;
-import com.docdoku.core.configuration.ProductBaseline;
 import com.docdoku.core.document.DocumentIteration;
-import com.docdoku.core.product.CADInstance;
-import com.docdoku.core.product.PartIteration;
-import com.docdoku.core.product.PartRevision;
-import com.docdoku.core.product.PartUsageLink;
+import com.docdoku.core.product.*;
 import com.docdoku.core.security.ACL;
 import com.docdoku.core.security.ACLUserEntry;
 import com.docdoku.core.security.ACLUserGroupEntry;
@@ -40,6 +37,8 @@ import com.docdoku.server.rest.dto.baseline.BaselinedPartDTO;
 import org.dozer.DozerBeanMapperSingletonWrapper;
 import org.dozer.Mapper;
 
+import javax.ws.rs.core.GenericEntity;
+import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -98,49 +97,102 @@ public class Tools {
 
         for (Map.Entry<UserGroup,ACLUserGroupEntry> entry : acl.getGroupEntries().entrySet()) {
             ACLUserGroupEntry aclEntry = entry.getValue();
-            aclDTO.addGroupEntry(aclEntry.getPrincipalId(),aclEntry.getPermission());
+            aclDTO.addGroupEntry(aclEntry.getPrincipalId(), aclEntry.getPermission());
         }
 
         return aclDTO;
 
     }
 
-    public static PartDTO mapPartRevisionToPartDTO(PartRevision partRevision){
+    public static List<ModificationNotificationDTO> mapModificationNotificationsToModificationNotificationDTO(Collection<ModificationNotification> pNotifications){
+        List<ModificationNotificationDTO> dtos = new ArrayList<>();
+        for(ModificationNotification notification : pNotifications){
+            dtos.add(mapModificationNotificationToModificationNotificationDTO(notification));
+        }
+        return dtos;
+    }
+
+    public static ModificationNotificationDTO mapModificationNotificationToModificationNotificationDTO(ModificationNotification pNotification){
+        ModificationNotificationDTO dto = new ModificationNotificationDTO();
+        Mapper mapper = DozerBeanMapperSingletonWrapper.getInstance();
+
+        UserDTO userDTO = mapper.map(pNotification.getModifiedPart().getAuthor(),UserDTO.class);
+        dto.setAuthor(userDTO);
+
+        dto.setId(pNotification.getId());
+
+        dto.setImpactedPartNumber(pNotification.getImpactedPart().getNumber());
+        dto.setImpactedPartVersion(pNotification.getImpactedPart().getVersion());
+
+        User ackAuthor = pNotification.getAcknowledgementAuthor();
+        if(ackAuthor!=null){
+            UserDTO ackDTO = mapper.map(ackAuthor,UserDTO.class);
+            dto.setAckAuthor(ackDTO);
+        }
+        dto.setAcknowledged(pNotification.isAcknowledged());
+        dto.setAckComment(pNotification.getAcknowledgementComment());
+        dto.setAckDate(pNotification.getAcknowledgementDate());
+
+        dto.setCheckInDate(pNotification.getModifiedPart().getCheckInDate());
+        dto.setIterationNote(pNotification.getModifiedPart().getIterationNote());
+
+        dto.setModifiedPartIteration(pNotification.getModifiedPart().getIteration());
+        dto.setModifiedPartNumber(pNotification.getModifiedPart().getPartNumber());
+        dto.setModifiedPartName(pNotification.getModifiedPart().getPartName());
+        dto.setModifiedPartVersion(pNotification.getModifiedPart().getPartVersion());
+
+        return dto;
+    }
+
+    public static PartRevisionDTO mapPartRevisionToPartDTO(PartRevision partRevision){
 
         Mapper mapper = DozerBeanMapperSingletonWrapper.getInstance();
 
-        PartDTO partDTO = mapper.map(partRevision,PartDTO.class);
+        PartRevisionDTO partRevisionDTO = mapper.map(partRevision,PartRevisionDTO.class);
 
-        partDTO.setNumber(partRevision.getPartNumber());
-        partDTO.setPartKey(partRevision.getPartNumber() + "-" + partRevision.getVersion());
-        partDTO.setName(partRevision.getPartMaster().getName());
-        partDTO.setStandardPart(partRevision.getPartMaster().isStandardPart());
+        partRevisionDTO.setNumber(partRevision.getPartNumber());
+        partRevisionDTO.setPartKey(partRevision.getPartNumber() + "-" + partRevision.getVersion());
+        partRevisionDTO.setName(partRevision.getPartMaster().getName());
+        partRevisionDTO.setStandardPart(partRevision.getPartMaster().isStandardPart());
+
+        if (partRevision.isObsolete()) {
+            partRevisionDTO.setObsoleteDate(partRevision.getObsoleteDate());
+            UserDTO obsoleteUserDTO = mapper.map(partRevision.getObsoleteAuthor(), UserDTO.class);
+            partRevisionDTO.setObsoleteAuthor(obsoleteUserDTO);
+        }
+
+        if (partRevision.getReleaseAuthor() != null) {
+            partRevisionDTO.setReleaseDate(partRevision.getReleaseDate());
+            UserDTO releaseUserDTO = mapper.map(partRevision.getReleaseAuthor(), UserDTO.class);
+            partRevisionDTO.setReleaseAuthor(releaseUserDTO);
+        }
 
         List<PartIterationDTO> partIterationDTOs = new ArrayList<>();
         for(PartIteration partIteration : partRevision.getPartIterations()){
             partIterationDTOs.add(mapPartIterationToPartIterationDTO(partIteration));
         }
-        partDTO.setPartIterations(partIterationDTOs);
+        partRevisionDTO.setPartIterations(partIterationDTOs);
 
         if(partRevision.isCheckedOut()){
-            partDTO.setCheckOutDate(partRevision.getCheckOutDate());
+            partRevisionDTO.setCheckOutDate(partRevision.getCheckOutDate());
             UserDTO checkoutUserDTO = mapper.map(partRevision.getCheckOutUser(),UserDTO.class);
-            partDTO.setCheckOutUser(checkoutUserDTO);
+            partRevisionDTO.setCheckOutUser(checkoutUserDTO);
         }
 
         if(partRevision.hasWorkflow()){
-            partDTO.setLifeCycleState(partRevision.getWorkflow().getLifeCycleState());
-            partDTO.setWorkflow(mapper.map(partRevision.getWorkflow(),WorkflowDTO.class));
+            partRevisionDTO.setLifeCycleState(partRevision.getWorkflow().getLifeCycleState());
+            partRevisionDTO.setWorkflow(mapper.map(partRevision.getWorkflow(),WorkflowDTO.class));
         }
 
         ACL acl = partRevision.getACL();
         if(acl != null){
-            partDTO.setAcl(Tools.mapACLtoACLDTO(acl));
+            partRevisionDTO.setAcl(Tools.mapACLtoACLDTO(acl));
         }else{
-            partDTO.setAcl(null);
+            partRevisionDTO.setAcl(null);
         }
 
-        return partDTO;
+
+        return partRevisionDTO;
     }
 
     public static PartIterationDTO mapPartIterationToPartIterationDTO(PartIteration partIteration){
@@ -156,7 +208,14 @@ public class Tools {
                 CADInstanceDTO cadInstanceDTO = mapper.map(cadInstance,CADInstanceDTO.class);
                 cadInstancesDTO.add(cadInstanceDTO);
             }
+            List<PartSubstituteLinkDTO> substituteLinkDTOs = new ArrayList<>();
+            for(PartSubstituteLink partSubstituteLink:partUsageLink.getSubstitutes()){
+                PartSubstituteLinkDTO  substituteLinkDTO = mapper.map(partSubstituteLink,PartSubstituteLinkDTO.class);
+                substituteLinkDTOs.add(substituteLinkDTO);
+
+            }
             partUsageLinkDTO.setCadInstances(cadInstancesDTO);
+            partUsageLinkDTO.setSubstitutes(substituteLinkDTOs);
             usageLinksDTO.add(partUsageLinkDTO);
         }
         partIterationDTO.setComponents(usageLinksDTO);
@@ -166,16 +225,6 @@ public class Tools {
         return partIterationDTO;
     }
 
-    public static List<BaselinedPartDTO> mapBaselinedPartsToBaselinedPartDTO(Collection<BaselinedPart> baselinedParts){
-        List<BaselinedPartDTO> baselinedPartDTOs = new ArrayList<>();
-        for(BaselinedPart baselinedPart : baselinedParts){
-            baselinedPartDTOs.add(mapBaselinedPartToBaselinedPartDTO(baselinedPart));
-        }
-        return baselinedPartDTOs;
-    }
-    public static List<BaselinedPartDTO> mapBaselinedPartsToBaselinedPartDTO(ProductBaseline productBaseline){
-        return mapBaselinedPartsToBaselinedPartDTO(productBaseline.getBaselinedParts().values());
-    }
     public static BaselinedPartDTO mapBaselinedPartToBaselinedPartDTO(BaselinedPart baselinedPart){
         return new BaselinedPartDTO(baselinedPart.getTargetPart());
     }
@@ -198,9 +247,15 @@ public class Tools {
         }
         return folderDTOs;
     }
+
     public static List<FolderDTO> mapBaselinedFoldersToFolderDTO(DocumentBaseline documentBaseline){
         return mapBaselinedFoldersToFolderDTO(documentBaseline.getBaselinedFolders().values());
     }
+
+    public static Response wrapList(List<?> list){
+        return Response.ok(new GenericEntity<List<Object>>((List<Object>) list) {}).build();
+    }
+
     private static FolderDTO mapBaselinedFolderToFolderDTO(BaselinedFolder baselinedFolder) {
         String completePath = baselinedFolder.getCompletePath();
         return new FolderDTO(FolderDTO.extractParentFolder(completePath),FolderDTO.extractName(completePath));

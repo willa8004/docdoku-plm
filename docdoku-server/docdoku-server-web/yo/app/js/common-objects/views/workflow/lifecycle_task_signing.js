@@ -1,25 +1,26 @@
 /*global define,App*/
 define([
     'backbone',
-    "mustache",
-    "text!common-objects/templates/workflow/lifecycle_task_signing.html"
+    'mustache',
+    'text!common-objects/templates/workflow/lifecycle_task_signing.html'
 
 ], function (Backbone, Mustache, template) {
+
+    'use strict';
 
     var LifecycleTaskSigningView = Backbone.View.extend({
 
         tagName: 'div',
 
         events: {
-            "click .lifecycle-task-signing-link-a": "toggleSigningCanvas",
-            "click .lifecycle-task-signing-delete-a": "deleteSignature",
-            "mousedown .lifecycle-activities-canvas": "canvasMouseDown",
-            "mousemove .lifecycle-activities-canvas": "canvasMouseMove",
-            "mouseup .lifecycle-activities-canvas": "canvasMouseUp",
-            "mouseleave .lifecycle-activities-canvas": "canvasMouseLeave",
-            "click .cancel-signing": "cancelSigning",
-            "click .delete-signing": "clearBtnClicked",
-            "click .save-signing": "saveSigning"
+            'click .lifecycle-task-signing-link-a': 'toggleSigningCanvas',
+            'click .lifecycle-task-signing-delete-a': 'deleteSignature',
+            'mousedown .lifecycle-activities-canvas': 'canvasMouseDown',
+            'mousemove .lifecycle-activities-canvas': 'canvasMouseMove',
+            'mouseup .lifecycle-activities-canvas': 'canvasMouseUp',
+            'mouseleave .lifecycle-activities-canvas': 'canvasMouseLeave',
+            'click i.save-signing': 'saveSigning',
+            'click i.clear-signing': 'clearClicked'
         },
 
         initialize: function () {
@@ -32,27 +33,15 @@ define([
         render: function () {
             this.$el.html(Mustache.render(template, {i18n: App.config.i18n}));
             this.bindDomElements();
-            this.initSigningPopover();
             this.initCanvas();
             return this;
         },
 
         bindDomElements: function () {
-            this.$signingLink = this.$(".lifecycle-task-signing-link");
-            this.$signingPopover = this.$(".lifecycle-task-signing-popover");
-        },
-
-        initSigningPopover: function () {
-            var self = this;
-            this.$signingLink.popover({
-                html: true,
-                placement: "top",
-                title: App.config.i18n.SIGN_TASK,
-                trigger: "manual",
-                content: function () {
-                    return self.$signingPopover.html();
-                }
-            });
+            this.$signingPopover = this.$('.lifecycle-task-signing-popover');
+            this.$signingImg = this.$('.lifecycle-task-signing-img');
+            this.$saveSigning = this.$('i.save-signing');
+            this.$clearSigning = this.$('i.clear-signing');
         },
 
         initCanvas: function () {
@@ -69,15 +58,21 @@ define([
         },
 
         openSigningCanvas: function () {
-            this.$signingLink.popover('show');
-            this.canvas = this.$(".lifecycle-activities-canvas").get(0);
-            this.context = this.canvas.getContext("2d");
+            this.$saveSigning.show();
+            this.$clearSigning.show();
+            this.$signingPopover.show();
+            this.$signingImg.hide();
+            this.canvas = this.$('.lifecycle-activities-canvas').get(0);
+            this.context = this.canvas.getContext('2d');
             this.canvas.width = 200;
             this.canvas.height = 150;
         },
 
         closeSigningCanvas: function () {
-            this.$signingLink.popover('hide');
+            this.$saveSigning.hide();
+            this.$clearSigning.hide();
+            this.$signingPopover.hide();
+            this.$signingImg.show();
         },
 
         canvasMouseDown: function (e) {
@@ -107,8 +102,8 @@ define([
         },
 
         redraw: function () {
-            this.context.strokeStyle = "#000000";
-            this.context.lineJoin = "round";
+            this.context.strokeStyle = '#333333';
+            this.context.lineJoin = 'round';
             this.context.lineWidth = 3;
 
             for (var i = 0; i < this.moves.length; i++) {
@@ -124,13 +119,7 @@ define([
             }
         },
 
-        cancelSigning: function (e) {
-            e.stopPropagation();
-            e.preventDefault();
-            this.toggleSigningCanvas();
-        },
-
-        clearBtnClicked: function (e) {
+        clearClicked: function (e) {
             e.stopPropagation();
             e.preventDefault();
             this.clearSigning();

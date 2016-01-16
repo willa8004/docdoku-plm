@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,9 +21,11 @@
 package com.docdoku.server.rest.dto.change;
 
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.List;
 
+@XmlRootElement
 public class ChangeRequestDTO extends ChangeItemDTO implements Serializable{
     private List<ChangeIssueDTO> addressedChangeIssues;
     @XmlElement(nillable = true)

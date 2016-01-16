@@ -4,7 +4,7 @@ define([
     'mustache',
     'text!common-objects/templates/prompt.html'
 ], function (Backbone, Mustache, template) {
-	'use strict';
+    'use strict';
     var PromptView = Backbone.View.extend({
 
         events: {
@@ -23,7 +23,9 @@ define([
                 title: this.title,
                 question: this.question,
                 primaryButton: this.primaryButton,
-                cancelButton: this.cancelButton
+                cancelButton: this.cancelButton,
+                inputSpecified: this.inputSpecified,
+                defaultValue: this.defaultValue
             }));
             this.bindDomElements();
             return this;
@@ -48,11 +50,16 @@ define([
             return false;
         },
 
-        setPromptOptions: function (title, question, primaryButton, cancelButton) {
+        setPromptOptions: function (title, question, primaryButton, cancelButton, defaultValue) {
             this.title = title;
             this.question = question;
             this.primaryButton = primaryButton;
             this.cancelButton = cancelButton;
+            this.defaultValue = defaultValue;
+        },
+
+        specifyInput: function(inputSpecified) {
+            this.inputSpecified = inputSpecified;
         },
 
         openModal: function () {
@@ -65,7 +72,9 @@ define([
 
         onShown: function () {
             this.$promptInput.focus();
+            this.$promptInput.addClass('ready');
         },
+
         onHidden: function () {
             this.remove();
         }

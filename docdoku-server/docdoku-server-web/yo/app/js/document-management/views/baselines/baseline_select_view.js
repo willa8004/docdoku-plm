@@ -4,8 +4,8 @@ define([
 	'mustache',
 	'common-objects/collections/baselines',
 	'text!templates/baselines/baseline_select.html',
-	'common-objects/views/baselines/snap_baseline_view'
-], function (Backbone, Mustache, Baselines, template, SnapBaselineView) {
+	'views/baselines/baseline_creation_view'
+], function (Backbone, Mustache, Baselines, template, BaselineCreationView) {
 	'use strict';
 
 	var BaselineSelectView = Backbone.View.extend({
@@ -16,7 +16,7 @@ define([
 		},
 
 		initialize:function(){
-			this.type = (this.options && this.options.type) ? this.options.type : 'product';
+			this.type = 'document';
 			if(!this.collection){
 				var data = {
 					type : this.type
@@ -39,7 +39,7 @@ define([
 			this.$menu = this.$('.ConfigSpecSelector-menu');
 			this.$newBaselineBtn = this.$('.btn.newBaseline');
 			this.$deleteBaselineBtn = this.$('.btn.deleteBaseline');
-			if(App.config.configSpec==='latest' || App.config.configSpec==='released'){
+			if(App.config.documentConfigSpec==='latest' || App.config.documentConfigSpec==='released'){
 				this.$deleteBaselineBtn.attr('disabled', 'disabled');
 				this.$deleteBaselineBtn.hide();
 			}
@@ -68,8 +68,8 @@ define([
                     that.$select.append('<option value="'+baseline.getId()+'">'+baseline.getName()+'</option>');
                 });
             }
-            if(App.config.configSpec){
-                this.$select.val(App.config.configSpec);
+            if(App.config.documentConfigSpec){
+                this.$select.val(App.config.documentConfigSpec);
             }
 		},
 
@@ -87,12 +87,9 @@ define([
 		},
 
 		createBaseline:function(){
-			var snapBaselineView;
-			if(this.type==='document'){
-				snapBaselineView = new SnapBaselineView({type: 'DOCUMENT', collection: this.collection});
-			}
-            window.document.body.appendChild(snapBaselineView.render().el);
-			snapBaselineView.openModal();
+			var baselineCreationView = new BaselineCreationView({collection: this.collection});
+            window.document.body.appendChild(baselineCreationView.render().el);
+            baselineCreationView.openModal();
 		},
 
 		deleteBaseline:function(){
@@ -110,7 +107,8 @@ define([
                                 },
                                 error:function(model,err){
                                     window.alert(err.responseText);
-                                }});
+                                }
+                            });
                         }
                     });
                 }

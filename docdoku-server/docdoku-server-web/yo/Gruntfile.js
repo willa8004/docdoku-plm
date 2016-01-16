@@ -1,11 +1,10 @@
 'use strict';
-var LIVERELOAD_PORT = 35729;
+var LIVERELOAD_PORT = 35730;
 var SERVER_HOSTNAME = 'localhost';
 var SERVER_PORT = 9001;
 var DEV_HOSTNAME = 'localhost';
 var DEV_PORT = 8989;
 var lrSnippet = require('connect-livereload')({port: LIVERELOAD_PORT});
-
 
 var mountFolder = function (connect, dir) {
     return connect.static(require('path').resolve(dir));
@@ -26,12 +25,9 @@ module.exports = function (grunt) {
     grunt.initConfig({
         yeoman: yeoman,
         watch: {
-            options: {
-                nospawn: true,
-                livereload: true
-            },
-            livereload: {
+            dev: {
                 options: {
+                    nospawn: true,
                     livereload: grunt.option('livereloadport') || LIVERELOAD_PORT
                 },
                 files: [
@@ -40,14 +36,10 @@ module.exports = function (grunt) {
                     '<%= yeoman.app %>/product-structure/*.html',
                     '<%= yeoman.app %>/visualization/*.html',
                     '<%= yeoman.app %>/change-management/*.html',
-                    '{.tmp,<%= yeoman.app %>}/js/**',
                     '<%= yeoman.app %>/images/**',
-                    'test/spec/**/*.js'
+                    '{.tmp,<%= yeoman.app %>}/js/**',
+                    '<%= yeoman.app %>/less/**'
                 ]
-            },
-            less: {
-                files: ['<%= yeoman.app %>/less/**'],
-                tasks: ['less']
             },
             tests:{
                 files:['<%= yeoman.tests %>/js/**/*.js'],
@@ -253,7 +245,7 @@ module.exports = function (grunt) {
                     '<%= yeoman.app %>/document-management/main.css': '<%= yeoman.app %>/less/document-management/style.less',
                     '<%= yeoman.app %>/product-management/main.css': '<%= yeoman.app %>/less/product-management/style.less',
                     '<%= yeoman.app %>/product-structure/main.css': '<%= yeoman.app %>/less/product-structure/style.less',
-                    '<%= yeoman.app %>/visualization/main.css': '<%= yeoman.app %>/less/product-structure/styleFrame.less',
+                    '<%= yeoman.app %>/visualization/main.css': '<%= yeoman.app %>/less/product-structure/style_frame.less',
                     '<%= yeoman.app %>/change-management/main.css': '<%= yeoman.app %>/less/change-management/style.less'
                 }
             }
@@ -393,8 +385,7 @@ module.exports = function (grunt) {
                             'bower_components/threejs/build/three.min.js',
                             'bower_components/tweenjs/build/tween.min.js',
                             'bower_components/bootstrap/docs/assets/js/bootstrap.min.js',
-                            'bower_components/backbone/backbone-min.js',
-                            'bower_components/less/dist/less-1.3.3.min.js'
+                            'bower_components/backbone/backbone-min.js'
                         ]
                     }
                 ]
@@ -414,6 +405,7 @@ module.exports = function (grunt) {
                             'download/**',
 	                        'js/home/main.js',
 	                        'js/lib/plugin-detect.js',
+	                        'js/lib/empty.pdf',
 	                        'js/lib/charts/**'
                         ]
                     },{
@@ -482,10 +474,18 @@ module.exports = function (grunt) {
                 jshintrc: '.jshintrc',
                 reporter: require('jshint-stylish')
             },
-            all: [
-                'Gruntfile.js',
-                '<%= yeoman.app %>/js/{,*/}*.js'
-            ]
+            all: {
+                src:[
+                    'Gruntfile.js',
+                    '<%= yeoman.app %>/js/**/*.js',
+                    '<%= yeoman.tests %>/js/**/*.js',
+                    '!<%= yeoman.app %>/js/lib/**',
+                    '!<%= yeoman.app %>/js/product-structure/dmu/utils/**',
+                    '!<%= yeoman.app %>/js/product-structure/dmu/loaders/**',
+                    '!<%= yeoman.app %>/js/product-structure/dmu/controls/**',
+                    '!<%= yeoman.app %>/js/localization/**'
+                ]
+            }
         },
         execute:{
             tests:{

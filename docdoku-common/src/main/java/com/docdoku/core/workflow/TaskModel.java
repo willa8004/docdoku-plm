@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -28,9 +28,9 @@ import java.io.Serializable;
 import java.util.Map;
 
 /**
- * This is the model for creating instances of <a href="Task.html">Task</a>
- * that belong to instances of <a href="Activity.html">Activity</a> themselves
- * attached to instances of <a href="Workflow.html">Workflow</a>.
+ * This is the model for creating instances of {@link Task}
+ * that belong to instances of {@link Activity} themselves
+ * attached to instances of {@link Workflow}.
  * 
  * @author Florent Garin
  * @version 1.0, 02/06/08
@@ -44,30 +44,17 @@ import java.util.Map;
 })
 @Entity
 public class TaskModel implements Serializable, Cloneable {
-    
+
+    @Id
     @ManyToOne(optional=false, fetch=FetchType.EAGER)
     @JoinColumns({
-        @JoinColumn(name="ACTIVITYMODEL_STEP", referencedColumnName="STEP"),
-        @JoinColumn(name="WORKFLOWMODEL_ID", referencedColumnName="WORKFLOWMODEL_ID"),
-        @JoinColumn(name="WORKSPACE_ID", referencedColumnName="WORKSPACE_ID")
+        @JoinColumn(name="ACTIVITYMODEL_ID", referencedColumnName="ID")
     })
     private ActivityModel activityModel;
     
     @Id
     private int num;
-    
-    @javax.persistence.Column(name = "ACTIVITYMODEL_STEP", nullable = false, insertable = false, updatable = false)
-    @javax.persistence.Id
-    private int activityModelStep;
-    
-    @javax.persistence.Column(name = "WORKFLOWMODEL_ID", length=100, nullable = false, insertable = false, updatable = false)
-    @javax.persistence.Id
-    private String workflowModelId="";
-    
-    @javax.persistence.Column(name = "WORKSPACE_ID", length=100, nullable = false, insertable = false, updatable = false)
-    @javax.persistence.Id
-    private String workspaceId="";
-    
+
     @Lob
     private String instructions;
     private String title;
@@ -139,26 +126,10 @@ public class TaskModel implements Serializable, Cloneable {
         return activityModel;
     }
 
-    public int getActivityModelStep() {
-        return activityModelStep;
-    }
-
-    public String getWorkflowModelId() {
-        return workflowModelId;
-    }
-
-    public String getWorkspaceId() {
-        return workspaceId;
-    }
 
     public void setActivityModel(ActivityModel activityModel) {
         this.activityModel = activityModel;
-        activityModelStep=activityModel.getStep();
-        workflowModelId=activityModel.getWorkflowModelId();
-        workspaceId=activityModel.getWorkspaceId();
     }
-
-
     
     public int getNum() {
         return num;
@@ -168,12 +139,14 @@ public class TaskModel implements Serializable, Cloneable {
         this.num = num;
     }
 
-        @Override
+    public int getActivityModelId(){
+        return activityModel==null?0:activityModel.getId();
+    }
+
+    @Override
     public int hashCode() {
         int hash = 1;
-        hash = 31 * hash + workspaceId.hashCode();
-        hash = 31 * hash + workflowModelId.hashCode();
-        hash = 31 * hash + activityModelStep;
+        hash = 31 * hash + getActivityModelId();
         hash = 31 * hash + num;
         return hash;
     }
@@ -187,15 +160,13 @@ public class TaskModel implements Serializable, Cloneable {
             return false;
         }
         TaskModel model = (TaskModel) pObj;
-        return model.workspaceId.equals(workspaceId) &&
-               model.workflowModelId.equals(workflowModelId) &&
-               model.activityModelStep==activityModelStep &&
+        return model.getActivityModelId()==getActivityModelId() &&
                model.num==num;
     }
     
     @Override
     public String toString() {
-        return workspaceId + "-" + workflowModelId + "-" + activityModelStep + "-" + num;
+        return getActivityModelId() + "-" + num;
     }
     
 

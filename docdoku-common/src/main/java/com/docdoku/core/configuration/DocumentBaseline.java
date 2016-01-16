@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -36,7 +36,7 @@ import java.util.Map;
  *
  * @author Taylor LABEJOF
  * @version 2.0, 25/08/14
- * @since   V2.0
+ * @since V2.0
  */
 @Table(name="DOCUMENTBASELINE")
 @Entity

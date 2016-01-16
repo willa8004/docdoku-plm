@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -32,8 +32,8 @@ import com.docdoku.core.services.IDocumentManagerLocal;
 import com.docdoku.core.services.IProductManagerLocal;
 import com.docdoku.core.services.IUserManagerLocal;
 
-import javax.ejb.EJB;
 import javax.enterprise.context.SessionScoped;
+import javax.inject.Inject;
 import javax.inject.Named;
 import javax.json.*;
 import java.io.Serializable;
@@ -43,11 +43,13 @@ import java.util.*;
 @SessionScoped
 public class AdminStateBean implements Serializable {
 
-    @EJB
+    @Inject
     private IDocumentManagerLocal documentService;
-    @EJB
+
+    @Inject
     private IProductManagerLocal productService;
-    @EJB
+
+    @Inject
     private IUserManagerLocal userManager;
 
     private String selectedWorkspace;
@@ -161,9 +163,12 @@ public class AdminStateBean implements Serializable {
             if(userArray==null) {
                 userArray = Json.createArrayBuilder();
                 userArrays.put(userLogin, userArray);
-                statsByUserBuilder.add(userLogin, userArray);
             }
             userArray.add(Json.createObjectBuilder().add("date",documentRevision.getCheckOutDate().getTime()).build());
+        }
+
+        for(Map.Entry<String,JsonArrayBuilder> entry : userArrays.entrySet()){
+            statsByUserBuilder.add(entry.getKey(),entry.getValue().build());
         }
 
         return statsByUserBuilder.build();
@@ -183,11 +188,14 @@ public class AdminStateBean implements Serializable {
             if(userArray==null) {
                 userArray = Json.createArrayBuilder();
                 userArrays.put(userLogin, userArray);
-                statsByUserBuilder.add(userLogin, userArray);
             }
-            userArray.add(Json.createObjectBuilder().add("date",partRevision.getCheckOutDate().getTime()).build());
-        }
+            userArray.add(Json.createObjectBuilder().add("date", partRevision.getCheckOutDate().getTime()).build());
+        }               
 
+        for(Map.Entry<String,JsonArrayBuilder> entry : userArrays.entrySet()){
+            statsByUserBuilder.add(entry.getKey(),entry.getValue().build());
+        }
+        
         return statsByUserBuilder.build();
 
     }
@@ -229,7 +237,7 @@ public class AdminStateBean implements Serializable {
 
 
 
-    public Workspace getCurrentWorkspace() throws WorkspaceNotFoundException {
+    public Workspace getCurrentWorkspace() throws WorkspaceNotFoundException, AccountNotFoundException {
         return userManager.getWorkspace(selectedWorkspace); 
     }
     

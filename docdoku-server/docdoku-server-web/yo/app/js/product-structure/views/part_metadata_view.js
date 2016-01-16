@@ -1,18 +1,18 @@
 /*global define,App*/
-'use strict';
-define([ "backbone", "mustache", 'text!templates/part_meta_data.html'], function (Backbone, Mustache, template) {
+
+define([ 'backbone', 'mustache', 'text!templates/part_meta_data.html'], function (Backbone, Mustache, template) {
+
+    'use strict';
+
     var PartMetadataView = Backbone.View.extend({
 
         tagName: 'div',
-
-        id: 'part_metadata_container',
-
 
         events: {
             'click .author-join': 'authorClicked'
         },
 
-        className: 'side_control_group',
+        className: 'side_control_group part_metadata_container',
 
         initialize: function () {
             this.listenTo(this.model, 'change', this.render);

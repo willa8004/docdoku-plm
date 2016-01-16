@@ -41,6 +41,7 @@ define([
 
             this.listView.on('delete-button:display', this.changeDeleteButtonDisplay);
             this.listView.on('acl-button:display', this.changeAclButtonDisplay);
+            this.listView.on('error', this.onError);
 
             return this;
         },
@@ -48,6 +49,7 @@ define([
         bindDomElements: function () {
             this.deleteButton = this.$('.delete');
             this.aclButton = this.$('.edit-acl');
+            this.$notifications = this.$('.notifications');
         },
 
         newMilestone: function () {
@@ -87,7 +89,9 @@ define([
                             aclEditView.closeModal();
                             self.listView.redraw();
                         },
-                        error: self.onError
+                        error: function(model, error){
+                            aclEditView.onError(model, error);
+                        }
                     });
 
                 });
@@ -110,14 +114,12 @@ define([
             }
         },
 
-        onError:function(model, error){
+        onError: function(model, error) {
             var errorMessage = error ? error.responseText : model;
-
             this.$notifications.append(new AlertView({
                 type: 'error',
                 message: errorMessage
             }).render().$el);
-            this.collection.fetch();
         }
 
     });

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,6 +21,7 @@
 package com.docdoku.server.rest.dto;
 
 import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Date;
 import java.util.List;
@@ -29,6 +30,7 @@ import java.util.List;
  *
  * @author Julien Maffre
  */
+@XmlRootElement
 public class ComponentDTO implements Serializable{
 
     private String author;
@@ -40,16 +42,29 @@ public class ComponentDTO implements Serializable{
     private String description;
     private boolean standardPart;
     private boolean assembly;
-    private int partUsageLinkId;
+    private boolean substitute;
+    private String partUsageLinkId;
+    private String partUsageLinkReferenceDescription;
     private List<ComponentDTO> components;
-    private int amount;
+    private double amount;
+    private String unit;
     private List<InstanceAttributeDTO> attributes;
     private UserDTO checkOutUser;
     private Date checkOutDate;
+    private boolean released;
+    private boolean obsolete;
+    private boolean optional;
     @XmlElement(nillable = true)
     private int lastIterationNumber;
     @XmlElement(nillable = true)
     private boolean accessDeny;
+    @XmlElement(nillable = true)
+    private List<String> substituteIds;
+    private List<ModificationNotificationDTO> notifications;
+    private boolean hasPathData;
+    private boolean isVirtual;
+    private String path;
+
 
     public ComponentDTO() {
 
@@ -115,10 +130,11 @@ public class ComponentDTO implements Serializable{
         this.version = version;
     }
 
-    public int getPartUsageLinkId() {
+    public String getPartUsageLinkId() {
         return partUsageLinkId;
     }
-    public void setPartUsageLinkId(int partUsageLinkId) {
+
+    public void setPartUsageLinkId(String partUsageLinkId) {
         this.partUsageLinkId = partUsageLinkId;
     }
 
@@ -143,10 +159,10 @@ public class ComponentDTO implements Serializable{
         this.authorLogin = authorLogin;
     }
 
-    public int getAmount() {
+    public double getAmount() {
         return amount;
     }
-    public void setAmount(int amount) {
+    public void setAmount(double amount) {
         this.amount = amount;
     }
 
@@ -176,5 +192,93 @@ public class ComponentDTO implements Serializable{
     }
     public void setAccessDeny(boolean accessDeny) {
         this.accessDeny = accessDeny;
+    }
+
+    public boolean isReleased() {
+        return released;
+    }
+
+    public void setReleased(boolean released) {
+        this.released = released;
+    }
+
+    public String getUnit() {
+        return unit;
+    }
+
+    public void setUnit(String unit) {
+        this.unit = unit;
+    }
+
+    public boolean isSubstitute() {
+        return substitute;
+    }
+
+    public void setSubstitute(boolean substitute) {
+        this.substitute = substitute;
+    }
+
+    public List<ModificationNotificationDTO> getNotifications() {
+        return notifications;
+    }
+
+    public void setNotifications(List<ModificationNotificationDTO> notifications) {
+        this.notifications = notifications;
+    }
+
+    public boolean isObsolete() {
+        return obsolete;
+    }
+
+    public void setObsolete(boolean obsolete) {
+        this.obsolete = obsolete;
+    }
+
+    public String getPartUsageLinkReferenceDescription() {
+        return partUsageLinkReferenceDescription;
+    }
+
+    public void setPartUsageLinkReferenceDescription(String partUsageLinkReferenceDescription) {
+        this.partUsageLinkReferenceDescription = partUsageLinkReferenceDescription;
+    }
+
+    public boolean isOptional() {
+        return optional;
+    }
+
+    public void setOptional(boolean optional) {
+        this.optional = optional;
+    }
+
+    public boolean isHasPathData() {
+        return hasPathData;
+    }
+
+    public void setHasPathData(boolean hasPathData) {
+        this.hasPathData = hasPathData;
+    }
+
+    public boolean isVirtual() {
+        return isVirtual;
+    }
+
+    public void setVirtual(boolean isVirtual) {
+        this.isVirtual = isVirtual;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = path;
+    }
+
+    public List<String> getSubstituteIds() {
+        return substituteIds;
+    }
+
+    public void setSubstituteIds(List<String> substituteIds) {
+        this.substituteIds = substituteIds;
     }
 }

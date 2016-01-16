@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,10 +25,11 @@ import com.docdoku.core.common.UserGroupKey;
 import com.docdoku.core.common.Workspace;
 import com.docdoku.core.exceptions.*;
 import com.docdoku.core.security.UserGroupMapping;
+import com.docdoku.core.services.IAccountManagerLocal;
+import com.docdoku.core.services.IContextManagerLocal;
 import com.docdoku.core.services.IUserManagerLocal;
 import com.docdoku.core.services.IWorkspaceManagerLocal;
 
-import javax.ejb.EJB;
 import javax.enterprise.context.RequestScoped;
 import javax.faces.context.ExternalContext;
 import javax.faces.context.FacesContext;
@@ -42,11 +43,17 @@ import java.util.*;
 @RequestScoped
 public class WorkspaceBean {
 
-    @EJB
+    @Inject
     private IWorkspaceManagerLocal workspaceManager;
 
-    @EJB
+    @Inject
     private IUserManagerLocal userManager;
+
+    @Inject
+    private IContextManagerLocal contextManager;
+
+    @Inject
+    private IAccountManagerLocal accountManager;
 
     @Inject
     private AdminStateBean adminState;
@@ -63,7 +70,7 @@ public class WorkspaceBean {
     public WorkspaceBean() {
     }
 
-    public String editWorkspace() throws WorkspaceNotFoundException, UserNotFoundException, UserNotActiveException {
+    public String editWorkspace() throws WorkspaceNotFoundException, UserNotFoundException, UserNotActiveException, AccountNotFoundException {
         Workspace wks = adminState.getCurrentWorkspace();
         this.workspaceId = wks.getId();
         this.workspaceDescription = wks.getDescription();
@@ -75,7 +82,7 @@ public class WorkspaceBean {
 
 
     public String synchronizeIndexer() throws AccessRightException, UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException {
-        if(userManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID)){
+        if(contextManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID)){
             String wksId = adminState.getSelectedWorkspace();
             workspaceManager.synchronizeIndexer(wksId);
             HttpServletRequest request = (HttpServletRequest) (FacesContext.getCurrentInstance().getExternalContext().getRequest());
@@ -104,7 +111,7 @@ public class WorkspaceBean {
         Workspace workspace = adminState.getCurrentWorkspace();
         HttpServletRequest request = (HttpServletRequest) (FacesContext.getCurrentInstance().getExternalContext().getRequest());
 
-        if (adminState.getSelectedGroup() != null && !adminState.getSelectedGroup().equals("")) {
+        if (adminState.getSelectedGroup() != null && !adminState.getSelectedGroup().isEmpty()) {
             userManager.addUserInGroup(new UserGroupKey(workspace.getId(), adminState.getSelectedGroup()), loginToAdd);
             return request.getContextPath() + "/admin/workspace/manageUsersGroup.xhtml?group=" + adminState.getSelectedGroup();
         } else {
@@ -116,7 +123,7 @@ public class WorkspaceBean {
 
     public String updateWorkspace() throws AccountNotFoundException, AccessRightException, WorkspaceNotFoundException {
         Workspace workspace = adminState.getCurrentWorkspace();
-        Account newAdmin = userManager.getAccount(workspaceAdmin);
+        Account newAdmin = accountManager.getAccount(workspaceAdmin);
         workspace.setDescription(workspaceDescription);
         workspace.setFolderLocked(freezeFolders);
         workspace.setAdmin(newAdmin);
@@ -128,10 +135,10 @@ public class WorkspaceBean {
     public String createWorkspace() throws FolderAlreadyExistsException, UserAlreadyExistsException, WorkspaceAlreadyExistsException, CreationException, NotAllowedException, AccountNotFoundException, ESIndexNamingException, IOException {
         String remoteUser = FacesContext.getCurrentInstance().getExternalContext().getRemoteUser();
         Account account;
-        if(userManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID)){
-            account = userManager.getAccount(loginToAdd);
+        if(contextManager.isCallerInRole(UserGroupMapping.ADMIN_ROLE_ID)){
+            account = accountManager.getAccount(loginToAdd);
         }else{
-            account = userManager.getAccount(remoteUser);
+            account = accountManager.getAccount(remoteUser);
         }
         Workspace workspace = userManager.createWorkspace(workspaceId, account, workspaceDescription, freezeFolders);
         adminState.setSelectedWorkspace(workspace.getId());
@@ -141,6 +148,27 @@ public class WorkspaceBean {
         HttpServletRequest request = (HttpServletRequest) ec.getRequest();
         ec.redirect(request.getContextPath() + "/faces/admin/workspace/createWorkspace.xhtml");
         return "";
+    }
+
+    public void goToDocuments() throws AccountNotFoundException, IOException, WorkspaceNotFoundException {
+        Workspace workspace = adminState.getCurrentWorkspace();
+        ExternalContext ec = FacesContext.getCurrentInstance().getExternalContext();
+        HttpServletRequest request = (HttpServletRequest) ec.getRequest();
+        ec.redirect(request.getContextPath() + "/document-management/#" + workspace.getId() + "/folders");
+    }
+
+    public void goToProducts() throws AccountNotFoundException, IOException, WorkspaceNotFoundException {
+        Workspace workspace = adminState.getCurrentWorkspace();
+        ExternalContext ec = FacesContext.getCurrentInstance().getExternalContext();
+        HttpServletRequest request = (HttpServletRequest) ec.getRequest();
+        ec.redirect(request.getContextPath() + "/product-management/#" + workspace.getId() + "/products");
+    }
+
+    public void goToChangeManagement() throws AccountNotFoundException, IOException, WorkspaceNotFoundException {
+        Workspace workspace = adminState.getCurrentWorkspace();
+        ExternalContext ec = FacesContext.getCurrentInstance().getExternalContext();
+        HttpServletRequest request = (HttpServletRequest) ec.getRequest();
+        ec.redirect(request.getContextPath() + "/change-management/#" + workspace.getId() + "/workflows");
     }
 
     public void read() throws AccessRightException, AccountNotFoundException, WorkspaceNotFoundException {
@@ -160,7 +188,7 @@ public class WorkspaceBean {
         selectedLogins.clear();
     }
     
-    public void remove() throws UserGroupNotFoundException, AccessRightException, UserNotFoundException, NotAllowedException, AccountNotFoundException, WorkspaceNotFoundException, FolderNotFoundException, ESServerException {
+    public void remove() throws UserGroupNotFoundException, AccessRightException, UserNotFoundException, NotAllowedException, AccountNotFoundException, WorkspaceNotFoundException, FolderNotFoundException, ESServerException, EntityConstraintException, DocumentRevisionNotFoundException, UserNotActiveException {
         if (!selectedLogins.isEmpty()) {
             userManager.removeUsers(adminState.getSelectedWorkspace(), getLogins());
         }

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -30,6 +30,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Abstract class for all classes that allow the definition of permanent link to business objects
@@ -84,7 +86,7 @@ public abstract class SharedEntity implements Serializable {
             try{
                 this.password = md5Sum(password);
             }catch(NoSuchAlgorithmException pEx){
-                System.err.println(pEx.getMessage());
+                Logger.getLogger(SharedEntity.class.getName()).log(Level.FINEST, null, pEx);
             }
         }
     }

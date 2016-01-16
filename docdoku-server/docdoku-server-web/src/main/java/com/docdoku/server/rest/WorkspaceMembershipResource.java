@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -34,24 +34,28 @@ import org.dozer.Mapper;
 import javax.annotation.PostConstruct;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  *
  * @author Morgan Guimard
  */
-@Stateless
+@RequestScoped
 @DeclareRoles(UserGroupMapping.REGULAR_USER_ROLE_ID)
 @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
 public class WorkspaceMembershipResource {
 
-    @EJB
+    @Inject
     private IUserManagerLocal userManager;
 
     private Mapper mapper;
@@ -105,15 +109,19 @@ public class WorkspaceMembershipResource {
     @GET
     @Path("usergroups/me")
     @Produces(MediaType.APPLICATION_JSON)
-    public WorkspaceUserGroupMemberShipDTO[] getWorkspaceSpecificUserGroupMemberShips (@PathParam("workspaceId") String workspaceId)
+    public Response getWorkspaceSpecificUserGroupMemberShips (@PathParam("workspaceId") String workspaceId)
             throws EntityNotFoundException, UserNotActiveException {
 
         WorkspaceUserGroupMembership[] workspaceUserGroupMemberships = userManager.getWorkspaceSpecificUserGroupMemberships(workspaceId);
-        WorkspaceUserGroupMemberShipDTO[] workspaceUserGroupMemberShipDTO = new WorkspaceUserGroupMemberShipDTO[workspaceUserGroupMemberships.length];
+        List<WorkspaceUserGroupMemberShipDTO> workspaceUserGroupMemberShipDTO = new ArrayList<>();
         for(int i = 0 ; i< workspaceUserGroupMemberships.length ; i++){
-            workspaceUserGroupMemberShipDTO[i] = mapper.map(workspaceUserGroupMemberships[i],WorkspaceUserGroupMemberShipDTO.class);
+            if(workspaceUserGroupMemberships[i] != null){
+                workspaceUserGroupMemberShipDTO.add(mapper.map(workspaceUserGroupMemberships[i],WorkspaceUserGroupMemberShipDTO.class));
+            }
         }
-        return workspaceUserGroupMemberShipDTO;
+
+        return Response.ok(new GenericEntity<List<WorkspaceUserGroupMemberShipDTO>>((List<WorkspaceUserGroupMemberShipDTO>) workspaceUserGroupMemberShipDTO) {
+        }).build();
     }
 
 }

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -38,8 +38,11 @@ public class PartSearchQuery extends SearchQuery implements Serializable{
     public PartSearchQuery(){
 
     }
-    public PartSearchQuery(String workspaceId, String fullText, String partNumber, String name, String version, String author, String type, Date creationDateFrom, Date creationDateTo, SearchQuery.AbstractAttributeQuery[] attributes, Boolean standardPart){
-        super(workspaceId,fullText,version,author,type,creationDateFrom,creationDateTo,attributes);
+    public PartSearchQuery(String workspaceId, String fullText, String partNumber, String name, String version,
+                           String author, String type, Date creationDateFrom, Date creationDateTo, Date modificationDateFrom,
+                           Date modificationDateTo, SearchQuery.AbstractAttributeQuery[] attributes,String[] tags, Boolean standardPart, String content){
+        super(workspaceId,fullText,version,author,type,creationDateFrom,creationDateTo,modificationDateFrom,
+                modificationDateTo,attributes,tags,content);
         this.partNumber=partNumber;
         this.name=name;
         this.standardPart=standardPart;

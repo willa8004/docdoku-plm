@@ -6,7 +6,7 @@ define([
     'common-objects/views/linked/linked_document',
     'text!common-objects/templates/linked/linked_items.html'
 ], function (Backbone, Mustache, LinkedDocumentCollection, LinkedDocumentView, template) {
-	'use strict';
+    'use strict';
     var LinkedDocumentsView = Backbone.View.extend({
 
         tagName: 'div',
@@ -24,11 +24,12 @@ define([
         render: function () {
             var self = this;
 
-            this.$el.html(Mustache.render(template,{
-                    i18n: App.config.i18n,
-                    editMode: this.options.editMode,
-                    label: App.config.i18n.ADD_DOCUMENT,
-                    view: this
+            this.$el.html(Mustache.render(template, {
+                i18n: App.config.i18n,
+                editMode: this.options.editMode,
+                commentEditable: this.options.commentEditable,
+                label: App.config.i18n.ADD_DOCUMENT,
+                view: this
             }));
 
             this.bindDomElements();
@@ -49,6 +50,7 @@ define([
         addLinkView: function (linkedDocument) {
             var linkView = new LinkedDocumentView({
                 editMode: this.options.editMode,
+                commentEditable: this.options.commentEditable,
                 model: linkedDocument
             }).render();
 
@@ -58,30 +60,40 @@ define([
 
         bindTypeahead: function () {
             var self = this;
+            var itemsLimit = 15;
 
             this.documentReferenceInput.typeahead({
+                items: itemsLimit,
+
                 source: function (query, process) {
-                    $.getJSON(App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/documents/docs_last_iter?q=' + query, function (data) {
+                    $.getJSON(App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/documents/doc_revs?q=' + query + '&l=' + itemsLimit, function (data) {
 
                         self.searchResults = new LinkedDocumentCollection(data);
+
+                        if (self.options.documentIteration && self.options.documentIteration.className === 'DocumentIteration') {
+                            data = _.reject(self.searchResults.models, function (linkedDocument) {
+                                return linkedDocument.getDocKey() === self.options.documentIteration.getDocKey();
+                            }, self);
+                            self.searchResults = new LinkedDocumentCollection(data);
+                        }
 
                         // Remove documents that are already linked
                         var docsToRemove = [];
                         self.searchResults.each(
-                            function (documentIteration) {
+                            function (searchLinkedDocument) {
                                 var linkedDoc = self.collection.find(
-                                    function (linkedDocument) {
-                                        return linkedDocument.getDocKey() === documentIteration.getDocKey();
+                                    function (addedLinkedDocument) {
+                                        return addedLinkedDocument.getDocKey() === searchLinkedDocument.getDocKey();
                                     });
                                 if (!_.isUndefined(linkedDoc)) {
-                                    docsToRemove.push(documentIteration);
+                                    docsToRemove.push(searchLinkedDocument);
                                 }
                             }
                         );
                         self.searchResults.remove(docsToRemove);
 
                         process(self.searchResults.map(function (docLastIter) {
-                            return docLastIter.getDocKey();
+                            return docLastIter.getDisplayDocKey();
                         }));
                     });
                 },
@@ -92,7 +104,7 @@ define([
 
                 updater: function (docLastIterDocKey) {
                     var linkedDocument = self.searchResults.find(function (docLastIter) {
-                        return docLastIter.getDocKey() === docLastIterDocKey;
+                        return docLastIter.getDisplayDocKey() === docLastIterDocKey;
                     });
                     linkedDocument.collection.remove(linkedDocument);
                     self.collection.add(linkedDocument);

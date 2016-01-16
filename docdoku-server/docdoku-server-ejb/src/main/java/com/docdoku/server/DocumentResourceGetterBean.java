@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -26,13 +26,11 @@ import com.docdoku.core.exceptions.ConvertedResourceException;
 import com.docdoku.core.exceptions.UserNotActiveException;
 import com.docdoku.core.exceptions.UserNotFoundException;
 import com.docdoku.core.exceptions.WorkspaceNotFoundException;
+import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.security.UserGroupMapping;
-import com.docdoku.core.services.IDocumentManagerLocal;
-import com.docdoku.core.services.IDocumentResourceGetterManagerLocal;
-import com.docdoku.core.services.IUserManagerLocal;
+import com.docdoku.core.services.*;
 import com.docdoku.server.resourcegetters.DocumentResourceGetter;
 
-import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.Instance;
@@ -50,17 +48,27 @@ public class DocumentResourceGetterBean implements IDocumentResourceGetterManage
     @Inject
     @Any
     private Instance<DocumentResourceGetter> documentResourceGetters;
-    @EJB
+
+    @Inject
     private IDocumentManagerLocal documentService;
-    @EJB
+
+    @Inject
+    private IProductManagerLocal productService;
+
+    @Inject
+    private IContextManagerLocal contextManager;
+
+    @Inject
     private IUserManagerLocal userManager;
 
     @Override
-    public InputStream getConvertedResource(String outputFormat, BinaryResource binaryResource)
+    public InputStream getDocumentConvertedResource(String outputFormat, BinaryResource binaryResource)
             throws WorkspaceNotFoundException, UserNotActiveException, UserNotFoundException, ConvertedResourceException {
+
         DocumentIteration docI;
         Locale locale;
-        if(userManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)) {
+
+        if(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)) {
             User user = userManager.whoAmI(binaryResource.getWorkspaceId());
             locale = new Locale(user.getLanguage());
         }else{
@@ -68,7 +76,6 @@ public class DocumentResourceGetterBean implements IDocumentResourceGetterManage
         }
 
         docI = documentService.findDocumentIterationByBinaryResource(binaryResource);
-
 
         DocumentResourceGetter selectedDocumentResourceGetter = null;
         for (DocumentResourceGetter documentResourceGetter : documentResourceGetters) {
@@ -79,6 +86,36 @@ public class DocumentResourceGetterBean implements IDocumentResourceGetterManage
         }
         if (selectedDocumentResourceGetter != null) {
             return selectedDocumentResourceGetter.getConvertedResource(outputFormat, binaryResource,docI,locale);
+        }
+
+        return null;
+    }
+
+    @Override
+    public InputStream getPartConvertedResource(String outputFormat, BinaryResource binaryResource)
+            throws WorkspaceNotFoundException, UserNotActiveException, UserNotFoundException, ConvertedResourceException {
+
+        PartIteration partIteration;
+        Locale locale;
+
+        if(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)) {
+            User user = userManager.whoAmI(binaryResource.getWorkspaceId());
+            locale = new Locale(user.getLanguage());
+        }else{
+            locale = Locale.getDefault();
+        }
+
+        partIteration = productService.findPartIterationByBinaryResource(binaryResource);
+
+        DocumentResourceGetter selectedDocumentResourceGetter = null;
+        for (DocumentResourceGetter documentResourceGetter : documentResourceGetters) {
+            if (documentResourceGetter.canGetConvertedResource(outputFormat, binaryResource)) {
+                selectedDocumentResourceGetter = documentResourceGetter;
+                break;
+            }
+        }
+        if (selectedDocumentResourceGetter != null) {
+            return selectedDocumentResourceGetter.getConvertedResource(outputFormat, binaryResource,partIteration,locale);
         }
 
         return null;

@@ -1,7 +1,7 @@
 <!doctype html>
 <html class="no-js">
 <head>
-    <meta charset="utf-8">
+    <meta content="text/html; charset=UTF-8" http-equiv="Content-Type"/>
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>DocDokuPLM - Product structure</title>
     <link rel="Shortcut Icon" type="image/ico" href="../images/favicon.ico" />
@@ -19,6 +19,9 @@
 <div id="frameWorkspace">
     <div id="progress_bar_container" class="progress progress-striped active"></div>
     <div id="container"></div>
+    <div id="content">
+        <div id="content-loader-indicator"></div>
+    </div>
     <div class="modal hide fade" id="markerModal">
         <div class="modal-header">
             <button type="button" class="close" data-dismiss="modal">×</button>
@@ -31,7 +34,7 @@
             <a href="#" class="btn" data-dismiss="modal">Close</a>
         </div>
     </div>
-</div></body>
+</div>
 <!-- build:js visualization/main.js -->
 <script data-main="main" src="../bower_components/requirejs/require.js"></script>
 <!-- endbuild -->

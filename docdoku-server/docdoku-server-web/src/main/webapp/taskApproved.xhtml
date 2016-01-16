@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml"
       xmlns:f="http://java.sun.com/jsf/core"
-        >
+      xmlns:h="http://java.sun.com/jsf/html">
 
 <f:loadBundle var="i18n" basename="com.docdoku.server.localization.taskApproved_resource"/>
 
@@ -11,9 +11,8 @@
     <title>#{i18n['section.title']}</title>
 
     <link rel="Shortcut Icon" type="image/ico" href="#{request.contextPath}/images/favicon.ico"/>
-    <link rel="stylesheet/less" type="text/css" href="#{request.contextPath}/less/task-vote/style.less"/>
+    <link rel="stylesheet" type="text/css" href="#{request.contextPath}/css/task-vote.css"/>
 
-    <script type="text/javascript" src="#{request.contextPath}/bower_components/less/dist/less-1.3.3.min.js"></script>
     <script type="text/javascript" src="#{request.contextPath}/bower_components/jquery/jquery.min.js"></script>
     <script type="text/javascript" src="#{request.contextPath}/bower_components/bootstrap/docs/assets/js/bootstrap.min.js"></script>
 </head>
@@ -24,7 +23,7 @@
             <div class="nav-collapse collapse">
                 <div class="container-fluid">
                     <h:graphicImage id="brand-logo" alt="docdoku_plm" library="default" name="images/plm_logo2.png" />
-                    <a class="brand" href="#{request.contextPath}/">DocDoku<strong>PLM</strong></a>
+                    <a class="brand" href="#{request.contextPath}/faces/admin/workspace/workspacesMenu.xhtml">DocDoku<strong>PLM</strong></a>
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -32,41 +32,40 @@ import java.io.Serializable;
  *
  * @author Taylor LABEJOF
  * @version 2.0, 25/08/14
- * @since   V2.0
+ * @since V2.0
  */
 
-@Table(name="BASELINEDDOCUMENT")
+@Table(name = "BASELINEDDOCUMENT")
 @Entity
-public class BaselinedDocument implements Serializable{
+public class BaselinedDocument implements Serializable {
     @EmbeddedId
     private BaselinedDocumentKey baselinedDocumentKey;
 
-    @ManyToOne(optional=false, fetch=FetchType.EAGER)
-    @JoinColumn(name="DOCUMENTCOLLECTION_ID", referencedColumnName="ID")
+    //@MapsId("documentCollectionId")
+    @ManyToOne(optional = false, fetch = FetchType.EAGER)
+    @JoinColumn(name = "DOCUMENTCOLLECTION_ID", referencedColumnName = "ID")
     private DocumentCollection documentCollection;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumns({
-            @JoinColumn(name="TARGET_WORKSPACE_ID", referencedColumnName="WORKSPACE_ID"),
-            @JoinColumn(name="TARGET_DOCUMENTMASTER_ID", referencedColumnName="DOCUMENTMASTER_ID"),
-            @JoinColumn(name="TARGET_DOCUMENTREVISION_VERSION", referencedColumnName="DOCUMENTREVISION_VERSION"),
-            @JoinColumn(name="TARGET_ITERATION", referencedColumnName="ITERATION")
+            @JoinColumn(name = "TARGET_WORKSPACE_ID", referencedColumnName = "WORKSPACE_ID"),
+            @JoinColumn(name = "TARGET_DOCUMENTMASTER_ID", referencedColumnName = "DOCUMENTMASTER_ID"),
+            @JoinColumn(name = "TARGET_DOCREVISION_VERSION", referencedColumnName = "DOCUMENTREVISION_VERSION"),
+            @JoinColumn(name = "TARGET_ITERATION", referencedColumnName = "ITERATION")
     })
     private DocumentIteration targetDocument;
 
-    @Column(name = "TARGET_DOCUMENTREVISION_VERSION", length=10, nullable = false, insertable = false, updatable = false)
-    private String targetDocumentVersion="";
     @Column(name = "TARGET_ITERATION", nullable = false, insertable = false, updatable = false)
     private int targetDocumentIteration;
 
-    public BaselinedDocument(){
+    public BaselinedDocument() {
     }
+
     public BaselinedDocument(DocumentCollection documentCollection, DocumentIteration targetDocument) {
         this.documentCollection = documentCollection;
-        this.targetDocument =targetDocument;
-        this.baselinedDocumentKey = new BaselinedDocumentKey(documentCollection.getId(),targetDocument.getWorkspaceId(), targetDocument.getDocumentMasterId());
+        this.targetDocument = targetDocument;
+        this.baselinedDocumentKey = new BaselinedDocumentKey(documentCollection.getId(), targetDocument.getWorkspaceId(), targetDocument.getDocumentMasterId(), targetDocument.getVersion());
         this.targetDocumentIteration = targetDocument.getIteration();
-        this.targetDocumentVersion = targetDocument.getDocumentVersion();
     }
 
     public BaselinedDocumentKey getKey() {
@@ -74,9 +73,10 @@ public class BaselinedDocument implements Serializable{
     }
 
     @XmlTransient
-    public DocumentCollection getDocumentCollection(){
+    public DocumentCollection getDocumentCollection() {
         return documentCollection;
     }
+
     public void setDocumentCollection(DocumentCollection documentCollection) {
         this.documentCollection = documentCollection;
     }
@@ -84,27 +84,26 @@ public class BaselinedDocument implements Serializable{
     public DocumentIteration getTargetDocument() {
         return targetDocument;
     }
-    public String getTargetDocumentMasterId(){
+
+    public String getTargetDocumentMasterId() {
         return targetDocument.getDocumentMasterId();
     }
 
     public String getTargetDocumentVersion() {
-        return targetDocumentVersion;
-    }
-    public void setTargetDocumentVersion(String targetDocumentVersion) {
-        this.targetDocumentVersion = targetDocumentVersion;
+        return targetDocument.getVersion();
     }
 
     public int getTargetDocumentIteration() {
         return targetDocumentIteration;
     }
+
     public void setTargetDocumentIteration(int targetDocumentIteration) {
         this.targetDocumentIteration = targetDocumentIteration;
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) {
+        if (this == o){
             return true;
         }
         if (o == null || getClass() != o.getClass()) {
@@ -113,14 +112,15 @@ public class BaselinedDocument implements Serializable{
 
         BaselinedDocument that = (BaselinedDocument) o;
 
-        return documentCollection.equals(that.documentCollection)
-                && targetDocument.equals(that.targetDocument);
+        if (baselinedDocumentKey != null ? !baselinedDocumentKey.equals(that.baselinedDocumentKey) : that.baselinedDocumentKey != null) {
+            return false;
+        }
+
+        return true;
     }
 
     @Override
     public int hashCode() {
-        int result = documentCollection.hashCode();
-        result = 31 * result + targetDocument.hashCode();
-        return result;
+        return baselinedDocumentKey != null ? baselinedDocumentKey.hashCode() : 0;
     }
 }

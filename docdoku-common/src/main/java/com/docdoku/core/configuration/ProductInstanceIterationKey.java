@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,8 +23,8 @@ package com.docdoku.core.configuration;
 import java.io.Serializable;
 
 /**
- * Identity class of <a href="ProductInstanceIteration.html">ProductInstanceIteration</a> objects.
- * 
+ * Identity class of {@link ProductInstanceIteration} objects.
+ *
  * @author Florent Garin
  */
 public class ProductInstanceIterationKey implements Serializable {
@@ -35,20 +35,30 @@ public class ProductInstanceIterationKey implements Serializable {
     public ProductInstanceIterationKey() {
     }
 
-    public ProductInstanceIterationKey(String serialNumber,String pWorkspaceId, String pId, int pIteration) {
-        this(new ProductInstanceMasterKey(serialNumber, pWorkspaceId, pId),pIteration);
+    public ProductInstanceIterationKey(String serialNumber, String pWorkspaceId, String pId, int pIteration) {
+        this(new ProductInstanceMasterKey(serialNumber, pWorkspaceId, pId), pIteration);
     }
 
     public ProductInstanceIterationKey(ProductInstanceMasterKey pProductInstanceMaster, int pIteration) {
-        productInstanceMaster=pProductInstanceMaster;
-        iteration=pIteration;
+        productInstanceMaster = pProductInstanceMaster;
+        iteration = pIteration;
     }
 
-    public int getIteration() {return iteration;}
-    public void setIteration(int iteration) {this.iteration = iteration;}
+    public int getIteration() {
+        return iteration;
+    }
 
-    public ProductInstanceMasterKey getProductInstanceMaster() {return productInstanceMaster;}
-    public void setProductInstanceMaster(ProductInstanceMasterKey productInstanceMaster) {this.productInstanceMaster = productInstanceMaster;}
+    public void setIteration(int iteration) {
+        this.iteration = iteration;
+    }
+
+    public ProductInstanceMasterKey getProductInstanceMaster() {
+        return productInstanceMaster;
+    }
+
+    public void setProductInstanceMaster(ProductInstanceMasterKey productInstanceMaster) {
+        this.productInstanceMaster = productInstanceMaster;
+    }
 
     @Override
     public boolean equals(Object o) {

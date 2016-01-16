@@ -15,14 +15,28 @@
 }
 
 .opened{
-	background: #E0E0E0;
+	background: #ECECEC;
 	border-radius: 4px;
 }
-part-actions {
-	padding: 18px;
+document-actions,
+part-actions,
+file-unknown-actions,
+file-document-actions,
+file-part-actions{
+	padding-top: 18px;
 }
 
+.file{
+    width: 100%;
+}
+.clickable{
+    cursor: pointer;
+}
 .subtitle{
+	color: #757575;
+}
+.subtitle.selected{
+    font-weight: bold;
 	color: #757575;
 }
 
@@ -39,19 +53,36 @@ md-sidenav h3:first-of-type{
 	transition: all 1s linear;
 }
 .menu-list.expanded{
-	max-height: 800px;
+	max-height: initial;
 }
 .list-toggle{
 	transition: all 0.5s linear;
 	text-align: center;
 	cursor: pointer;
 	width: 100%;
-	background: #eee;
 	color: #999;
 }
 .list-toggle:hover{
-	background: #ddd;
+    color: #555;
 }
 .list-toggle.expanded{
 	color:blue;
+}
+
+.empty-list{
+    width: 100%;
+    text-align: center;
+    padding: 50px 0;
+}
+
+ul.file-list{
+    margin: 12px;
+    padding: 0;
+    font-size: small;
+    color: #757575;
+}
+ul.file-list li{
+    margin: 0;
+    padding: 0;
+    list-style: none;
 }

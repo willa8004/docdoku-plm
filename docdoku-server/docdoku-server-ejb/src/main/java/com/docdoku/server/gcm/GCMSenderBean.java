@@ -1,12 +1,30 @@
+/*
+ * DocDoku, Professional Open Source
+ * Copyright 2006 - 2015 DocDoku SARL
+ *
+ * This file is part of DocDokuPLM.
+ *
+ * DocDokuPLM is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.docdoku.server.gcm;
 
 import com.docdoku.core.document.DocumentRevision;
 import com.docdoku.core.gcm.GCMAccount;
 import com.docdoku.core.services.IGCMSenderLocal;
-import com.docdoku.core.services.IUserManagerLocal;
 
 import javax.ejb.Asynchronous;
-import javax.ejb.EJB;
 import javax.ejb.Local;
 import javax.ejb.Stateless;
 import javax.json.Json;
@@ -32,24 +50,11 @@ public class GCMSenderBean implements IGCMSenderLocal {
     private static final Properties CONF = new Properties();
     private static final Logger LOGGER = Logger.getLogger(GCMSenderBean.class.getName());
 
-    @EJB
-    private IUserManagerLocal userManager;
-
     static {
-        InputStream inputStream = null;
-        try {
-            inputStream = GCMSenderBean.class.getResourceAsStream(CONF_PROPERTIES);
+        try (InputStream inputStream = GCMSenderBean.class.getResourceAsStream(CONF_PROPERTIES)){
             CONF.load(inputStream);
         } catch (IOException e) {
-            Logger.getLogger(GCMSenderBean.class.getName()).log(Level.WARNING, null, e);
-        } finally {
-            try{
-                if(inputStream!=null){
-                    inputStream.close();
-                }
-            }catch (IOException e){
-                Logger.getLogger(GCMSenderBean.class.getName()).log(Level.SEVERE, null, e);
-            }
+            LOGGER.log(Level.SEVERE, null, e);
         }
     }
 

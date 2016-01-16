@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,7 +25,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * <a href="BinaryResource.html">BinaryResource</a> is the representation
+ * BinaryResource is the representation
  * of a file contained in either a document, part or template.
  * 
  * @author Florent Garin
@@ -101,12 +101,26 @@ public class BinaryResource implements Serializable, Comparable<BinaryResource>{
         return split[2];
     }
 
+    public static String parseVersion(String pFullName){
+        String ref = BinaryResource.parseOwnerRef(pFullName);
+        String[] split = ref.split("/");
+        return split[1];
+    }
+
     public static String parseId(String pFullName){
         String ref = BinaryResource.parseOwnerRef(pFullName);
         String[] split = ref.split("/");
         return split[0];
     }
 
+    public static String getFolderName(String pFullName) {
+        return parseId(pFullName) + "-" + parseVersion(pFullName) + "-" + parseIteration(pFullName);
+    }
+
+    public String getNewFullName(String newName){
+        int index = fullName.lastIndexOf('/');
+        return fullName.substring(0,index) + '/' + newName;
+    }
 
     public void setFullName(String pFullName) {
         fullName = pFullName;
@@ -118,18 +132,24 @@ public class BinaryResource implements Serializable, Comparable<BinaryResource>{
 
     public boolean isNativeCADFile(){
         String[] parts = fullName.split("/");
-        return (parts.length==7 && "nativecad".equals(parts[5]));
+        return parts.length==7 && "nativecad".equals(parts[5]);
+    }
+
+    public boolean isAttachedFile() {
+        String[] parts = fullName.split("/");
+        return parts.length==7 && "attachedfiles".equals(parts[5]);
     }
 
     public BinaryResource getPrevious(){
-        if(getOwnerType().equals("document-templates") || getOwnerType().equals("part-templates")) {
+        String ownerType = getOwnerType();
+        if("document-templates".equals(ownerType) || "part-templates".equals(ownerType)) {
             return null;
         }
         
         int lastS = fullName.lastIndexOf('/');
-        String name = fullName.substring(lastS+1);
+        String name = fullName.substring(lastS + 1);
 
-        if(isNativeCADFile()){
+        if (isNativeCADFile()) {
             String[] parts = fullName.split("/");
             int iteration=Integer.parseInt(parts[4]);
             iteration--;
@@ -139,15 +159,25 @@ public class BinaryResource implements Serializable, Comparable<BinaryResource>{
             }else {
                 return null;
             }
-        }else{
+        } else if (isAttachedFile()) {
+            String[] parts = fullName.split("/");
+            int iteration=Integer.parseInt(parts[4]);
+            iteration--;
+            if (iteration>0) {
+                String previousFullName=parts[0] + "/parts/" + parts[2] + "/" +parts[3]  + "/" + iteration + "/attachedfiles/" +name;
+                return new BinaryResource(previousFullName, contentLength, lastModified);
+            } else {
+                return null;
+            }
+        } else {
             String truncatedName=fullName.substring(0,lastS);
             int beforeLastS = truncatedName.lastIndexOf('/');
             int iteration=Integer.parseInt(truncatedName.substring(beforeLastS+1));
             iteration--;
-            if(iteration>0){
+            if (iteration>0) {
                 String previousFullName=truncatedName.substring(0,beforeLastS)+"/"+iteration+"/"+name;
                 return new BinaryResource(previousFullName, contentLength, lastModified);
-            }else {
+            } else {
                 return null;
             }
         }
@@ -161,7 +191,7 @@ public class BinaryResource implements Serializable, Comparable<BinaryResource>{
         int index= fullName.lastIndexOf('/');
         return fullName.substring(index+1);
     }
-    
+
     public long getContentLength() {
         return contentLength;
     }

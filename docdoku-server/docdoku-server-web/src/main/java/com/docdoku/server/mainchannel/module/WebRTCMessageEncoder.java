@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -28,8 +28,6 @@ import javax.websocket.EndpointConfig;
 
 
 public class WebRTCMessageEncoder implements Encoder.Text<WebRTCMessage> {
-
-
 
     @Override
     public String encode(WebRTCMessage webRTCMessage) throws EncodeException {
@@ -71,11 +69,11 @@ public class WebRTCMessageEncoder implements Encoder.Text<WebRTCMessage> {
 
     @Override
     public void init(EndpointConfig endpointConfig) {
-
+        // Nothing to do
     }
 
     @Override
     public void destroy() {
-
+        // Nothing to do
     }
 }

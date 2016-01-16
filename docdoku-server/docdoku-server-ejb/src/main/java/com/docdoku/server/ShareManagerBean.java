@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,15 +24,11 @@ import com.docdoku.core.services.IShareManagerLocal;
 import com.docdoku.core.sharing.SharedEntity;
 import com.docdoku.server.dao.SharedEntityDAO;
 
-import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 import javax.ejb.Local;
-import javax.ejb.SessionContext;
 import javax.ejb.Stateless;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.util.Date;
-import java.util.logging.Logger;
 
 /**
  * @author Morgan Guimard
@@ -44,14 +40,6 @@ public class ShareManagerBean implements IShareManagerLocal {
 
     @PersistenceContext
     private EntityManager em;
-    @Resource
-    private SessionContext ctx;
-
-    private static final Logger LOGGER = Logger.getLogger(ShareManagerBean.class.getName());
-
-    @PostConstruct
-    private void init() {
-    }
 
     @Override
     public SharedEntity findSharedEntityForGivenUUID(String pUuid) throws SharedEntityNotFoundException {

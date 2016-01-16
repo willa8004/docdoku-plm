@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.ow2.docdoku</groupId>
         <artifactId>docdoku-server</artifactId>
-        <version>2.0-SNAPSHOT</version>
+        <version>2.5-SNAPSHOT</version>
     </parent>
     <artifactId>docdoku-server-web</artifactId>
     <packaging>war</packaging>
@@ -51,16 +51,25 @@
             <artifactId>exec-maven-plugin</artifactId>
             <version>1.2.1</version>
         </dependency>
+        <!--excel apache lib-->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi</artifactId>
+            <version>3.9</version>
+        </dependency>
+
         <!-- JUNIT & Mockito -->
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-all</artifactId>
             <version>1.9.5</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.11</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
@@ -74,7 +83,7 @@
         <dependency>
             <groupId>org.glassfish.jersey.core</groupId>
             <artifactId>jersey-common</artifactId>
-            <version>2.4.1</version>
+            <version>2.21</version>
             <scope>test</scope>
         </dependency>
 
@@ -83,6 +92,11 @@
             <artifactId>commons-httpclient</artifactId>
             <version>3.1</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>3.9</version>
         </dependency>
 
     </dependencies>
@@ -111,8 +125,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.1</version>
                 <configuration>
-                    <source>1.7</source>
-                    <target>1.7</target>
+                    <source>1.8</source>
+                    <target>1.8</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
                 </configuration>
             </plugin>

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,6 +20,8 @@
 package com.docdoku.server.dao;
 
 import com.docdoku.core.common.BinaryResource;
+import com.docdoku.core.configuration.PathDataIteration;
+import com.docdoku.core.configuration.ProductInstanceIteration;
 import com.docdoku.core.document.DocumentIteration;
 import com.docdoku.core.document.DocumentMasterTemplate;
 import com.docdoku.core.exceptions.CreationException;
@@ -79,11 +81,11 @@ public class BinaryResourceDAO {
 
     public BinaryResource loadBinaryResource(String pFullName) throws FileNotFoundException {
         BinaryResource file = em.find(BinaryResource.class, pFullName);
-        if (file == null) {
-            throw new FileNotFoundException(mLocale, pFullName);
-        } else {
-            return file;
+        if(null == file){
+            throw new FileNotFoundException(mLocale,pFullName);
         }
+        return file;
+
     }
 
     public PartIteration getPartOwner(BinaryResource pBinaryResource) {
@@ -112,6 +114,26 @@ public class BinaryResourceDAO {
             return null;
         }
     }
+    public ProductInstanceIteration getProductInstanceIterationOwner(BinaryResource pBinaryResource) {
+        TypedQuery<ProductInstanceIteration> query = em.createQuery("SELECT d FROM ProductInstanceIteration d WHERE :binaryResource MEMBER OF d.attachedFiles", ProductInstanceIteration.class);
+        try {
+            return query.setParameter("binaryResource", pBinaryResource).getSingleResult();
+        } catch (NoResultException pNREx) {
+            LOGGER.log(Level.FINER,null,pNREx);
+            return null;
+        }
+    }
+
+    public PathDataIteration getPathDataOwner(BinaryResource pBinaryResource) {
+        TypedQuery<PathDataIteration> query = em.createQuery("SELECT p FROM PathDataIteration p WHERE :binaryResource MEMBER OF p.attachedFiles", PathDataIteration.class);
+        try {
+            return query.setParameter("binaryResource", pBinaryResource).getSingleResult();
+        } catch (NoResultException pNREx) {
+            LOGGER.log(Level.FINER,null,pNREx);
+            return null;
+        }
+    }
+
 
     public DocumentMasterTemplate getDocumentTemplateOwner(BinaryResource pBinaryResource) {
         TypedQuery<DocumentMasterTemplate> query = em.createQuery("SELECT t FROM DocumentMasterTemplate t WHERE :binaryResource MEMBER OF t.attachedFiles", DocumentMasterTemplate.class);
@@ -142,4 +164,6 @@ public class BinaryResourceDAO {
             return null;
         }
     }
+
+
 }

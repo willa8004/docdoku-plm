@@ -1,14 +1,32 @@
+/*
+ * DocDoku, Professional Open Source
+ * Copyright 2006 - 2015 DocDoku SARL
+ *
+ * This file is part of DocDokuPLM.
+ *
+ * DocDokuPLM is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.docdoku.server.rest.file.util;
 
 import com.docdoku.core.common.BinaryResource;
+import com.docdoku.server.rest.util.FileDownloadTools;
 
 import javax.activation.FileTypeMap;
 import javax.activation.MimetypesFileTypeMap;
 import javax.ws.rs.core.EntityTag;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.Date;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -17,7 +35,7 @@ import java.util.logging.Logger;
 public class BinaryResourceDownloadMeta {
     private static final Logger LOGGER = Logger.getLogger(BinaryResourceDownloadMeta.class.getName());
     private static MimetypesFileTypeMap fileTypeMap = null;
-    private static final String ENCODAGE = "UTF-8";
+    private static final String CHARSET = "UTF-8";
 
     private String fullName;
     private String outputFormat;
@@ -47,25 +65,6 @@ public class BinaryResourceDownloadMeta {
      */
     public String getFullName(){
         return fullName;
-    }
-
-    /**
-     * Get the output name of file
-     * @return Output name of file
-     */
-    public String getFileName(){
-        String fileName = fullName;
-        try {
-            fileName = URLEncoder.encode(fileName, ENCODAGE).replace("+", "%20");
-        } catch (UnsupportedEncodingException e) {
-            LOGGER.log(Level.WARNING,null,e);
-        }
-
-        if(outputFormat !=null){
-            fileName += "."+ outputFormat;
-        }
-
-        return fileName;
     }
 
     public boolean isConverted(){
@@ -129,7 +128,7 @@ public class BinaryResourceDownloadMeta {
         }
 
         if (contentType!=null && contentType.startsWith("text")) {
-            contentType += ";charset="+ENCODAGE;
+            contentType += ";charset="+ CHARSET;
         }
 
         return (contentType != null) ? contentType : "application/octet-stream";
@@ -141,9 +140,9 @@ public class BinaryResourceDownloadMeta {
      */
     // Todo check if we can have unencoding contentDisposition
     // Todo check accept request
-    public String getContentDisposition(){
-        String dispositionType = ("viewer".equals(downloadType)) ? "inline" : "attachement";
-        return dispositionType+";filename=\""+ getFileName() +"\"";
+    public String getContentDisposition() {
+        String fileName = FileDownloadTools.getFileName(fullName, outputFormat);
+        return FileDownloadTools.getContentDisposition(downloadType, fileName);
     }
 
     private static void initFileTypeMap(){

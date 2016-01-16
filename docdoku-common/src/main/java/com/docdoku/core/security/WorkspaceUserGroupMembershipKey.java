@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -80,7 +80,7 @@ public class WorkspaceUserGroupMembershipKey implements Serializable {
             return false;
         }
         WorkspaceUserGroupMembershipKey key = (WorkspaceUserGroupMembershipKey) pObj;
-        return ((key.workspaceId.equals(workspaceId)) && (key.memberWorkspaceId.equals(memberWorkspaceId)) && (key.memberId.equals(memberId)));
+        return key.workspaceId.equals(workspaceId) && key.memberWorkspaceId.equals(memberWorkspaceId) && key.memberId.equals(memberId);
     }
 
     @Override

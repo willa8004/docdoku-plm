@@ -15,7 +15,13 @@ define([
         },
 
         url: function () {
-            return App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/products/' + App.config.productId + '/paths?partNumber=' + encodeURIComponent(this.searchString);
+            var url = App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/products/' + App.config.productId + '/paths?configSpec='+App.config.productConfigSpec+'&search=' + encodeURIComponent(this.searchString);
+
+            if(App.config.diverge){
+                url += '&diverge=true';
+            }
+
+            return url;
         }
 
     });

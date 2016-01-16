@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -31,10 +31,10 @@ import java.util.Set;
 
 /**
  * This class represents a request for a change,
- * which addresses one or more <a href="ChangeIssue.html">ChangeIssue</a>.
+ * which addresses one or more {@link ChangeIssue}.
  * @author Florent Garin
  * @version 2.0, 09/01/14
- * @since   V2.0
+ * @since V2.0
  */
 @Table(name="CHANGEREQUEST")
 @Entity
@@ -53,7 +53,7 @@ import java.util.Set;
         ),
         @AssociationOverride(
                 name="affectedDocuments",
-                joinTable = @JoinTable(name="CHANGEREQUEST_AFFECTED_DOCUMENT",
+                joinTable = @JoinTable(name="CHANGEREQ_AFFECTED_DOCUMENT",
                         inverseJoinColumns={
                                 @JoinColumn(name="DOCUMENTMASTER_ID", referencedColumnName="DOCUMENTMASTER_ID"),
                                 @JoinColumn(name="DOCUMENTREVISION_VERSION", referencedColumnName="DOCUMENTREVISION_VERSION"),
@@ -67,7 +67,7 @@ import java.util.Set;
         ),
         @AssociationOverride(
                 name="affectedParts",
-                joinTable = @JoinTable(name="CHANGEREQUEST_AFFECTED_PART",
+                joinTable = @JoinTable(name="CHANGEREQ_AFFECTED_PART",
                         inverseJoinColumns={
                                 @JoinColumn(name="PARTMASTER_PARTNUMBER", referencedColumnName="PARTMASTER_PARTNUMBER"),
                                 @JoinColumn(name="PARTREVISION_VERSION", referencedColumnName="PARTREVISION_VERSION"),
@@ -84,7 +84,8 @@ import java.util.Set;
         @NamedQuery(name="ChangeRequest.findChangeRequestsByWorkspace",query="SELECT DISTINCT c FROM ChangeRequest c WHERE c.workspace.id = :workspaceId"),
         @NamedQuery(name="ChangeRequest.countRequestByMilestonesAndWorkspace",query="SELECT COUNT(r) FROM ChangeRequest r WHERE r.workspace.id = :workspaceId AND r.milestone.id = :milestoneId"),
         @NamedQuery(name="ChangeRequest.getRequestByMilestonesAndWorkspace",query="SELECT DISTINCT r FROM ChangeRequest r WHERE r.workspace.id = :workspaceId AND r.milestone.id = :milestoneId"),
-        @NamedQuery(name="ChangeRequest.findByReference", query="SELECT c FROM ChangeRequest c WHERE c.name LIKE :name AND c.workspace.id = :workspaceId")
+        @NamedQuery(name="ChangeRequest.findByReference", query="SELECT c FROM ChangeRequest c WHERE c.name LIKE :name AND c.workspace.id = :workspaceId"),
+        @NamedQuery(name="ChangeRequest.findByChangeIssue", query="SELECT c FROM ChangeRequest c WHERE c.workspace.id = :workspaceId AND :changeIssue member of c.addressedChangeIssues")
 })
 public class ChangeRequest extends ChangeItem {
 

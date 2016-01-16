@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,96 +25,85 @@ import com.docdoku.core.exceptions.*;
 import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.services.IDataManagerLocal;
 import com.docdoku.core.util.FileIO;
+import com.docdoku.server.InternalService;
 import com.docdoku.server.converters.CADConverter;
-import com.google.common.io.Files;
-import com.google.common.io.InputSupplier;
+import com.docdoku.server.converters.utils.ConversionResult;
+import com.docdoku.server.converters.utils.ConverterUtils;
 
-import javax.ejb.EJB;
-import java.io.*;
+import javax.inject.Inject;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 
 @StepFileConverter
-public class StepFileConverterImpl implements CADConverter{
+public class StepFileConverterImpl implements CADConverter {
 
-    private static final String PYTHON_SCRIPT_TO_OBJ="/com/docdoku/server/converters/step/convert_step_obj.py";
-    private static final String CONF_PROPERTIES="/com/docdoku/server/converters/step/conf.properties";
+    private static final String PYTHON_SCRIPT_TO_OBJ = "/com/docdoku/server/converters/step/convert_step_obj.py";
+    private static final String CONF_PROPERTIES = "/com/docdoku/server/converters/step/conf.properties";
     private static final Properties CONF = new Properties();
     private static final Logger LOGGER = Logger.getLogger(StepFileConverterImpl.class.getName());
 
-    @EJB
+    @InternalService
+    @Inject
     private IDataManagerLocal dataManager;
 
-    static{
-        InputStream inputStream = null;
-        try {
-            inputStream = StepFileConverterImpl.class.getResourceAsStream(CONF_PROPERTIES);
+    static {
+        try (InputStream inputStream = StepFileConverterImpl.class.getResourceAsStream(CONF_PROPERTIES)){
             CONF.load(inputStream);
         } catch (IOException e) {
-            Logger.getLogger(StepFileConverterImpl.class.getName()).log(Level.INFO, null, e);
-        } finally {
-            try{
-                if(inputStream!=null){
-                    inputStream.close();
-                }
-            }catch (IOException e){
-                Logger.getLogger(StepFileConverterImpl.class.getName()).log(Level.FINEST, null, e);
-            }
+            LOGGER.log(Level.SEVERE, null, e);
         }
     }
 
     @Override
-    public File convert(PartIteration partToConvert, final BinaryResource cadFile, File tempDir) throws IOException, InterruptedException, UserNotActiveException, PartRevisionNotFoundException, WorkspaceNotFoundException, CreationException, UserNotFoundException, NotAllowedException, FileAlreadyExistsException, StorageException {
+    public ConversionResult convert(PartIteration partToConvert, final BinaryResource cadFile, File tempDir) throws IOException, InterruptedException, UserNotActiveException, PartRevisionNotFoundException, WorkspaceNotFoundException, CreationException, UserNotFoundException, NotAllowedException, FileAlreadyExistsException, StorageException {
 
         String extension = FileIO.getExtension(cadFile.getName());
         File tmpCadFile = new File(tempDir, partToConvert.getKey() + "." + extension);
-        File tmpOBJFile = new File(tempDir.getAbsolutePath() + "/" + partToConvert.getKey() + ".obj");
+        File tmpOBJFile = new File(tempDir.getAbsolutePath() + "/" + UUID.randomUUID() + ".obj");
 
         String pythonInterpreter = CONF.getProperty("pythonInterpreter");
         String freeCadLibPath = CONF.getProperty("freeCadLibPath");
 
-        File scriptToOBJ =  FileIO.urlToFile(StepFileConverterImpl.class.getResource(PYTHON_SCRIPT_TO_OBJ));
+        File scriptToOBJ;
 
-        Files.copy(new InputSupplier<InputStream>() {
-            @Override
-            public InputStream getInput() throws IOException {
-                try {
-                    return dataManager.getBinaryResourceInputStream(cadFile);
-                } catch (StorageException e) {
-                    Logger.getLogger(StepFileConverterImpl.class.getName()).log(Level.WARNING, null, e);
-                    throw new IOException(e);
-                }
-            }
-        }, tmpCadFile);
+        try(InputStream scriptStream = StepFileConverterImpl.class.getResourceAsStream(PYTHON_SCRIPT_TO_OBJ)){
+            scriptToOBJ = new File(tempDir,"python_script" + UUID.randomUUID() + ".py");
+            Files.copy(scriptStream, scriptToOBJ.toPath());
+        }
 
-        String[] args = {pythonInterpreter, scriptToOBJ.getAbsolutePath(), "-l" , freeCadLibPath, "-i", tmpCadFile.getAbsolutePath(), "-o", tmpOBJFile.getAbsolutePath()};
+        try (InputStream in = dataManager.getBinaryResourceInputStream(cadFile)) {
+            Files.copy(in, tmpCadFile.toPath());
+        } catch (StorageException e) {
+            LOGGER.log(Level.WARNING, null, e);
+            throw new IOException(e);
+        }
+
+        String[] args = {pythonInterpreter, scriptToOBJ.getAbsolutePath(), "-l", freeCadLibPath, "-i", tmpCadFile.getAbsolutePath(), "-o", tmpOBJFile.getAbsolutePath()};
         ProcessBuilder pb = new ProcessBuilder(args);
 
-        Process p = pb.start();
+        Process process = pb.start();
 
-        StringBuilder output = new StringBuilder();
-        String line;
+        // Read buffers
+        String stdOutput = ConverterUtils.getOutput(process.getInputStream());
+        String errorOutput = ConverterUtils.getOutput(process.getErrorStream());
 
-        InputStreamReader isr = new InputStreamReader(p.getInputStream(),"UTF-8");
-        BufferedReader br = new BufferedReader(isr);
+        LOGGER.info(stdOutput);
 
-        while ((line=br.readLine()) != null){
-            output.append(line).append("\n");
+        process.waitFor();
+
+        if (process.exitValue() == 0) {
+            return new ConversionResult(tmpOBJFile);
         }
 
-        p.waitFor();
-
-        closeStream(isr);
-        closeStream(br);
-
-        if(p.exitValue() == 0){
-            return tmpOBJFile;
-        }
-
-        LOGGER.log(Level.SEVERE, "Cannot convert to obj : " + tmpCadFile.getAbsolutePath(), output.toString());
+        LOGGER.log(Level.SEVERE, "Cannot convert to obj : " + tmpCadFile.getAbsolutePath(), errorOutput);
         return null;
     }
 
@@ -123,14 +112,4 @@ public class StepFileConverterImpl implements CADConverter{
         return Arrays.asList("stp", "step", "igs", "iges").contains(cadFileExtension);
     }
 
-
-    private void closeStream(Closeable stream) {
-        try{
-            if(stream!=null){
-                stream.close();
-            }
-        }catch (IOException e){
-            LOGGER.log(Level.FINEST, null, e);
-        }
-    }
 }

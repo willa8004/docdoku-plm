@@ -1,4 +1,4 @@
-/*global define,App,window,$*/
+/*global define,App,$*/
 define([
     'backbone',
     'mustache',
@@ -16,7 +16,7 @@ define([
             'click i.toggle-comment': 'toggleComment',
             'click i.approve-task': 'approveTaskButtonClicked',
             'click i.reject-task': 'rejectTaskButtonClicked',
-            'submit .closure-comment form': 'submitClosure',
+            'submit .closure-comment-form': 'submitClosure',
             'click .closure-comment .cancel': 'cancelClosure'
         },
 
@@ -52,7 +52,7 @@ define([
         render: function () {
             this.$el.html(Mustache.render(template, {i18n: App.config.i18n, task: this.task}));
             this.$el.addClass(this.task.status.toLowerCase());
-            this.$('.user-popover').userPopover(this.task.worker.login, this.task.title, 'top');
+            this.$('.user-popover').userPopover(this.task.worker.login, this.task.title, 'left');
             this.bindDomElements();
             this.lifecycleTaskSigningView = new LifecycleTaskSigningView().render();
             this.$tasksigning.append(this.lifecycleTaskSigningView.$el);
@@ -101,7 +101,7 @@ define([
             var closureType = this.$closureTypeInput.val();
             var signature = this.lifecycleTaskSigningView.signature;
 
-            var dto = JSON.stringify({
+            var data = JSON.stringify({
                 comment: closureComment,
                 signature: signature
             });
@@ -112,7 +112,7 @@ define([
                     context: this,
                     type: 'POST',
                     url: processUrl + '&action=approve',
-                    data: dto,
+                    data: data,
                     contentType: 'application/json;charset=UTF-8',
                     success: function () {
                         this.task.closureDate = Date.now();
@@ -122,7 +122,7 @@ define([
                         this.refreshTask();
                     },
                     error: function (error) {
-                        window.alert(error.responseText);
+                        Backbone.Events.trigger('task:errorDisplay', this.task, error);
                     }
                 });
 
@@ -132,7 +132,7 @@ define([
                     context: this,
                     type: 'POST',
                     url: processUrl + '&action=reject',
-                    data: dto,
+                    data: data,
                     contentType: 'application/json;charset=UTF-8',
                     success: function () {
                         this.task.closureDate = Date.now();
@@ -142,7 +142,7 @@ define([
                         this.refreshTask();
                     },
                     error: function (error) {
-                        window.alert(error.responseText);
+                        Backbone.Events.trigger('task:errorDisplay', this.task, error);
                     }
                 });
 

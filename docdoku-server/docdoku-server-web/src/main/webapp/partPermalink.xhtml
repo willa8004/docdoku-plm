@@ -12,15 +12,15 @@
     <title>#{i18nPart['title']}</title>
 
     <link rel="Shortcut Icon" type="image/ico" href="#{request.contextPath}/images/favicon.ico"/>
-    <link rel="stylesheet/less" type="text/css" href="#{request.contextPath}/less/permalink/style.less"/>
+    <link rel="stylesheet" type="text/css" href="#{request.contextPath}/css/permalink.css"/>
     <link rel="stylesheet" type="text/css" href="#{request.contextPath}/css/font-awesome.min.css"/>
 
-    <script type="text/javascript" src="#{request.contextPath}/bower_components/tweenjs/build/tween.min.js"></script>
-    <script type="text/javascript" src="#{request.contextPath}/bower_components/less/dist/less-1.3.3.min.js"></script>
     <script type="text/javascript" src="#{request.contextPath}/bower_components/jquery/jquery.min.js"></script>
     <script type="text/javascript" src="#{request.contextPath}/bower_components/bootstrap/docs/assets/js/bootstrap.min.js"></script>
+    <script type="text/javascript" src="#{request.contextPath}/js/lib/plugin-detect.js"></script>
 
     <c:if test="${!geometryFileURI.isEmpty()}">
+        <script type="text/javascript" src="#{request.contextPath}/bower_components/tweenjs/build/tween.min.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/bower_components/underscore/underscore-min.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/bower_components/backbone/backbone-min.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/bower_components/requirejs/require.js"></script>
@@ -29,6 +29,7 @@
         <script type="text/javascript" src="#{request.contextPath}/js/product-structure/dmu/loaders/ColladaLoader.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/js/product-structure/dmu/loaders/STLLoader.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/js/product-structure/dmu/loaders/OBJLoader.js"></script>
+        <script type="text/javascript" src="#{request.contextPath}/js/product-structure/dmu/loaders/MTLLoader.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/js/product-structure/dmu/utils/Stats.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/js/product-structure/dmu/controls/TrackballControls.js"></script>
         <script type="text/javascript" src="#{request.contextPath}/js/product-structure/dmu/controls/PointerLockControls.js"></script>
@@ -42,7 +43,7 @@
             <div class="nav-collapse collapse">
                 <div class="container-fluid">
                     <h:graphicImage id="brand-logo" alt="docdoku_plm" library="default" name="images/plm_logo2.png" />
-                    <a class="brand" href="/">DocDoku<strong>PLM</strong></a>
+                    <a class="brand" href="#{request.contextPath}/faces/admin/workspace/workspacesMenu.xhtml">DocDoku<strong>PLM</strong></a>
                 </div>
             </div>
         </div>
@@ -58,9 +59,10 @@
                     <li class="active"><a href="#tab-part-general" data-toggle="tab">#{i18nPart['tabs.general']}</a></li>
                     <li><a href="#tab-part-iteration" data-toggle="tab">#{i18nPart['tabs.iteration']}</a></li>
                     <li><a href="#tab-part-attributes" data-toggle="tab">#{i18nPart['tabs.attributes']}</a></li>
-                    <li><a href="#tab-part-native-cad-file" data-toggle="tab">#{i18nPart['tabs.nativeCADFile']}</a></li>
-                    <li><a href="#tab-part-links" data-toggle="tab">#{i18nPart['tabs.links']}</a></li>
+                    <li><a href="#tab-part-cad-file" data-toggle="tab">#{i18nPart['tabs.nativeCADFile']}</a></li>
+                    <li><a href="#tab-part-files" data-toggle="tab">#{i18nPart['tabs.files']}</a></li>
                     <li><a href="#tab-part-assembly" data-toggle="tab">#{i18nPart['tabs.assembly']}</a></li>
+                    <li><a href="#tab-part-links" data-toggle="tab">#{i18nPart['tabs.links']}</a></li>
                 </ul>
 
                 <div class="tab-content form-horizontal">
@@ -70,45 +72,75 @@
                         <table class="table table-striped table-condensed">
                             <tbody>
                             <tr>
-                                <th scope="row">#{i18nPart['general.author']}:</th>
-                                <td>${partRevision.author.name}</td>
-                            </tr>
-                            <tr>
-                                <th scope="row">#{i18nPart['general.date']}:</th>
+                                <th scope="row">#{i18nPart['general.creation_date']}</th>
                                 <td>
-                                    <h:outputText value="#{partRevision.creationDate}">
-                                        <f:convertDateTime pattern="dd/MM/yyyy" />
-                                    </h:outputText>
+                                    <h:outputText value="#{accountBean.addTimeZone(partRevision.creationDate)}"/>
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['general.type']}:</th>
+                                <th scope="row">#{i18nPart['general.type']}</th>
                                 <td>${partRevision.partMaster.type}</td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['general.name']}:</th>
+                                <th scope="row">#{i18nPart['general.partName']}</th>
                                 <td>${partRevision.partMaster.name}</td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['general.checkout_user']}:</th>
-                                <td>${partRevision.checkOutUser.name}</td>
+                                <th scope="row">#{i18nPart['general.standardPart']}</th>
+                                <td>${partRevision.partMaster.standardPart}</td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['general.checkout_date']}:</th>
-                                <td>
-                                    <h:outputText value="#{partRevision.checkOutDate}">
-                                        <f:convertDateTime pattern="dd/MM/yyyy" />
-                                    </h:outputText>
-                                </td>
+                                <th scope="row">#{i18nPart['general.author']}</th>
+                                <td>${partRevision.author.name}</td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['general.lifeCycleState']}:</th>
+                                <th scope="row">#{i18nPart['general.lifeCycleState']}</th>
                                 <td>${partRevision.lifeCycleState}</td>
                             </tr>
+                            <c:if test="${partRevision.isCheckedOut()}">
+                                <tr>
+                                    <th scope="row">#{i18nPart['general.checkout_user']}</th>
+                                    <td>${partRevision.checkOutUser.name}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">#{i18nPart['general.checkout_date']}</th>
+                                    <td>
+                                        <h:outputText value="#{accountBean.addTimeZone(partRevision.checkOutDate)}"/>
+                                    </td>
+                                </tr>
+                            </c:if>
                             <tr>
-                                <th scope="row">#{i18nPart['general.description']}:</th>
+                                <th scope="row">#{i18nPart['general.description']}</th>
                                 <td>${partRevision.description}</td>
                             </tr>
+                            <tr>
+                                <th scope="row">#{i18nPart['general.tags']}</th>
+                                <td>${partRevision.tags}</td>
+                            </tr>
+                            <c:if test="${partRevision.releaseAuthor!=null}">
+                                <tr>
+                                    <th scope="row">#{i18nPart['general.release_author']}</th>
+                                    <td>${partRevision.releaseAuthor.name}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">#{i18nPart['general.release_date']}</th>
+                                    <td>
+                                        <h:outputText value="#{accountBean.addTimeZone(partRevision.releaseDate)}"/>
+                                    </td>
+                                </tr>
+                            </c:if>
+                            <c:if test="${partRevision.isObsolete()}">
+                                <tr>
+                                    <th scope="row">#{i18nPart['general.obsolete_author']}</th>
+                                    <td>${partRevision.obsoleteAuthor.name}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">#{i18nPart['general.obsolete_date']}</th>
+                                    <td>
+                                        <h:outputText value="#{accountBean.addTimeZone(partRevision.obsoleteDate)}"/>
+                                    </td>
+                                </tr>
+                            </c:if>
                             </tbody>
                         </table>
                     </div>
@@ -117,24 +149,28 @@
                         <table class="table table-striped table-condensed">
                             <tbody>
                             <tr>
-                                <th scope="row">#{i18nPart['iteration.number']}:</th>
+                                <th scope="row">#{i18nPart['iteration.number']}</th>
                                 <td>${partRevision.lastIteration.iteration}</td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['iteration.author']}:</th>
-                                <td>${partRevision.lastIteration.author.name}</td>
+                                <th scope="row">#{i18nPart['iteration.revisionNote']}</th>
+                                <td>${partRevision.lastIteration.iterationNote}</td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['iteration.date']}:</th>
+                                <th scope="row">#{i18nPart['iteration.revision_date']}</th>
                                 <td>
-                                    <h:outputText value="#{partRevision.lastIteration.creationDate}">
-                                        <f:convertDateTime pattern="dd/MM/yyyy" />
-                                    </h:outputText>
+                                    <h:outputText value="#{partRevision.isCheckedOut() ? accountBean.addTimeZone(partRevision.lastIteration.creationDate) : accountBean.addTimeZone(partRevision.lastIteration.checkInDate)}"/>
                                 </td>
                             </tr>
                             <tr>
-                                <th scope="row">#{i18nPart['iteration.iterationNote']}:</th>
-                                <td>${partRevision.lastIteration.iterationNote}</td>
+                                <th scope="row">#{i18nPart['iteration.modification_date']}</th>
+                                <td>
+                                    <h:outputText value="#{accountBean.addTimeZone(partRevision.lastIteration.modificationDate)}"/>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th scope="row">#{i18nPart['iteration.author']}</th>
+                                <td>${partRevision.lastIteration.author.name}</td>
                             </tr>
                             </tbody>
                         </table>
@@ -166,12 +202,15 @@
                                             <c:when test="${item.value.class=='class java.util.Date'}">
                                                 <td>
                                                     <h:outputText value="#{item.value}">
-                                                        <f:convertDateTime pattern="dd/MM/yyyy" />
+                                                        <f:convertDateTime pattern="#{i18nPart['date.shortFormat']}" />
                                                     </h:outputText>
                                                 </td>
                                             </c:when>
                                             <c:when test="${item.class=='class com.docdoku.core.meta.InstanceURLAttribute'}">
                                                 <td><a href="${item.value}">${item.value}</a></td>
+                                            </c:when>
+                                            <c:when test="${item.class=='class com.docdoku.core.meta.InstanceListOfValuesAttribute'}">
+                                                <td>${item.getSelectedName()}</td>
                                             </c:when>
                                             <c:otherwise>
                                                 <td>${item.value}</td>
@@ -184,7 +223,7 @@
                         </c:if>
                     </div>
 
-                    <div id="tab-part-native-cad-file" class="tab-pane files">
+                    <div id="tab-part-cad-file" class="tab-pane files">
                         <c:if test="${partRevision.lastIteration.nativeCADFile!=null}">
                             <a href="${nativeCadFileURI}">${partRevision.lastIteration.nativeCADFile.name}</a>
                         </c:if>
@@ -212,7 +251,7 @@
                                         }
                                     });
 
-                                    $('a[data-toggle="tab"][href=#tab-part-native-cad-file]').on('shown', function (e) {
+                                    $('a[data-toggle="tab"][href=#tab-part-cad-file]').on('shown', function (e) {
                                         if(!rendered){
                                             require(["permalinkApp"],function(PermalinkApp){
                                                 new PermalinkApp(geometryFileURI, width, height);
@@ -229,21 +268,22 @@
 
                     </div>
 
-                    <div id="tab-part-links" class="tab-pane">
-                        <c:if test="${partRevision.lastIteration.linkedDocuments.size()!=0}">
-                            <ul>
-                                <c:forEach var="item" items="${partRevision.lastIteration.linkedDocuments}">
-                                    <li><a href="#{request.contextPath}/documents/${item.targetDocumentWorkspaceId}/${item.targetDocumentDocumentMasterId}/${item.targetDocumentDocumentMasterVersion}">${item.targetDocumentDocumentMasterId}-${item.targetDocumentDocumentMasterVersion}-${item.targetDocumentIteration}</a></li>
-                                </c:forEach>
-                            </ul>
-                        </c:if>
+                    <div id="tab-part-files" class="tab-pane">
+                        <h:panelGroup layout="block" id="files" styleClass="accordion"></h:panelGroup>
+                        <f:event type="preRenderView" listener="#{viewerBean.process}" />
                     </div>
 
                     <div id="tab-part-assembly" class="tab-pane">
                         <c:if test="${partRevision.lastIteration.components.size()!=0}">
+                            <iframe id="assembly-frame" src="#{request.contextPath}/visualization/#assembly/#{partRevision.partMaster.workspace.id}/${partRevision.partMaster.number}-${partRevision.version}/0/0/0"></iframe>
+                        </c:if>
+                    </div>
+
+                    <div id="tab-part-links" class="tab-pane">
+                        <c:if test="${partRevision.lastIteration.linkedDocuments.size()!=0}">
                             <ul>
-                                <c:forEach var="item" items="${partRevision.lastIteration.components}">
-                                    <li><a href="#{request.contextPath}/parts/${item.component.workspace.id}/${item.component.number}/${item.component.getLastRevision().version}">${item.component.number}-${item.component.getLastRevision().version} (${item.amount.intValue()})</a></li>
+                                <c:forEach var="item" items="${partRevision.lastIteration.linkedDocuments}">
+                                    <li><a href="#{request.contextPath}/documents/${item.targetDocumentWorkspaceId}/${item.targetDocumentMasterId}/${item.targetDocumentVersion}">${item.targetDocumentMasterId}-${item.targetDocumentVersion}</a> <c:if test="${not empty item.comment}"> ( ${item.comment} ) </c:if></li>
                                 </c:forEach>
                             </ul>
                         </c:if>

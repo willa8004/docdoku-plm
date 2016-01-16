@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,7 +22,7 @@ package com.docdoku.core.exceptions;
 import java.util.Locale;
 
 /**
- * Exception when trying to create a index with a wrong Name;
+ * Exception when trying to create a index with a wrong Name.
  * @author Taylor LABEJOF
  */
 public class ESIndexNamingException extends ApplicationException {

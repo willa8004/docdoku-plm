@@ -3,46 +3,89 @@ define(['backbone', 'models/component_module', 'views/component_views'
 ], function (Backbone, ComponentModule, ComponentViews) {
 	'use strict';
 
-    function isChildOfPath(parentPath, path){
-        return path.startsWith(parentPath);
-    }
-
     var PartsTreeView = Backbone.View.extend({
         el: '#product_nav_list',
 
         events: {
             'change input': 'checkChildrenInputs',
             'change li': 'checkParentsInputs',
-            'component_selected a': 'onComponentSelected',
-            'click #product_title': 'onProductRootNode'
+            'component:selected a': 'onComponentSelected',
+            'click #product_title .product_title': 'onProductTitleClicked',
+            'load:root': 'onProductTitleClicked',
+            'click .fa-refresh': 'refreshProductView',
+            'click .fa-quote-right': 'toggleComment',
+            'checkbox:selected': 'onCheckboxSelected'
+        },
+
+        checkedPath : [],
+
+        initialize: function () {
+            _.bindAll(this);
+        },
+
+        uncheckAll: function() {
+            this.componentViews.setChecked(false);
+            this.checkedPath.length = 0;
+            Backbone.Events.trigger('path:selected', this.checkedPath);
+        },
+
+        onCheckboxSelected:function(e, checked, model){
+            if(checked){
+                this.checkedPath.push(model);
+            }else{
+                this.checkedPath.splice(this.checkedPath.indexOf(model), 1);
+            }
+            Backbone.Events.trigger('path:selected', this.checkedPath);
         },
 
         setSelectedComponent: function (component) {
             this.componentSelected = component;
         },
 
-        onProductRootNode: function () {
+        onProductTitleClicked: function () {
+            this.setTitleSelected(true);
             this.setSelectedComponent(this.rootComponent);
-            this.trigger('component_selected', true);
+            App.appView.onComponentSelected(true);
+        },
+
+        setTitleSelected:function(selected){
+            if(selected){
+                this.$('li.active').removeClass('active');
+                this.$('#product_title .product_title').addClass('active');
+            }else{
+                this.$('#product_title .product_title').removeClass('active');
+            }
+        },
+
+        refreshProductView: function(){
+            this.refreshAll();
         },
 
         render: function () {
             var self = this;
-            var rootCollection = new ComponentModule.Collection([], { isRoot: true });
+
+            this.rootCollection = new ComponentModule.Collection([], { isRoot: true });
 
             this.smartPath = [];
 
             this.rootComponent = undefined;
 
-            this.listenTo(rootCollection, 'reset', function (collection) {
-                //the default selected component is the root
+            this.listenTo(this.rootCollection, 'reset', function (collection) {
+
                 self.rootComponent = collection.first();
-                self.setSelectedComponent(self.rootComponent);
+
+                if(!self.componentSelected){
+                    self.setSelectedComponent(self.rootComponent);
+                }
+
                 self.trigger('collection:fetched');
+
+                self.onProductTitleClicked();
+
             });
 
             this.componentViews = new ComponentViews.Components({
-                collection: rootCollection,
+                collection: this.rootCollection,
                 resultPathCollection: this.options.resultPathCollection,
                 parentView: this.$el,
                 parentChecked: false
@@ -56,7 +99,7 @@ define(['backbone', 'models/component_module', 'views/component_views'
         },
 
         checkChildrenInputs: function (event) {
-            var inputs = event.target.parentNode.querySelectorAll('input.available');
+            var inputs = event.target.parentNode.querySelectorAll('input.load-3D.available');
             for (var i = 0; i < inputs.length; i++) {
                 inputs[i].checked = event.target.checked;
                 // on retire les fils du smartPath
@@ -66,7 +109,7 @@ define(['backbone', 'models/component_module', 'views/component_views'
 
         // Set smartPaths while checking parents
         checkParentsInputs: function (event) {
-            var relativeInput = event.currentTarget.querySelector('input');
+            var relativeInput = event.currentTarget.querySelector('input.load-3D');
             relativeInput.checked = event.target.checked;
             var childrenUl = event.currentTarget.querySelector('ul');
 
@@ -77,7 +120,7 @@ define(['backbone', 'models/component_module', 'views/component_views'
 
                 for (var i = 0; i < childrenUl.childNodes.length; i++) {
                     var li = childrenUl.childNodes[i];
-                    if (li.querySelector('input') && li.querySelector('input').checked) {
+                    if (li.querySelector('input.load-3D') && li.querySelector('input.load-3D').checked) {
                         inputsChecked++;
                         // add children into a temporary array
                         tempArray.push(li.id.substring(5));
@@ -105,7 +148,7 @@ define(['backbone', 'models/component_module', 'views/component_views'
                 }
             }
 
-            if (relativeInput.parentNode.id === 'path_null') {
+            if (relativeInput.parentNode.id === 'path_-1') {
                 // Root node : master send the new smartPaths
 	            App.collaborativeController.sendSmartPath(this.smartPath);
             }
@@ -122,6 +165,7 @@ define(['backbone', 'models/component_module', 'views/component_views'
         },
 
         setSmartPaths: function (arrayPaths) {
+
 	        arrayPaths = (arrayPaths) ? arrayPaths : [];
             var pathsToLoad = _.difference(arrayPaths, this.smartPath);
             var pathsToUnload = _.difference(this.smartPath, arrayPaths);
@@ -155,28 +199,34 @@ define(['backbone', 'models/component_module', 'views/component_views'
         },
 
         setCheckboxes: function () {
-            this.$('li input').prop('checked', false);
-            var self = this;
+            this.$('li input.load-3D').prop('checked', false);
             _.each(this.smartPath, function (path) {
-                self.$('li[id^="path_' + path + '"] input').prop('checked', true);
-            });
+                this.$('li[id^="path_' + path + '"] input.load-3D').prop('checked', true);
+            },this);
         },
 
         onComponentSelected: function (e, componentModel, li) {
+            this.setTitleSelected(false);
             e.stopPropagation();
             this.$('li.active').removeClass('active');
             li.addClass('active');
             this.setSelectedComponent(componentModel);
-            this.trigger('component_selected');
+            App.appView.onComponentSelected();
         },
 
         refreshAll: function () {
-            App.instancesManager.clear();
+            this.checkedPath = [];
+            Backbone.Events.trigger('path:selected', this.checkedPath);
+            this.rootCollection.path = App.config.linkType ? null : '-1';
             this.componentViews.fetchAll();
+            this.onProductTitleClicked();
+            App.instancesManager.clear();
+            App.collaborativeController.sendSmartPath(App.partsTreeView.getSmartPath());
+            App.collaborativeController.sendConfigSpec(App.config.productConfigSpec);
         },
 
-        onRefreshComponent: function (partKey) {
-            this.componentViews.refreshComponent(partKey);
+        toggleComment:function(){
+            this.$el.toggleClass('displayComment');
         }
 
     });

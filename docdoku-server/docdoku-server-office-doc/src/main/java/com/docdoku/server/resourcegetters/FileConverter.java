@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,14 +21,13 @@
 package com.docdoku.server.resourcegetters;
 
 import com.google.common.io.Files;
-import com.google.common.io.InputSupplier;
 import org.artofsolving.jodconverter.OfficeDocumentConverter;
 import org.artofsolving.jodconverter.office.DefaultOfficeManagerConfiguration;
 import org.artofsolving.jodconverter.office.OfficeManager;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
-import javax.ejb.*;
+import javax.inject.Singleton;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -37,7 +36,6 @@ import java.util.Properties;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-@ConcurrencyManagement(ConcurrencyManagementType.CONTAINER)
 @Singleton
 public class FileConverter {
 
@@ -50,10 +48,11 @@ public class FileConverter {
 
     @PostConstruct
     private void init() {
-        InputStream inputStream = null;
-        try {
+
+        try (InputStream inputStream = FileConverter.class.getResourceAsStream(PROPERTIES_FILE)){
+
             Properties properties = new Properties();
-            inputStream = FileConverter.class.getResourceAsStream(PROPERTIES_FILE);
+
             properties.load(inputStream);
             String ooHome = properties.getProperty(OO_HOME_KEY);
             int ooPort = Integer.parseInt(properties.getProperty(OO_PORT_KEY));
@@ -65,14 +64,6 @@ public class FileConverter {
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, null, e);
             throw new RuntimeException(e);
-        } finally {
-            try{
-                if(inputStream!=null){
-                    inputStream.close();
-                }
-            }catch (IOException e){
-                LOGGER.log(Level.FINEST, null, e);
-            }
         }
     }
 
@@ -81,17 +72,11 @@ public class FileConverter {
         officeManager.stop();
     }
 
-    @Lock(LockType.WRITE)
-    public InputStream convertToPDF(String sourceName, final InputStream streamToConvert) throws IOException {
+    public synchronized InputStream convertToPDF(String sourceName, final InputStream streamToConvert) throws IOException {
         File tmpDir = com.google.common.io.Files.createTempDir();
         File fileToConvert = new File(tmpDir, sourceName);
 
-        Files.copy(new InputSupplier<InputStream>() {
-            @Override
-            public InputStream getInput() throws IOException {
-                return streamToConvert;
-            }
-        }, fileToConvert);
+        Files.copy(() -> streamToConvert, fileToConvert);
 
         File pdfFile = convertToPDF(fileToConvert);
 

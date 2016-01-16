@@ -31,10 +31,18 @@
                         </div>
 
                         <div class="control-group">
+                            <label class="control-label">{{i18n.DESCRIPTION}}</label>
+
+                            <div class="controls">
+                                {{model.getDescription}}
+                            </div>
+                        </div>
+
+                        <div class="control-group">
                             <label class="control-label">{{i18n.ROOT_PART}}</label>
 
                             <div class="controls">
-                                {{model.getDesignItemNumber}}
+                                {{model.getDesignItemName}} < {{model.getDesignItemNumber}} >
                             </div>
                         </div>
 

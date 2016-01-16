@@ -1,5 +1,19 @@
 <td><input type="checkbox" id="check-toggle-{{view.cid}}"/></td>
 <td class="reference">{{model.id}}</td>
-<td>{{model.documentType}}</td>
+<td class="type">{{model.documentType}}</td>
+<td class="mask">{{model.mask}}</td>
 <td><a class="author-popover">{{model.author.name}}</a></td>
 <td><a class="date-popover">{{model.creationDate}}</a></td>
+<td class="template-acl-info">
+    {{#model.isReadOnly}}
+    <i class="fa fa-key read-only" title="{{i18n.READ_ONLY}}"></i>
+    {{/model.isReadOnly}}
+    {{#model.isFullAccess}}
+    <i class="fa fa-key full-access" title="{{i18n.FULL_ACCESS}}"></i>
+    {{/model.isFullAccess}}
+</td>
+<td class="document-attached-files">
+    {{#model.hasAttachedFiles}}
+    <i class="fa fa-paperclip" title="{{i18n.ATTACHED_FILES}}"></i>
+    {{/model.hasAttachedFiles}}
+</td>

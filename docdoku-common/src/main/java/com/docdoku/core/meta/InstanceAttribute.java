@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,26 +25,27 @@ import javax.xml.bind.annotation.XmlSeeAlso;
 import java.io.Serializable;
 
 /**
- * Base class for all instance attributes.  
- * 
+ * Base class for all instance attributes.
+ *
  * @author Florent Garin
  * @version 1.0, 02/06/08
- * @since   V1.0
+ * @since V1.0
  */
-
-@Table(name="INSTANCEATTRIBUTE")
-@XmlSeeAlso({InstanceTextAttribute.class, InstanceNumberAttribute.class, InstanceDateAttribute.class, InstanceBooleanAttribute.class, InstanceURLAttribute.class})
+@Table(name = "INSTANCEATTRIBUTE")
+@XmlSeeAlso({InstanceTextAttribute.class, InstanceNumberAttribute.class, InstanceDateAttribute.class, InstanceBooleanAttribute.class, InstanceURLAttribute.class, InstanceListOfValuesAttribute.class})
 @Inheritance()
 @Entity
 public abstract class InstanceAttribute implements Serializable, Cloneable {
 
-    @GeneratedValue(strategy=GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     private int id;
 
     protected String name = "";
 
     protected boolean mandatory;
+
+    protected boolean locked;
 
     public InstanceAttribute() {
     }
@@ -61,7 +62,10 @@ public abstract class InstanceAttribute implements Serializable, Cloneable {
     public void setName(String name) {
         this.name = name;
     }
-    public String getNameWithoutWhiteSpace(){ return this.name.replaceAll(" ","_"); }
+
+    public String getNameWithoutWhiteSpace() {
+        return this.name.replaceAll(" ", "_");
+    }
 
     public boolean isMandatory() {
         return mandatory;
@@ -69,6 +73,14 @@ public abstract class InstanceAttribute implements Serializable, Cloneable {
 
     public void setMandatory(boolean mandatory) {
         this.mandatory = mandatory;
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public void setLocked(boolean locked) {
+        this.locked = locked;
     }
 
     @Override
@@ -105,15 +117,17 @@ public abstract class InstanceAttribute implements Serializable, Cloneable {
     public void setId(int id) {
         this.id = id;
     }
+
     public int getId() {
         return id;
     }
 
     public abstract Object getValue();
+
     public abstract boolean setValue(Object pValue);
 
     public boolean isValueEquals(Object pValue) {
         Object value = getValue();
-        return value!=null && value.equals(pValue);
+        return value != null && value.equals(pValue);
     }
 }

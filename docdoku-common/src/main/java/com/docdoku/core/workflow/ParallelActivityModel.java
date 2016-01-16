@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,14 +24,13 @@ import com.docdoku.core.common.User;
 
 import javax.persistence.Entity;
 import javax.persistence.Table;
-import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 /**
  * This class is the model used to create instances
- * of <a href="ParallelActivity.html">ParallelActivity</a> attached to
- * workflows.
+ * of {@link ParallelActivity} attached to workflows.
  * 
  * @author Florent Garin
  * @version 1.0, 02/06/08
@@ -53,7 +52,7 @@ public class ParallelActivityModel extends ActivityModel {
     }
     
     public ParallelActivityModel(WorkflowModel pWorkflowModel, String pLifeCycleState, int pTasksToComplete) {
-        this(pWorkflowModel, 0,  new ArrayList<TaskModel>(), pLifeCycleState,pTasksToComplete);      
+        this(pWorkflowModel, 0,  new LinkedList<>(), pLifeCycleState,pTasksToComplete);
     }
 
  

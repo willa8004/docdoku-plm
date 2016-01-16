@@ -3,9 +3,10 @@ define([
     'backbone',
     'mustache',
     'text!templates/product-instances/product_instances_list.html',
-    'views/product-instances/product_instances_list_item'
-], function (Backbone, Mustache, template, ProductInstancesListItemView) {
-	'use strict';
+    'views/product-instances/product_instances_list_item',
+    'common-objects/views/security/acl_edit'
+], function (Backbone, Mustache, template, ProductInstancesListItemView, ACLEditView) {
+    'use strict';
     var ProductInstancesListView = Backbone.View.extend({
 
         events: {
@@ -122,17 +123,19 @@ define([
 
         onNoProductInstanceSelected: function () {
             this.trigger('delete-button:display', false);
-            this.trigger('duplicate-button:display', false);
+            this.trigger('acl-button:display', false);
+
         },
 
         onOneProductInstanceSelected: function () {
             this.trigger('delete-button:display', true);
-            this.trigger('duplicate-button:display', true);
+            this.trigger('acl-button:display', true);
+
         },
 
         onSeveralProductInstancesSelected: function () {
             this.trigger('delete-button:display', true);
-            this.trigger('duplicate-button:display', false);
+            this.trigger('acl-button:display', false);
         },
 
         getSelectedProductInstance: function () {
@@ -147,8 +150,8 @@ define([
 
         deleteSelectedProductInstances: function () {
             var _this = this;
-            bootbox.confirm(App.config.i18n.CONFIRM_DELETE_PRODUCT_INSTANCE, function(result){
-                if(result){
+            bootbox.confirm(App.config.i18n.CONFIRM_DELETE_PRODUCT_INSTANCE, function (result) {
+                if (result) {
                     _(_this.listItemViews).each(function (view) {
                         if (view.isChecked()) {
                             view.model.id = view.model.getSerialNumber();
@@ -159,16 +162,17 @@ define([
                                     _this.onSelectionChanged();
                                 },
                                 error: function (model, err) {
-                                    _this.trigger('error',model,err);
+                                    _this.trigger('error', model, err);
                                     _this.onSelectionChanged();
                                 },
-                                wait: true});
+                                wait: true
+                            });
                         }
                     });
                 }
-
             });
         },
+
         redraw: function () {
             this.dataTable();
         },
@@ -191,10 +195,47 @@ define([
                 },
                 sDom: 'ft',
                 aoColumnDefs: [
-                    { 'bSortable': false, 'aTargets': [ 0 ] }
+                    {'bSortable': false, 'aTargets': [0, 6, 7, 8, 9, 10, 11, 12]}
                 ]
             });
             this.$el.find('.dataTables_filter input').attr('placeholder', App.config.i18n.FILTER);
+        },
+
+        editSelectedProductInstanceACL: function () {
+            var templateSelected;
+            var _this = this;
+            _(_this.listItemViews).each(function (view) {
+                if (view.isChecked()) {
+                    templateSelected = view.model;
+                }
+            });
+
+            var aclEditView = new ACLEditView({
+                editMode: true,
+                acl: templateSelected.get('acl')
+            });
+
+            aclEditView.setTitle(templateSelected.getSerialNumber());
+            window.document.body.appendChild(aclEditView.render().el);
+
+            aclEditView.openModal();
+            aclEditView.on('acl:update', function () {
+
+                var acl = aclEditView.toList();
+
+                templateSelected.updateACL({
+                    acl: acl || {userEntries: {}, groupEntries: {}},
+                    success: function () {
+                        templateSelected.set('acl', acl);
+                        aclEditView.closeModal();
+                    },
+                    error: function(error){
+                        aclEditView.onError(error);
+                    }
+                });
+            });
+
+            return false;
         }
 
     });

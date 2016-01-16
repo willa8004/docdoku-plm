@@ -1,7 +1,8 @@
 /*global _,require,window*/
-var workspace = /^#([^/]+)/.exec(window.location.hash);
+var workspace = /^#([^\/]+)/.exec(window.location.hash);
 if(!workspace){
-    location.href = '../';
+    location.href = '../faces/admin/workspace/workspacesMenu.xhtml';
+    throw new Error('Cannot parse workspace in url');
 }
 
 var App = {
@@ -19,7 +20,7 @@ var App = {
 
 	config:{
 		workspaceId: decodeURIComponent(workspace[1]).trim() || null,
-		productId: window.location.hash.split('/')[1] || null,
+		productId: decodeURIComponent(window.location.hash.split('/')[1]).trim() || null,
 		login: '',
 		groups: [],
 		contextPath: '',
@@ -28,7 +29,7 @@ var App = {
 
     WorkerManagedValues: {
         maxInstances: 500,
-        maxAngle: Math.PI / 4,
+        maxAngle: Math.PI / 2,
         maxDist: 100000,
         minProjectedSize: 0.000001,//100,
         distanceRating: 0.6,//0.7,
@@ -41,12 +42,13 @@ var App = {
         zoomSpeed: 1.2,
         rotateSpeed: 1.0,
         panSpeed: 0.3,
-        cameraNear: 1,
+        cameraNear: 0.1,
         cameraFar: 5E4,
         defaultCameraPosition: {x: -1000, y: 800, z: 1100},
         defaultTargetPosition: {x: 0, y: 0, z: 0},
-        ambientLightColor:0x101030,
-        cameraLightColor:0xbcbcbc,
+        ambientLightColor:0xffffff,
+        cameraLight1Color:0xbcbcbc,
+        cameraLight2Color:0xffffff,
         transformControls:true
     }
 
@@ -91,6 +93,7 @@ require.config({
         backbone: {deps: ['underscore', 'jquery'],exports: 'Backbone'},
         bootstrapCombobox:{deps:["jquery"],exports:"jQuery"},
         bootstrapSwitch:{deps:['jquery'],exports:'jQuery'},
+        bootstrapDatepicker: {deps: ['jquery','bootstrap'], exports: 'jQuery'},
         pointerlockcontrols:{deps:['threecore'],exports:'THREE'},
         trackballcontrols:{deps:['threecore'],exports:'THREE'},
         orbitcontrols:{deps:['threecore'],exports:'THREE'},
@@ -99,7 +102,11 @@ require.config({
         colladaloader:{deps:['threecore'],exports:'THREE'},
         stlloader:{deps:['threecore'],exports:'THREE'},
         objloader:{deps:['threecore'],exports:'THREE'},
-        buffergeometryutils:{deps:['threecore'],exports:'THREE'}
+        mtlloader:{deps:['threecore'],exports:'THREE'},
+        buffergeometryutils:{deps:['threecore'],exports:'THREE'},
+        typeface : { deps: ['threecore'], exports: 'window' },
+        selectize: { deps: ['jquery'], exports: 'jQuery' },
+        date_picker_lang: { deps: ['bootstrapDatepicker'], exports: 'jQuery'}
     },
     paths: {
         jquery: '../../bower_components/jquery/jquery',
@@ -120,17 +127,18 @@ require.config({
         tween:'../../bower_components/tweenjs/src/Tween',
         bootstrapCombobox:'../../bower_components/bootstrap-combobox/js/bootstrap-combobox',
         bootstrapSwitch:'../../bower_components/bootstrap-switch/static/js/bootstrap-switch',
+        bootstrapDatepicker:'../../bower_components/bootstrap-datepicker/js/bootstrap-datepicker',
         date:'../../bower_components/date.format/date.format',
         dat:'../../bower_components/dat.gui/dat.gui',
         localization: '../localization',
         modules: '../modules',
         'common-objects': '../common-objects',
         userPopover:'modules/user-popover-module/app',
-        effects:'../lib/effects',
-        popoverUtils: '../lib/popover.utils',
-        inputValidity: '../lib/input-validity',
-        datatablesOsortExt: '../lib/datatables.oSort.ext',
-        stringprototype:'../lib/string.prototype',
+        effects:'../utils/effects',
+        popoverUtils: '../utils/popover.utils',
+        inputValidity: '../utils/input-validity',
+        datatablesOsortExt: '../utils/datatables.oSort.ext',
+        utilsprototype:'../utils/utils.prototype',
         pointerlockcontrols:'dmu/controls/PointerLockControls',
         trackballcontrols:'dmu/controls/TrackballControls',
         orbitcontrols:'dmu/controls/OrbitControls',
@@ -139,8 +147,12 @@ require.config({
         colladaloader:'dmu/loaders/ColladaLoader',
         stlloader:'dmu/loaders/STLLoader',
         objloader:'dmu/loaders/OBJLoader',
+        mtlloader:'dmu/loaders/MTLLoader',
         buffergeometryutils: 'dmu/utils/BufferGeometryUtils',
-        stats:'dmu/utils/Stats'
+        stats:'dmu/utils/Stats',
+        typeface:'../lib/helvetiker_regular.typeface',
+        selectize: '../../bower_components/selectize/dist/js/standalone/selectize',
+        date_picker_lang: '../../bower_components/bootstrap-datepicker/js/locales/bootstrap-datepicker.fr'
     },
 
     deps:[
@@ -155,7 +167,7 @@ require.config({
         'datatablesOsortExt',
         'bootstrapCombobox',
         'bootstrapSwitch',
-        'stringprototype',
+        'utilsprototype',
         'threecore',
         'pointerlockcontrols',
         'trackballcontrols',
@@ -165,11 +177,15 @@ require.config({
         'colladaloader',
         'stlloader',
         'objloader',
+        'mtlloader',
         'buffergeometryutils',
         'stats',
         'dat',
         'tween',
-        'inputValidity'
+        'inputValidity',
+        'typeface',
+        'selectize',
+        'date_picker_lang'
     ],
     config: {
         i18n: {
@@ -189,13 +205,14 @@ require(['common-objects/contextResolver','i18n!localization/nls/common','i18n!l
     function (ContextResolver,  commonStrings, productStructureStrings) {
 	    'use strict';
         App.config.i18n = _.extend(commonStrings,productStructureStrings);
-        ContextResolver.resolve(function(){
+        ContextResolver.resolveUser(function(){
             require(['backbone','app','router','common-objects/views/header','modules/all'],function(Backbone, AppView, Router,HeaderView,Modules){
                 App.appView = new AppView().render();
                 App.headerView = new HeaderView().render();
                 App.router = Router.getInstance();
                 App.coworkersView = new Modules.CoWorkersAccessModuleView().render();
                 Backbone.history.start();
+                App.appView.initModules();
             });
         });
     });

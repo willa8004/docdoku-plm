@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -32,6 +32,7 @@ import javax.annotation.Resource;
 import javax.annotation.security.DeclareRoles;
 import javax.ejb.Local;
 import javax.ejb.Stateless;
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Date;
@@ -50,7 +51,6 @@ public class DataManagerBean implements IDataManagerLocal {
 
     @PostConstruct
     private void init() {
-        //defaultStorageProvider = new GoogleStorageProvider("");
         fileStorageProvider = new FileStorageProvider(vaultPath);
         defaultStorageProvider = fileStorageProvider;
     }
@@ -123,6 +123,34 @@ public class DataManagerBean implements IDataManagerLocal {
         defaultStorageProvider.delData(binaryResource);
         fileStorageProvider.deleteSubResources(binaryResource);
         fileStorageProvider.cleanParentFolders(binaryResource);
+    }
+
+
+    private File getBinarySubResourceFile(BinaryResource binaryResource) throws StorageException {
+        try {
+            return fileStorageProvider.getBinaryResourceFile(binaryResource);
+        } catch (FileNotFoundException e) {
+            BinaryResource previous = binaryResource.getPrevious();
+            if (previous != null) {
+                return getBinarySubResourceFile(previous);
+            } else {
+                throw new StorageException(new StringBuilder().append("Can't find resource ").append(binaryResource.getFullName()).toString());
+            }
+        }
+    }
+
+    @Override
+    public void renameFile(BinaryResource binaryResource, String pNewName) throws StorageException, FileNotFoundException {
+
+        File file = getBinarySubResourceFile(binaryResource);
+
+        try {
+            fileStorageProvider.getBinaryResourceFile(binaryResource);
+        } catch (FileNotFoundException e) {
+            file = fileStorageProvider.copyFile(file, binaryResource);
+        }
+
+        fileStorageProvider.renameData(file, pNewName);
     }
 
     @Override

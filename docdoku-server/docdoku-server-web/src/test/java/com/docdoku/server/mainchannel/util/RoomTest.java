@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -89,7 +89,7 @@ import java.util.concurrent.ConcurrentMap;
 
     @Test
     public void testGetByKeyName() {
-        Assert.assertTrue(DB.get(" ").key().equals("plm"));
+        Assert.assertTrue("plm".equals(DB.get(" ").key()));
     }
 
     @Test
@@ -106,13 +106,13 @@ import java.util.concurrent.ConcurrentMap;
 
     @Test
     public void testGetUser1Login() {
-        Assert.assertTrue(DB.get("plm").getUser1Login().equals("user1"));
+        Assert.assertTrue("user1".equals(DB.get("plm").getUser1Login()));
 
     }
 
     @Test
     public void testGetUser2Login() {
-        Assert.assertTrue(DB.get("plm").getUser2Login().equals("user2"));
+        Assert.assertTrue("user2".equals(DB.get("plm").getUser2Login()));
 
     }
 

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,10 +22,11 @@ package com.docdoku.server.converters;
 
 import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.product.PartIteration;
+import com.docdoku.server.converters.utils.ConversionResult;
 
 import java.io.File;
 
 public interface CADConverter {
-    File convert(PartIteration partToConvert, BinaryResource cadFile, File tempDir) throws Exception;
+    ConversionResult convert(PartIteration partToConvert, BinaryResource cadFile, File tempDir) throws Exception;
     boolean canConvertToOBJ(String cadFileExtension);
 }

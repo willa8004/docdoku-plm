@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -31,6 +31,8 @@ import com.docdoku.core.document.Folder;
 import com.docdoku.core.exceptions.*;
 import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.product.PartMaster;
+import com.docdoku.core.product.PartSubstituteLink;
+import com.docdoku.core.product.PartUsageLink;
 import com.docdoku.core.services.IDataManagerLocal;
 import com.docdoku.core.workflow.WorkflowModel;
 
@@ -38,9 +40,7 @@ import javax.persistence.EntityExistsException;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceException;
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 public class WorkspaceDAO {
 
@@ -150,10 +150,6 @@ public class WorkspaceDAO {
         em.createQuery("DELETE FROM DocumentBaseline b where b.workspace = :workspace")
                 .setParameter("workspace",workspace).executeUpdate();
 
-        // EffectivityConfigSpecs
-        em.createQuery("DELETE FROM EffectivityConfigSpec e where e.configurationItem.workspace = :workspace")
-                .setParameter("workspace",workspace).executeUpdate();
-
         // Effectivity
         em.createQuery("DELETE FROM Effectivity e where e.configurationItem.workspace = :workspace")
                 .setParameter("workspace",workspace).executeUpdate();
@@ -189,7 +185,29 @@ public class WorkspaceDAO {
         em.createQuery("DELETE FROM PartMasterTemplate p where p.workspace = :workspace")
                 .setParameter("workspace", workspace).executeUpdate();
 
-        em.flush();
+        // Conversions
+        em.createQuery("DELETE FROM Conversion c where c.partIteration.partRevision.partMaster.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
+
+        // Notifications
+        em.createQuery("DELETE FROM ModificationNotification m where m.impactedPart.partRevision.partMaster.workspace = :workspace or m.modifiedPart.partRevision.partMaster.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
+
+        // Change order
+        em.createQuery("DELETE FROM ChangeOrder c where c.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
+
+        // Change requests
+        em.createQuery("DELETE FROM ChangeRequest c where c.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
+
+        // Change issues
+        em.createQuery("DELETE FROM ChangeIssue c where c.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
+
+        // Change issues / requests
+        em.createQuery("DELETE FROM Milestone m where m.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
 
         // Clear all document links ...
         List<DocumentIteration> documentsIteration =
@@ -205,12 +223,22 @@ public class WorkspaceDAO {
         }
         for (PartIteration p: partsIteration) {
             p.setLinkedDocuments(new HashSet<DocumentLink>());
+            for (PartUsageLink pul: p.getComponents()) {
+                pul.setSubstitutes(new LinkedList<PartSubstituteLink>());
+            }
+            p.setComponents(new LinkedList<PartUsageLink>());
         }
         em.flush();
 
+        // Clear all part substitute links
+        em.createQuery("DELETE FROM PartSubstituteLink psl WHERE psl.substitute.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
+
+        // Clear all part usage links
+        em.createQuery("DELETE FROM PartUsageLink pul WHERE pul.component.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
 
         // Remove parents
-
         List<DocumentMaster> documentsMaster =
                 em.createQuery("SELECT d FROM DocumentMaster d WHERE d.workspace = :workspace", DocumentMaster.class)
                         .setParameter("workspace",workspace).getResultList();
@@ -254,6 +282,17 @@ public class WorkspaceDAO {
         em.createQuery("DELETE FROM Role r where r.workspace = :workspace")
                 .setParameter("workspace",workspace).executeUpdate();
 
+        // LOV
+        em.createQuery("DELETE FROM ListOfValuesAttributeTemplate lovat where lovat.lov.workspace = :workspace")
+                .setParameter("workspace",workspace).executeUpdate();
+        em.createQuery("DELETE FROM ListOfValues lov where lov.workspace = :workspace")
+                .setParameter("workspace",workspace).executeUpdate();
+
+        // Query
+        em.createQuery("DELETE FROM QueryContext qc where qc.workspaceId = :workspaceId")
+                .setParameter("workspaceId", workspaceId).executeUpdate();
+        em.createQuery("DELETE FROM Query q where q.author.workspace = :workspace")
+                .setParameter("workspace", workspace).executeUpdate();
 
         // WorkspaceUserGroupMembership
         em.createQuery("DELETE FROM WorkspaceUserGroupMembership w where w.workspace = :workspace")
@@ -287,11 +326,10 @@ public class WorkspaceDAO {
 
         em.remove(workspace);
 
-        //em.createQuery("DELETE FROM Workspace w where w.id = :workspaceId")
-        //        .setParameter("workspaceId",workspaceId).executeUpdate();
-
         // Delete workspace files
         dataManager.deleteWorkspaceFolder(workspaceId,binaryResourcesInWorkspace);
+
+        em.flush();
 
     }
 
@@ -300,3 +338,4 @@ public class WorkspaceDAO {
                 .getResultList();
     }
 }
+

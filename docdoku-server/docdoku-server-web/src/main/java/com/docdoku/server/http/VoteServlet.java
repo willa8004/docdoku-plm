@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,7 +27,7 @@ import com.docdoku.core.services.IPartWorkflowManagerLocal;
 import com.docdoku.core.workflow.ActivityKey;
 import com.docdoku.core.workflow.TaskKey;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -36,17 +36,17 @@ import java.io.IOException;
 
 public class VoteServlet extends HttpServlet {
 
-    @EJB
-    private IDocumentWorkflowManagerLocal documentWorkflowService;
-    @EJB
-    private IPartWorkflowManagerLocal partWorkflowService;
-
     private static final String APPROVE = "Approve";
     private static final String REJECT = "Reject";
     private static final String URL_SUFIXE_APPROVE = "/faces/taskApproved.xhtml";
     private static final String URL_SUFIXE_REJECT = "/faces/taskRejected.xhtml";
     private static final String ENTITY_ATTRIBUTE = "entity";
 
+    @Inject
+    private IPartWorkflowManagerLocal  partWorkflowService;
+
+    @Inject
+    private IDocumentWorkflowManagerLocal documentWorkflowService;
 
     @Override
     protected void doGet(HttpServletRequest pRequest,
@@ -65,7 +65,9 @@ public class VoteServlet extends HttpServlet {
         String entityType = pRequest.getParameter("entityType");
 
         try {
+
             if("parts".equals(entityType)){
+
                 if (APPROVE.equals(action)) {
                     PartRevision partRevision = partWorkflowService.approveTaskOnPart(workspaceId, new TaskKey(new ActivityKey(activityWorkflowId, activityStep), index), comment, null);
                     pRequest.setAttribute(ENTITY_ATTRIBUTE, partRevision);
@@ -77,6 +79,7 @@ public class VoteServlet extends HttpServlet {
                 }
 
             }else if("documents".equals(entityType)){
+
                 if (APPROVE.equals(action)) {
                     DocumentRevision documentRevision = documentWorkflowService.approveTaskOnDocument(workspaceId, new TaskKey(new ActivityKey(activityWorkflowId, activityStep), index), comment, null);
                     pRequest.setAttribute(ENTITY_ATTRIBUTE, documentRevision);

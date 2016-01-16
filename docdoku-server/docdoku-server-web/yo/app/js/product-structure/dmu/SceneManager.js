@@ -4,9 +4,10 @@ define([
     'views/marker_create_modal_view',
     'views/blocker_view',
     'dmu/LayerManager',
+    'dmu/MeasureTool',
     'common-objects/utils/date'
-], function (Backbone,MarkerCreateModalView, BlockerView, LayerManager, date) {
-	'use strict';
+], function (Backbone, MarkerCreateModalView, BlockerView, LayerManager, MeasureTool, date) {
+    'use strict';
     var SceneManager = function (pOptions) {
         var _this = this;
 
@@ -16,29 +17,33 @@ define([
         _.extend(this, options);
         var isMoving = false;
         var currentLayer = null;
-        var explosionCoeff = 0;
-        var wireframe = false;
+        var explosionValue = 0;
         var projector = new THREE.Projector();
         var controlsObject = null;                                                                                      // Switching controls means different camera management
         var clock = new THREE.Clock();
         var needsRedraw = false;
-        var meshesIndexed = {};
+        var objects = {};
         var selectionBox = null;
-        var meshMarkedForSelection = null;
+        var objectMarkedForSelection = null;
         var controlChanged = false;
-        var editedMeshesColoured = false;
+        var editedObjectsColoured = false;
         var transformControls = null;
 
-        var materialEditedMesh = new THREE.MeshPhongMaterial({ transparent: false, color: new THREE.Color(0x08B000) });
+        var measureTool = null;
+        var measures = [];
+        var measuresPoints = [];
+        var measureTexts = [];
+
+        var materialEditedObject = new THREE.MeshPhongMaterial({transparent: false, color: new THREE.Color(0x08B000)});
 
         this.stateControl = null;
-        this.STATECONTROL = { PLC: 0, TBC: 1, ORB: 2};
+        this.STATECONTROL = {PLC: 0, TBC: 1, ORB: 2};
         this.scene = new THREE.Scene();
         this.renderer = null;
         this.cameraObject = null;                                                                                       // Represent the eye
         this.layerManager = null;
-        this.editedMeshes = [];
-        this.editedMeshesLeft = [];
+        this.editedObjects = [];
+        this.editedObjectsLeft = [];
 
         // Stat
         this.switches = 0;
@@ -56,11 +61,13 @@ define([
             _this.$blocker = new BlockerView().render().$el;
             _this.$container.append(_this.$blocker);
         }
+
         function initRenderer() {
             _this.renderer = new THREE.WebGLRenderer({preserveDrawingBuffer: true, alpha: true});
             _this.renderer.setSize(_this.$container.width(), _this.$container.height());
             _this.$container.append(_this.renderer.domElement);
         }
+
         function initLayerManager() {
             if (!_.isUndefined(App.config.productId)) {
                 _this.layerManager = new LayerManager();
@@ -68,6 +75,21 @@ define([
                 _this.layerManager.renderList();
             }
         }
+
+        function initMeasureTool() {
+            measureTool = new MeasureTool({
+                onFirstPoint: function () {
+                    _this.scene.add(measureTool.line);
+                },
+                onSecondPoint: function () {
+                    _this.scene.remove(measureTool.line);
+                },
+                onCancelled: function () {
+                    _this.scene.remove(measureTool.line);
+                }
+            });
+        }
+
         function initAxes() {
             var axes = new THREE.AxisHelper(100);
             axes.position.set(0, 0, 0);
@@ -76,26 +98,28 @@ define([
             arrow.position.set(200, 0, 400);
             _this.scene.add(arrow);
         }
+
         function initStats() {
             _this.stats = new Stats();
             var statsElement = _this.stats.domElement;
             App.$SceneContainer.append(statsElement);
-            statsElement.id='statsWin';
-            statsElement.className='statsWinMaximized';
-            var statsArrow=document.createElement('i');
-            statsArrow.id='statsArrow';
-            statsArrow.className='fa fa-chevron-down';
-            statsElement.insertBefore(statsArrow,statsElement.firstChild);
+            statsElement.id = 'statsWin';
+            statsElement.className = 'statsWinMaximized';
+            var statsArrow = document.createElement('i');
+            statsArrow.id = 'statsArrow';
+            statsArrow.className = 'fa fa-chevron-down';
+            statsElement.insertBefore(statsArrow, statsElement.firstChild);
             statsArrow.onclick = function () {
                 var statsClass = _this.stats.domElement.classList;
                 statsClass.toggle('statsWinMinimized');
                 statsClass.toggle('statsWinMaximized');
             };
         }
+
         function initGrid() {
             var size = 500000, step = 2500;
             var geometry = new THREE.Geometry();
-            var material = new THREE.LineBasicMaterial({ vertexColors: THREE.VertexColors });
+            var material = new THREE.LineBasicMaterial({vertexColors: THREE.VertexColors});
             var color1 = new THREE.Color(0x444444), color2 = new THREE.Color(0x888888);
             for (var i = -size; i <= size; i += step) {
                 geometry.vertices.push(new THREE.Vector3(-size, 0, i));
@@ -107,11 +131,8 @@ define([
             }
             _this.grid = new THREE.Line(geometry, material, THREE.LinePieces);
         }
-        function initAmbientLight() {
-            var ambient = new THREE.AmbientLight(App.SceneOptions.ambientLightColor);
-            ambient.name='AmbientLight';
-            _this.scene.add(ambient);
-        }
+
+
         function initSelectionBox() {
             selectionBox = new THREE.BoxHelper();
             selectionBox.material.depthTest = true;
@@ -122,12 +143,44 @@ define([
         }
 
         function addLightsToCamera(camera) {
-            var dirLight = new THREE.DirectionalLight(App.SceneOptions.cameraLightColor);
-            dirLight.position.set(200, 200, 1000).normalize();
-            dirLight.name='CameraLight';
-            camera.add(dirLight);
-            camera.add(dirLight.target);
+
+            var dirLight1 = new THREE.DirectionalLight(App.SceneOptions.cameraLight1Color);
+            dirLight1.position.set(200, 200, 1000).normalize();
+            dirLight1.name = 'CameraLight1';
+            camera.add(dirLight1);
+            camera.add(dirLight1.target);
+
+            var dirLight2 = new THREE.DirectionalLight( App.SceneOptions.cameraLight2Color, 1 );
+            dirLight2.color.setHSL( 0.1, 1, 0.95 );
+            dirLight2.position.set( -1, 1.75, 1 );
+            dirLight2.position.multiplyScalar( 50 );
+            dirLight2.name='CameraLight2';
+            camera.add( dirLight2 );
+
+            dirLight2.castShadow = true;
+
+            dirLight2.shadowMapWidth = 2048;
+            dirLight2.shadowMapHeight = 2048;
+
+            var d = 50;
+
+            dirLight2.shadowCameraLeft = -d;
+            dirLight2.shadowCameraRight = d;
+            dirLight2.shadowCameraTop = d;
+            dirLight2.shadowCameraBottom = -d;
+
+            dirLight2.shadowCameraFar = 3500;
+            dirLight2.shadowBias = -0.0001;
+            dirLight2.shadowDarkness = 0.35;
+
+            var hemiLight = new THREE.HemisphereLight( App.SceneOptions.ambientLightColor, App.SceneOptions.ambientLightColor, 0.6 );
+            hemiLight.color.setHSL( 0.6, 1, 0.6 );
+            hemiLight.groundColor.setHSL( 0.095, 1, 0.75 );
+            hemiLight.position.set( 0, 0, 500 );
+            hemiLight.name='AmbientLight';
+            camera.add( hemiLight );
         }
+
         function handleResize() {
             _this.cameraObject.aspect = _this.$container.innerWidth() / _this.$container.innerHeight();
             _this.cameraObject.updateProjectionMatrix();
@@ -135,10 +188,12 @@ define([
             controlsObject.handleResize();
             _this.reDraw();
         }
+
         function setSelectionBoxOnMesh(mesh) {
             selectionBox.update(mesh);
             selectionBox.visible = true;
         }
+
         function unsetSelectionBox() {
             selectionBox.visible = false;
         }
@@ -151,33 +206,39 @@ define([
             _this.pointerLockControls = new THREE.PointerLockControls(_this.pointerLockCamera);
             addLightsToCamera(_this.pointerLockCamera);
         }
+
         function createOrbitControls() {
             _this.orbitCamera = new THREE.PerspectiveCamera(45, _this.$container.width() / _this.$container.height(), App.SceneOptions.cameraNear, App.SceneOptions.cameraFar);
             _this.orbitCamera.position.copy(App.SceneOptions.defaultCameraPosition);
             addLightsToCamera(_this.orbitCamera);
             _this.orbitControls = new THREE.OrbitControls(_this.orbitCamera, _this.$container[0]);
         }
+
         function createTrackBallControls() {
             _this.trackBallCamera = new THREE.PerspectiveCamera(45, _this.$container.width() / _this.$container.height(), App.SceneOptions.cameraNear, App.SceneOptions.cameraFar);
             _this.trackBallCamera.position.copy(App.SceneOptions.defaultCameraPosition);
             addLightsToCamera(_this.trackBallCamera);
             _this.trackBallControls = new THREE.TrackballControls(_this.trackBallCamera, _this.$container[0]);
-            _this.trackBallControls.keys = [ 65 /*A*/, 83 /*S*/, 68 /*D*/ ];
+            _this.trackBallControls.keys = [65 /*A*/, 83 /*S*/, 68 /*D*/];
         }
+
         function initControls() {
             createPointerLockControls();
             createTrackBallControls();
             createOrbitControls();
         }
+
         function createTransformControls() {
             transformControls = new THREE.TransformControls(_this.$container[0]);
             transformControls.addEventListener('change', _this.reDraw);
         }
+
         function isPointerLock() {
             return (document.pointerLockElement === _this.$container[0] ||
-                document.mozPointerLockElement === _this.$container[0] ||
-                document.webkitPointerLockElement === _this.$container[0]);
+            document.mozPointerLockElement === _this.$container[0] ||
+            document.webkitPointerLockElement === _this.$container[0]);
         }
+
         function pointerLockChange() {
             _this.pointerLockControls.enabled = isPointerLock();
             if (_this.pointerLockControls.enabled) {
@@ -188,6 +249,7 @@ define([
                 _this.pointerLockControls.unbindEvents();
             }
         }
+
         /**
          * Lock the pointer (when you click on container) and Hide the gray screen
          */
@@ -199,11 +261,12 @@ define([
 
             // Ask the browser to lock the pointer
             _this.$container[0].requestPointerLock = (_this.$container[0].requestPointerLock) ||
-                (_this.$container[0].mozRequestPointerLock) ||
-                (_this.$container[0].webkitRequestPointerLock);
+            (_this.$container[0].mozRequestPointerLock) ||
+            (_this.$container[0].webkitRequestPointerLock);
 
             _this.$container[0].requestPointerLock();
         }
+
         function deleteAllControls() {
             _this.trackBallControls.removeEventListener('change');
             _this.trackBallControls.unbindEvents();
@@ -239,38 +302,27 @@ define([
             controlChanged = true;
             _this.reDraw();
         }
-        function applyWireFrame(mesh) {
-            mesh.material.wireframe = wireframe;
-            if ((mesh.material.materials)) {
-                _(mesh.material.materials).each(function (m) {
-                    m.wireframe = mesh.material.wireframe;
-                });
-            }
-        }
-        function applyExplosionCoeff(mesh) {
-            if (!mesh.absoluteCentroid) {
+
+        function applyExplosionValue(object) {
+            if (!object.absoluteCentroid) {
+                var mesh = object.children[0];
                 mesh.geometry.computeBoundingBox();
                 mesh.geometry.computeBoundingSphere();
-                var instance = App.instancesManager.getInstance(mesh.uuid);
-                mesh.absoluteCentroid = mesh.geometry.boundingBox.center().clone().applyMatrix4(instance.matrix);
+                var instance = App.instancesManager.getInstance(object.uuid);
+                object.absoluteCentroid = mesh.geometry.boundingBox.center().clone().applyMatrix4(instance.matrix);
             }
 
             // Replace before translating
-            mesh.position.x = mesh.initialPosition.x;
-            mesh.position.y = mesh.initialPosition.y;
-            mesh.position.z = mesh.initialPosition.z;
+            object.position.x = object.initialPosition.x;
+            object.position.y = object.initialPosition.y;
+            object.position.z = object.initialPosition.z;
             // Translate instance
-            if (explosionCoeff !== 0) {
-                mesh.translateX(mesh.absoluteCentroid.x * explosionCoeff);
-                mesh.translateY(mesh.absoluteCentroid.y * explosionCoeff);
-                mesh.translateZ(mesh.absoluteCentroid.z * explosionCoeff);
+            if (explosionValue !== 0) {
+                object.translateX(object.absoluteCentroid.x * explosionValue);
+                object.translateY(object.absoluteCentroid.y * explosionValue);
+                object.translateZ(object.absoluteCentroid.z * explosionValue);
             }
-            mesh.updateMatrix();
-        }
-        function applyMeasureStateOpacity(mesh) {
-            if (_this.measureState) {
-                mesh.material.opacity = _this.measureState ? 0.5 : 1;
-            }
+            object.updateMatrix();
         }
 
         function showGrid() {
@@ -281,6 +333,7 @@ define([
             _this.scene.add(_this.grid);
             _this.reDraw();
         }
+
         function removeGrid() {
             if (!_this.grid.added) {
                 return;
@@ -289,6 +342,7 @@ define([
             _this.scene.remove(_this.grid);
             _this.reDraw();
         }
+
         function watchSceneOptions() {
             if (App.SceneOptions.grid) {
                 showGrid();
@@ -297,79 +351,127 @@ define([
             }
         }
 
+        function updateMeasures() {
+            _.each(measureTexts, function (text) {
+                text.rotation.copy(_this.cameraObject.rotation);
+            });
+        }
+
         /**
          * Scene mouse events
          */
         function onMouseEnter() {
         }
+
         function onMouseLeave() {
             isMoving = false;
         }
+
         function onKeyDown() {
         }
+
         function onKeyUp() {
 
         }
+
         function onMouseDown() {
             isMoving = false;
         }
+
         function onSceneMouseWheel() {
         }
-        function onSceneMouseMove() {
+
+        function onSceneMouseMove(e) {
+
+            if (_this.measureState && measureTool.hasOnlyFirstPoint()) {
+                var vector = new THREE.Vector3(
+                    ((e.clientX - _this.$container.offset().left) / _this.$container[0].offsetWidth ) * 2 - 1,
+                    -((e.clientY - _this.$container.offset().top) / _this.$container[0].offsetHeight ) * 2 + 1,
+                    0.5
+                );
+                projector.unprojectVector(vector, _this.cameraObject);
+                measureTool.setVirtualPoint(vector);
+                _this.reDraw();
+            }
+
             isMoving = true;
+
         }
+
+        function getMeshes() {
+            var meshes = [];
+            _this.scene.traverse(function (object) {
+                if (object instanceof THREE.Object3D) {
+                    _.each(object.children, function (child) {
+                        if (child instanceof THREE.Mesh) {
+                            meshes.push(child);
+                        }
+                    });
+                }
+            });
+            return meshes;
+        }
+
         function onMouseUp(event) {
+
             event.preventDefault();
+
             if (isMoving) {
                 return false;
             }
+
             // RayCaster to get the clicked mesh
             var vector = new THREE.Vector3(
-                    ((event.clientX - _this.$container.offset().left) / _this.$container[0].offsetWidth ) * 2 - 1,
-                    -((event.clientY - _this.$container.offset().top) / _this.$container[0].offsetHeight ) * 2 + 1,
+                ((event.clientX - _this.$container.offset().left) / _this.$container[0].offsetWidth ) * 2 - 1,
+                -((event.clientY - _this.$container.offset().top) / _this.$container[0].offsetHeight ) * 2 + 1,
                 0.5
             );
+
             var cameraPosition = controlsObject.getObject().position;
 
             var object = _this.cameraObject;
             projector.unprojectVector(vector, object);
 
             var ray = new THREE.Raycaster(cameraPosition, vector.sub(cameraPosition).normalize());
-            var intersects = ray.intersectObjects(_this.scene.children, false);
+            var intersects = ray.intersectObjects(getMeshes(), false);
 
-            if (intersects.length > 0 && intersects[0].object.partIterationId) {
-                if (_this.markerCreationMode) {
-                    var mcmv = new MarkerCreateModalView({model: currentLayer, intersectPoint: intersects[0].point});
-                    document.body.appendChild(mcmv.render().el);
-                    mcmv.openModal();
-                }
-                else if (_this.measureState) {
-                    _this.measureCallback(intersects[0].point.clone());
-                }
-                else {
-                    meshMarkedForSelection = intersects[0].object.uuid;
-                    setSelectionBoxOnMesh(intersects[0].object);
+            if (intersects.length > 0) {
 
-                    Backbone.Events.trigger('mesh:selected', intersects[0].object);
+                var clickedObject = intersects[0];
+                var mesh = clickedObject.object;
+                var object3D = mesh.parent;
+                if (object3D.partIterationId) {
+                    if (_this.markerCreationMode) {
+                        var mcmv = new MarkerCreateModalView({
+                            model: currentLayer,
+                            intersectPoint: intersects[0].point
+                        });
+                        document.body.appendChild(mcmv.render().el);
+                        mcmv.openModal();
+                    }
+                    else if (_this.measureState) {
+                        measureTool.onClick(clickedObject.point.clone());
+                    }
+                    else {
+                        objectMarkedForSelection = object3D.uuid;
+                        setSelectionBoxOnMesh(mesh);
+                        Backbone.Events.trigger('object:selected', object3D);
+                    }
+                } else if (mesh.markerId) {
+                    _this.layerManager.onMarkerClicked(mesh.markerId);
                 }
-            }
-            else if (intersects.length > 0 && intersects[0].object.markerId) {
-                _this.layerManager.onMarkerClicked(intersects[0].object.markerId);
             }
             else {
                 if (!App.sceneManager.transformControlsEnabled()) {
                     Backbone.Events.trigger('selection:reset');
-                    meshMarkedForSelection = null;
+                    objectMarkedForSelection = null;
                     unsetSelectionBox();
-                }
-
-                if (_this.measureState) {
-                    _this.measureCallback(-1);
                 }
             }
 
             _this.reDraw();
         }
+
         function bindMouseAndKeyEvents() {
             _this.$container[0].addEventListener('mousedown', onMouseDown, false);
             _this.$container[0].addEventListener('mouseup', onMouseUp, false);
@@ -381,97 +483,138 @@ define([
             _this.$container[0].addEventListener('mousewheel', onSceneMouseWheel, false);
         }
 
-        /**
-         * Meshes
-         */
-        function createMeshFromLoadedStuff(stuff, matrix) {
-            var mesh = new THREE.Mesh(stuff.geometry, stuff.materials);
-            mesh.uuid = stuff.id;
-            mesh.partIterationId = stuff.partIterationId;
-            mesh.geometry.verticesNeedUpdate = true;
-            mesh.applyMatrix(matrix);
-            mesh.initialPosition = {x: mesh.position.x, y: mesh.position.y, z: mesh.position.z};
-            mesh.initialRotation = {x: mesh.rotation.x, y: mesh.rotation.y, z: mesh.rotation.z};
-            mesh.initialScale = {x: mesh.scale.x, y: mesh.scale.y, z: mesh.scale.z};
-            mesh.initialMaterial = mesh.material;
-            var positionMeshEdited = _.indexOf(_this.editedMeshes, mesh.uuid);
-            if (positionMeshEdited !== -1) {
-                var meshEdited = meshesIndexed[positionMeshEdited];
-                if (meshEdited) {
-                    mesh.position.copy(meshEdited.position);
-                    mesh.rotation.copy(meshEdited.rotation);
-                    mesh.scale.copy(meshEdited.scale);
-                    App.log('%c Restore transformed instance mesh\n\t'+_this.mesh,'SM');
-                }
-            }
-            return mesh;
-        }
-        function removeMesh(meshId) {
-            var mesh = meshesIndexed[meshId];
-            delete meshesIndexed[meshId];
+        function removeObject(objectId) {
+            var object = objects[objectId];
+            delete objects[objectId];
 
-            if (_this.editedMeshes.indexOf(meshId) !== -1) {
-                _this.editedMeshesLeft.push({
-                    uuid: meshId,
-                    position: mesh.position.clone(),
-                    rotation: mesh.rotation.clone(),
-                    scale: mesh.scale.clone()
+            if (_this.editedObjects.indexOf(objectId) !== -1) {
+                _this.editedObjectsLeft.push({
+                    uuid: objectId,
+                    position: object.position.clone(),
+                    rotation: object.rotation.clone(),
+                    scale: object.scale.clone()
                 });
-                _this.editedMeshes = _(_this.editedMeshes).without(meshId);
-                if (transformControls !== null && transformControls.enabled && transformControls.getObject() === mesh) {
+                _this.editedObjects = _(_this.editedObjects).without(objectId);
+                if (transformControls !== null && transformControls.enabled && transformControls.getObject() === object) {
                     _this.deleteTransformControls();
                 }
             }
 
-            if (!mesh) {
+            if (!object) {
                 return;
             }
 
-            if (meshMarkedForSelection === meshId) {
+            if (objectMarkedForSelection === objectId) {
                 Backbone.Events.trigger('selection:reset');
-                meshMarkedForSelection = null;
+                objectMarkedForSelection = null;
                 unsetSelectionBox();
             }
-            _this.scene.remove(mesh);
+            _this.scene.remove(object);
 
-            App.log('%c mesh removed','SM');
+            App.log('%c object removed', 'SM');
 
             _this.reDraw();
         }
+
+        function saveMaterials(object){
+            _.each(object.children,function(o){
+                if(o instanceof THREE.Mesh){
+                    o.initialMaterial = o.material;
+                    saveMaterials(o);
+                }
+            });
+        }
+
+        function setEditedMaterials(object){
+            _.each(object.children,function(o){
+                if(o instanceof THREE.Mesh){
+                    o.material = materialEditedObject;
+                    setEditedMaterials(o);
+                }
+            });
+        }
+
+        function restoreInitialMaterials(object){
+            _.each(object.children,function(o){
+                if(o instanceof THREE.Mesh){
+                    o.material = o.initialMaterial;
+                    restoreInitialMaterials(o);
+                }
+            });
+        }
+
         function processLoadedStuff() {
+
             var loadedStuff = App.instancesManager.getLoadedGeometries(10);
+
             loadedStuff.forEach(function (stuff) {
+
                 var instance = App.instancesManager.getInstance(stuff.id);
+
                 if (instance) {
-                    var oldMesh = meshesIndexed[stuff.id];
-                    var newMesh = createMeshFromLoadedStuff(stuff, instance.matrix);
-                    if (oldMesh) {
+
+                    var oldObject = objects[stuff.id];
+                    var newObject = stuff.object3d;
+
+                    if (oldObject) {
                         _this.switches++;
-                        _this.scene.remove(oldMesh);
+                        _this.scene.remove(oldObject);
                     } else {
                         _this.adds++;
                         _this.onScene++;
                     }
-                    meshesIndexed[newMesh.uuid] = newMesh;
-                    _this.scene.add(newMesh);
-                    if (meshMarkedForSelection === stuff.id) {
-                        setSelectionBoxOnMesh(newMesh);
-                    }
-                    applyExplosionCoeff(newMesh);
-                    applyWireFrame(newMesh);
-                    applyMeasureStateOpacity(newMesh);
 
-                    var potentiallyEdited = _(_this.editedMeshesLeft).where({uuid: newMesh.uuid});
-                    if (potentiallyEdited.length) {
-                        newMesh.position.copy(potentiallyEdited[0].position);
-                        newMesh.rotation.copy(potentiallyEdited[0].rotation);
-                        newMesh.scale.copy(potentiallyEdited[0].scale);
-                        if (editedMeshesColoured) {
-                            newMesh.material = materialEditedMesh;
-                        }
-                        _this.editedMeshesLeft = _(_this.editedMeshesLeft).without(potentiallyEdited[0]);
-                        _this.editedMeshes.push(potentiallyEdited[0].uuid);
+                    objects[stuff.id] = newObject;
+
+                    newObject.uuid = stuff.id;
+                    newObject.partIterationId = stuff.partIterationId;
+                    newObject.path = stuff.path;
+
+                    newObject.applyMatrix(instance.matrix);
+
+                    newObject.initialPosition = {
+                        x: newObject.position.x,
+                        y: newObject.position.y,
+                        z: newObject.position.z
+                    };
+                    newObject.initialRotation = {
+                        x: newObject.rotation.x,
+                        y: newObject.rotation.y,
+                        z: newObject.rotation.z
+                    };
+
+                    newObject.initialScale = {
+                        x: newObject.scale.x,
+                        y: newObject.scale.y,
+                        z: newObject.scale.z
+                    };
+
+                    if (objectMarkedForSelection === newObject.uuid) {
+                        setSelectionBoxOnMesh(newObject.children[0]);
                     }
+
+                    applyExplosionValue(newObject);
+
+                    saveMaterials(newObject);
+
+                    var potentiallyEdited = _(_this.editedObjectsLeft).findWhere({uuid: newObject.uuid});
+
+                    if (potentiallyEdited) {
+
+                        newObject.position.copy(potentiallyEdited.position);
+                        newObject.rotation.copy(potentiallyEdited.rotation);
+                        newObject.scale.copy(potentiallyEdited.scale);
+
+                        if (editedObjectsColoured) {
+                            setEditedMaterials(newObject);
+                        }
+
+                        _this.editedObjectsLeft = _(_this.editedObjectsLeft).without(potentiallyEdited);
+                        _this.editedObjects.push(potentiallyEdited.uuid);
+
+                    }
+
+                    _this.scene.add(newObject);
 
                 }
                 _this.reDraw();
@@ -486,7 +629,7 @@ define([
             var endTarPos = target;
 
             new TWEEN.Tween(curTar)
-                .to({ x: endTarPos.x, y: endTarPos.y, z: endTarPos.z }, duration)
+                .to({x: endTarPos.x, y: endTarPos.y, z: endTarPos.z}, duration)
                 .interpolation(TWEEN.Interpolation.CatmullRom)
                 .easing(TWEEN.Easing.Quintic.InOut)
                 .onUpdate(function () {
@@ -500,7 +643,7 @@ define([
                 var curCamPos = camera.position;
 
                 new TWEEN.Tween(curCamPos)
-                    .to({ x: endCamPos.x, y: endCamPos.y, z: endCamPos.z }, duration)
+                    .to({x: endCamPos.x, y: endCamPos.y, z: endCamPos.z}, duration)
                     .interpolation(TWEEN.Interpolation.CatmullRom)
                     .easing(TWEEN.Easing.Quintic.InOut)
                     .onUpdate(function () {
@@ -511,6 +654,13 @@ define([
         }
 
         function resetCameraAnimation(target, duration, position, camUp) {
+
+            // Not working with pointer lock controls, pointer lock doesn't have a target
+            // TODO : We must reset it an other way
+            if (controlsObject instanceof THREE.PointerLockControls) {
+                return;
+            }
+
             var curTar = controlsObject.target;
             var curCamUp = _this.cameraObject.up;
             var endTarPos = target;
@@ -521,7 +671,7 @@ define([
             var curCamPos = camera.position;
 
             var tween1 = new TWEEN.Tween(curTar)
-                    .to({ x: endTarPos.x, y: endTarPos.y, z: endTarPos.z }, duration)
+                    .to({x: endTarPos.x, y: endTarPos.y, z: endTarPos.z}, duration)
                     .interpolation(TWEEN.Interpolation.CatmullRom)
                     .easing(TWEEN.Easing.Linear.None)
                     .onUpdate(function () {
@@ -531,7 +681,7 @@ define([
 
 
             var tween2 = new TWEEN.Tween(curCamPos)
-                .to({ x: endCamPos.x, y: endCamPos.y, z: endCamPos.z }, duration)
+                .to({x: endCamPos.x, y: endCamPos.y, z: endCamPos.z}, duration)
                 .interpolation(TWEEN.Interpolation.CatmullRom)
                 .easing(TWEEN.Easing.Linear.None)
                 .onUpdate(function () {
@@ -552,46 +702,51 @@ define([
         }
 
         /**
-         * Colaborative Mode
+         * Collaborative Mode
          */
-        this.setEditedMeshes = function (editedMeshesInfos) {
-            var arrayId = _.pluck(editedMeshesInfos, 'uuid');
+        this.setEditedObjects = function (editedObjectsInfos) {
 
-            // cancel transformations for mesh which are no longer edited
-            var diff = _.difference(_this.editedMeshes, arrayId);
+            var arrayId = _.pluck(editedObjectsInfos, 'uuid');
+
+            // cancel transformations for objects which are no longer edited
+
+            var diff = _.difference(_this.editedObjects, arrayId);
+
             _.each(diff, function (uuid) {
-                var mesh = meshesIndexed[uuid];
-                if (_this.editedMeshes.lastIndexOf(uuid) !== -1) {
-                    _this.cancelTransformation(mesh);
+                var object = objects[uuid];
+                if (_this.editedObjects.lastIndexOf(uuid) !== -1) {
+                    _this.cancelTransformation(object);
                 }
             });
 
             // update the list
-            _this.editedMeshes = arrayId;
+            _this.editedObjects = arrayId;
 
-            // update properties of edited Meshes
-            _.each(editedMeshesInfos, function (val) {
-                var mesh = meshesIndexed[val.uuid];
-                if (!mesh) {
-                    _this.editedMeshes = _.without(_this.editedMeshes, val.uuid);
-                    _this.editedMeshesLeft.push(val);
+            // update properties of edited objects
+            _.each(editedObjectsInfos, function (val) {
+                var object = objects[val.uuid];
+                if (!object) {
+                    _this.editedObjects = _.without(_this.editedObjects, val.uuid);
+                    _this.editedObjectsLeft.push(val);
                 } else {
-                    mesh.position.copy(val.position);
-                    mesh.rotation.copy(val.rotation);
-                    mesh.scale.copy(val.scale);
-                    if (editedMeshesColoured) {
-                        mesh.material = materialEditedMesh;
+                    object.position.copy(val.position);
+                    object.rotation.copy(val.rotation);
+                    object.scale.copy(val.scale);
+
+                    if (editedObjectsColoured) {
+                        setEditedMaterials(object);
                     }
                 }
+
             });
             _this.reDraw();
         };
-        this.setEditedMeshesColor = function (colour) {
-            if (editedMeshesColoured !== colour) {
-                if (editedMeshesColoured) {
-                    _this.cancelColourEditedMeshes();
+        this.setEditedObjectsColor = function (colour) {
+            if (editedObjectsColoured !== colour) {
+                if (editedObjectsColoured) {
+                    _this.cancelColourEditedObjects();
                 } else {
-                    _this.colourEditedMeshes();
+                    _this.colourEditedObjects();
                 }
             }
         };
@@ -601,9 +756,9 @@ define([
          *  Update controls, scene objects and animations
          *  Render at the end
          * */
-            //Main UI loop
+        //Main UI loop
         function animate() {
-            requestAnimationFrame(animate, null);
+            requestAnimationFrame(animate);
             // Update controls
             controlsObject.update(clock.getDelta());
 
@@ -622,7 +777,7 @@ define([
                     transformControls.update();
                 }
                 _this.stats.update();
-
+                updateMeasures();
                 render();
             }
             if (controlChanged && App.collaborativeController) {
@@ -636,10 +791,10 @@ define([
             initDOM();
             initControls();
             initLayerManager();
+            initMeasureTool();
             initAxes();
             initGrid();
             initSelectionBox();
-            initAmbientLight();
             initRenderer();
             initStats();
             window.addEventListener('resize', handleResize, false);
@@ -653,12 +808,21 @@ define([
 
             animate();
         };
+
         this.reDraw = function () {
             needsRedraw = true;
         };
-        this.flyTo = function (mesh) {
+
+        this.flyTo = function (object) {
+
+            var mesh = object;
+
+            if (object instanceof THREE.Object3D) {
+                mesh = object.children[0];
+            }
+
             var boundingBox = mesh.geometry.boundingBox;
-            var cog = boundingBox.center().clone().applyMatrix4(mesh.matrix);
+            var cog = boundingBox.center().clone().applyMatrix4(object.matrix);
             var size = boundingBox.size();
             var radius = Math.max(size.x, size.y, size.z);
             var camera = _this.cameraObject;
@@ -668,11 +832,14 @@ define([
             var endCamPos = new THREE.Vector3().copy(cog).sub(dir.multiplyScalar(distance));
             cameraAnimation(cog, 2000, endCamPos);
         };
-        this.lookAt = function (mesh) {
+
+        this.lookAt = function (object) {
+            var mesh = object.children[0];
             var boundingBox = mesh.geometry.boundingBox;
-            var cog = boundingBox.center().clone().applyMatrix4(mesh.matrix);
+            var cog = boundingBox.center().clone().applyMatrix4(object.matrix);
             cameraAnimation(cog, 2000);
         };
+
         this.resetCameraPlace = function () {
             var camPos = App.SceneOptions.defaultCameraPosition;
             resetCameraAnimation(new THREE.Vector3(0, 0, 0), 1000, camPos, new THREE.Vector3(0, 1, 0));
@@ -681,12 +848,7 @@ define([
         /**
          * Context API
          */
-        this.getSceneContext = function () {
-            return {
-                target: controlsObject.getTarget(),
-                camPos: controlsObject.getCamPos()
-            };
-        };
+
         this.getControlsContext = function () {
             return {
                 target: controlsObject.getTarget(),
@@ -694,6 +856,7 @@ define([
                 camOrientation: _this.cameraObject.up
             };
         };
+
         this.setControlsContext = function (context) {
             _this.cameraObject.position.copy(context.camPos);
             controlsObject.target.copy(context.target);
@@ -709,6 +872,7 @@ define([
                 return null;
             }
         };
+
         this.transformControlsEnabled = function () {
             var enabled = false;
             if (transformControls !== null && transformControls.enabled) {
@@ -716,15 +880,17 @@ define([
             }
             return enabled;
         };
+
         this.enableControlsObject = function () {
-	        if(controlsObject){
-		        controlsObject.enabled = true;
-	        }
+            if (controlsObject) {
+                controlsObject.enabled = true;
+            }
         };
+
         this.disableControlsObject = function () {
-	        if(controlsObject){
-		        controlsObject.enabled = false;
-	        }
+            if (controlsObject) {
+                controlsObject.enabled = false;
+            }
         };
 
         /**
@@ -735,11 +901,13 @@ define([
             currentLayer = layer;
             App.$SceneContainer.addClass('markersCreationMode');
         };
+
         this.stopMarkerCreationMode = function () {
             _this.markerCreationMode = false;
             currentLayer = null;
             App.$SceneContainer.removeClass('markersCreationMode');
         };
+
         this.requestFullScreen = function () {
             _this.renderer.domElement.parentNode.requestFullscreen =
                 (_this.renderer.domElement.parentNode.requestFullscreen) ||
@@ -747,69 +915,119 @@ define([
                 (_this.renderer.domElement.parentNode.webkitRequestFullScreen);
             _this.renderer.domElement.parentNode.requestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
         };
+
         this.explodeScene = function (v) {
             App.collaborativeController.sendExplodeValue(v);
             // this could be adjusted
-            explosionCoeff = v * 0.1;
-            _(_this.scene.children).each(function (child) {
-                if (child instanceof THREE.Mesh && child.partIterationId) {
-                    applyExplosionCoeff(child);
+            explosionValue = v * 0.1;
+            _(_this.scene.children).each(function (object) {
+                if (object instanceof THREE.Object3D && object.partIterationId) {
+                    applyExplosionValue(object);
                 }
             });
             _this.reDraw();
         };
-        this.setMeasureListener = function (callback) {
-            _this.measureCallback = callback;
+
+        this.drawMeasure = function (points) {
+            var material = new THREE.LineBasicMaterial({
+                color: 0xf47922
+            });
+            var geometry = new THREE.Geometry();
+            geometry.vertices.push(points[0]);
+            geometry.vertices.push(points[1]);
+            var line = new THREE.Line(geometry, material);
+
+            var dist = points[0].distanceTo(points[1]);
+            var distText = (dist / 1000).toFixed(3) + ' m';
+
+            var size = dist / 100 + 10;
+
+            var textGeo = new THREE.TextGeometry(distText, {size: size, height: 2, font: 'helvetiker'});
+            var textMaterial = new THREE.MeshBasicMaterial({color: 0xf47922});
+            var text = new THREE.Mesh(textGeo, textMaterial);
+
+            text.position.copy(new THREE.Vector3().addVectors(points[0], points[1]).multiplyScalar(0.5));
+            text.rotation.copy(_this.cameraObject.rotation);
+
+            measures.push(line);
+            measureTexts.push(text);
+            _this.scene.add(line);
+            _this.scene.add(text);
+
+            measuresPoints.push(points);
+            App.collaborativeController.sendMeasure();
+            Backbone.Events.trigger('measure:drawn');
+            _this.reDraw();
         };
+
+        this.clearMeasures = function () {
+            _.each(measures, function (line) {
+                _this.scene.remove(line);
+            });
+            _.each(measureTexts, function (text) {
+                _this.scene.remove(text);
+            });
+            measures = [];
+            measureTexts = [];
+            measuresPoints = [];
+            App.collaborativeController.sendMeasure();
+            _this.reDraw();
+        };
+
         this.setMeasureState = function (state) {
             App.$SceneContainer.toggleClass('measureMode', state);
             _this.measureState = state;
-            var opacity = state ? 0.5 : 1;
-            _(_this.scene.children).each(function (child) {
-                if (child instanceof THREE.Mesh && child.partIterationId) {
-                    child.material.opacity = opacity;
-                }
-            });
+
+            if (!state) {
+                measureTool.callbacks.onCancelled();
+            }
         };
+
         this.takeScreenShot = function () {
 
             var imageSource = _this.renderer.domElement.toDataURL('image/png');
-            var filename = App.config.productId + '-' + date.formatTimestamp(App.config.i18n._DATE_SHORT_FORMAT,Date.now());
+            var filename = App.config.productId + '-' + date.formatTimestamp(App.config.i18n._DATE_SHORT_FORMAT, Date.now());
 
             var save = document.createElement('a');
             save.href = imageSource;
             save.download = filename;
-            var event = document.createEvent("MouseEvents");
+            var event = document.createEvent('MouseEvents');
             event.initMouseEvent(
-                "click", true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null
+                'click', true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null
             );
             save.dispatchEvent(event);
 
         };
+
         this.setCameraNear = function (n) {
             _this.cameraObject.near = n;
             _this.cameraObject.updateProjectionMatrix();
             _this.reDraw();
 
         };
-        this.colourEditedMeshes = function () {
-            editedMeshesColoured = true;
-            _.each(_this.editedMeshes, function (y) {
-                var mesh = meshesIndexed[y];
-                mesh.material = materialEditedMesh;
+
+        this.colourEditedObjects = function () {
+            editedObjectsColoured = true;
+            _.each(_this.editedObjects, function (uuid) {
+                setEditedMaterials(objects[uuid]);
             });
-            App.collaborativeController.sendColourEditedMeshes();
+            App.collaborativeController.sendColourEditedObjects();
             _this.reDraw();
         };
-        this.cancelColourEditedMeshes = function () {
-            editedMeshesColoured = false;
-            _.each(_this.editedMeshes, function (y) {
-                var mesh = meshesIndexed[y];
-                mesh.material = mesh.initialMaterial;
+
+        this.cancelColourEditedObjects = function () {
+
+            editedObjectsColoured = false;
+
+            _.each(_this.editedObjects, function (uuid) {
+                restoreInitialMaterials(objects[uuid]);
             });
-            App.collaborativeController.sendColourEditedMeshes();
+
+            App.collaborativeController.sendColourEditedObjects();
+
             _this.reDraw();
         };
+
         this.setPointerLockControls = function () {
             if (_this.stateControl === _this.STATECONTROL.PLC || !browserSupportPointerLock) {
                 return;
@@ -833,6 +1051,7 @@ define([
             _this.scene.add(_this.pointerLockControls.getObject());
             _this.reDraw();
         };
+
         this.setTrackBallControls = function () {
             if (_this.stateControl === _this.STATECONTROL.TBC && controlsObject.enabled) {
                 return;
@@ -852,6 +1071,7 @@ define([
             handleResize();
             _this.reDraw();
         };
+
         this.setOrbitControls = function () {
 
             if (_this.stateControl === _this.STATECONTROL.ORB && controlsObject.enabled) {
@@ -873,18 +1093,19 @@ define([
             handleResize();
             _this.reDraw();
         };
+
         this.setTransformControls = function (mesh, mode) {
             transformControls.setCamera(_this.cameraObject);
             controlsObject.enabled = false;
             transformControls.enabled = true;
             transformControls.attach(mesh);
-            if (!_.contains(_this.editedMeshes, mesh.uuid)) {
-                _this.editedMeshes.push(mesh.uuid);
-                if (editedMeshesColoured) {
-                    _this.colourEditedMeshes();
+            if (!_.contains(_this.editedObjects, mesh.uuid)) {
+                _this.editedObjects.push(mesh.uuid);
+                if (editedObjectsColoured) {
+                    _this.colourEditedObjects();
                 }
-                App.log('%c Mesh added : \n\t'+this.editedMeshes,'SM');
-                App.collaborativeController.sendEditedMeshes();
+                App.log('%c Mesh added : \n\t' + this.editedObjects, 'SM');
+                App.collaborativeController.sendEditedObjects();
             }
             transformControls.bindEvents();
             if (typeof(mode) !== 'undefined') {
@@ -903,6 +1124,7 @@ define([
             _this.scene.add(transformControls);
             _this.reDraw();
         };
+
         this.leaveTransformMode = function () {
             if (_this.stateControl === _this.STATECONTROL.TBC) {
                 _this.setTrackBallControls();
@@ -910,6 +1132,7 @@ define([
                 _this.setOrbitControls();
             }
         };
+
         this.deleteTransformControls = function () {
             if (transformControls !== null && transformControls.enabled) {
                 _this.scene.remove(transformControls);
@@ -920,10 +1143,11 @@ define([
                 _this.reDraw();
             }
         };
-        this.cancelTransformation = function (mesh) {
 
-            new TWEEN.Tween(mesh.position)
-                .to({ x: mesh.initialPosition.x, y: mesh.initialPosition.y, z: mesh.initialPosition.z }, 2000)
+        this.cancelTransformation = function (object) {
+
+            new TWEEN.Tween(object.position)
+                .to({x: object.initialPosition.x, y: object.initialPosition.y, z: object.initialPosition.z}, 2000)
                 .interpolation(TWEEN.Interpolation.CatmullRom)
                 .easing(TWEEN.Easing.Quintic.InOut)
                 .onUpdate(function () {
@@ -931,8 +1155,8 @@ define([
                     transformControls.update();
                 })
                 .start();
-            new TWEEN.Tween(mesh.rotation)
-                .to({ x: mesh.initialRotation.x, y: mesh.initialRotation.y, z: mesh.initialRotation.z }, 2000)
+            new TWEEN.Tween(object.rotation)
+                .to({x: object.initialRotation.x, y: object.initialRotation.y, z: object.initialRotation.z}, 2000)
                 .interpolation(TWEEN.Interpolation.CatmullRom)
                 .easing(TWEEN.Easing.Quintic.InOut)
                 .onUpdate(function () {
@@ -940,8 +1164,8 @@ define([
                     transformControls.update();
                 })
                 .start();
-            new TWEEN.Tween(mesh.scale)
-                .to({ x: mesh.initialScale.x, y: mesh.initialScale.y, z: mesh.initialScale.z }, 2000)
+            new TWEEN.Tween(object.scale)
+                .to({x: object.initialScale.x, y: object.initialScale.y, z: object.initialScale.z}, 2000)
                 .interpolation(TWEEN.Interpolation.CatmullRom)
                 .easing(TWEEN.Easing.Quintic.InOut)
                 .onUpdate(function () {
@@ -949,10 +1173,10 @@ define([
                     transformControls.update();
                 })
                 .start();
-            _this.editedMeshes = _.without(_this.editedMeshes, mesh.uuid);
-            mesh.material = mesh.initialMaterial;
-            App.log('%c Mesh removed','SM');
-            App.collaborativeController.sendEditedMeshes();
+            _this.editedObjects = _.without(_this.editedObjects, object.uuid);
+            restoreInitialMaterials(object);
+            App.log('%c Mesh removed', 'SM');
+            App.collaborativeController.sendEditedObjects();
 
             _this.reDraw();
             _this.leaveTransformMode();
@@ -961,45 +1185,65 @@ define([
         /**
          * Scene mouse events
          */
+
         this.setPathForIFrame = function (pathForIFrame) {
             _this.pathForIFrameLink = pathForIFrame;
         };
+
         this.clear = function () {
 
         };
 
-        this.removeMeshById = function (meshId) {
-            removeMesh(meshId);
-        };
-        this.getMesh = function (meshId) {
-            return meshesIndexed[meshId];
-        };
-        this.getEditedMeshesColoured = function () {
-            return editedMeshesColoured;
+        this.removeObjectById = function (objectId) {
+            removeObject(objectId);
         };
 
-        this.updateAmbientLight = function(color){
-            _this.scene.getObjectByName('AmbientLight').color.set(color);
+        this.getObject = function (uuid) {
+            return objects[uuid];
+        };
+
+        this.getEditedObjectsColoured = function () {
+            return editedObjectsColoured;
+        };
+
+        this.updateAmbientLight = function (color) {
+            _this.cameraObject.getObjectByName('AmbientLight').color.set(color);
             _this.reDraw();
         };
 
-        this.updateCameraLight = function(color){
-            _this.cameraObject.getObjectByName('CameraLight').color.set(color);
+        this.updateCameraLight1 = function (color) {
+            _this.cameraObject.getObjectByName('CameraLight1').color.set(color);
             _this.reDraw();
         };
 
-        this.createLayerMaterial = function(color){
+        this.updateCameraLight2 = function (color) {
+            _this.cameraObject.getObjectByName('CameraLight2').color.set(color);
+            _this.reDraw();
+        };
+
+        this.createLayerMaterial = function (color) {
             return new THREE.MeshLambertMaterial({
                 color: color,
-                opacity: 1,
                 transparent: true
             });
         };
 
-        this.debugPoint = function(v){
-            var cogMesh = new THREE.Mesh(new THREE.SphereGeometry(2,1,1),new THREE.MeshNormalMaterial({color:0xFFFF00}));
-            cogMesh.position.copy(v);
-            _this.scene.add(cogMesh);
+        this.onContainerShown = function () {
+            handleResize();
+        };
+
+        this.getMeasures = function () {
+            return measuresPoints;
+        };
+
+        this.setMeasures = function (measuresPoints) {
+            _this.clearMeasures();
+            _.each(measuresPoints, function (points) {
+                var point0 = new THREE.Vector3(points[0].x, points[0].y, points[0].z);
+                var point1 = new THREE.Vector3(points[1].x, points[1].y, points[1].z);
+
+                _this.drawMeasure([point0, point1]);
+            });
         };
     };
 

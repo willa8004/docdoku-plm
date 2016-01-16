@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,42 +20,45 @@
 package com.docdoku.core.meta;
 
 import javax.persistence.*;
+import javax.xml.bind.annotation.XmlSeeAlso;
 import java.io.Serializable;
 
 /**
  * This class holds the definition of the custom attribute of the documents and parts
- * created by the template.
+ * @author the template.
  * 
  * @author Florent Garin
  * @version 1.1, 23/01/12
  * @since   V1.0
  */
 @Table(name="INSTANCEATTRIBUTETEMPLATE")
+@XmlSeeAlso({DefaultAttributeTemplate.class, ListOfValuesAttributeTemplate.class})
+@Inheritance()
 @Entity
-public class InstanceAttributeTemplate implements Serializable {
+public abstract class InstanceAttributeTemplate implements Serializable, Cloneable {
 
     @GeneratedValue(strategy=GenerationType.IDENTITY)
     @Id
-    private int id;
+    protected int id;
 
     @Column(length=100)
-    private String name = "";
+    protected String name = "";
 
-    private  boolean mandatory;
+    protected boolean mandatory;
 
-    private AttributeType attributeType;
+    protected boolean locked;
 
     public enum AttributeType {
 
-        TEXT, NUMBER, DATE, BOOLEAN, URL
+        TEXT, NUMBER, DATE, BOOLEAN, URL, LOV
     }
+
 
     public InstanceAttributeTemplate() {
     }
 
-    public InstanceAttributeTemplate(String pName, AttributeType pAttributeType) {
+    public InstanceAttributeTemplate(String pName) {
         name = pName;
-        attributeType = pAttributeType;
     }
 
     public int getId() {
@@ -82,44 +85,26 @@ public class InstanceAttributeTemplate implements Serializable {
         this.mandatory = mandatory;
     }
 
-    public InstanceAttributeTemplate.AttributeType getAttributeType() {
-        return attributeType;
+    public boolean isLocked() {
+        return locked;
     }
 
-    public void setAttributeType(InstanceAttributeTemplate.AttributeType attributeType) {
-        this.attributeType = attributeType;
+    public void setLocked(boolean locked) {
+        this.locked = locked;
     }
 
-    public InstanceAttribute createInstanceAttribute() {
-        InstanceAttribute attr = null;
-        if(attributeType!=null){
-            switch (attributeType) {
-                case TEXT:
-                    attr = new InstanceTextAttribute();
-                    break;
-                case NUMBER:
-                    attr = new InstanceNumberAttribute();
-                    break;
-                case BOOLEAN:
-                    attr = new InstanceBooleanAttribute();
-                    break;
-                case DATE:
-                    attr = new InstanceDateAttribute();
-                    break;
-                case URL :
-                    attr = new InstanceURLAttribute();
-                    break;
-                default:
-                    return null;
-            }
+    public abstract InstanceAttribute createInstanceAttribute();
 
-            attr.setName(name);
-            attr.setMandatory(mandatory);
+    public abstract AttributeType getAttributeType();
+
+    @Override
+    public InstanceAttributeTemplate clone() {
+        try {
+            return (InstanceAttributeTemplate) super.clone();
+        } catch (CloneNotSupportedException e) {
+            throw new InternalError();
         }
-
-        return attr;
     }
-
 
     @Override
     public boolean equals(Object o) {
@@ -132,19 +117,17 @@ public class InstanceAttributeTemplate implements Serializable {
 
         InstanceAttributeTemplate that = (InstanceAttributeTemplate) o;
 
-        return id == that.id && name.equals(that.name);
+        return id == that.id;
 
     }
 
     @Override
     public int hashCode() {
-        int result = id;
-        result = 31 * result + name.hashCode();
-        return result;
+        return id;
     }
 
     @Override
     public String toString() {
-        return name + "-" + attributeType;
+        return name;
     }
 }

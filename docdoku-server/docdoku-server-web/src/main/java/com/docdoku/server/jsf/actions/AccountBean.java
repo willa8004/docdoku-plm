@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,22 +20,27 @@
 package com.docdoku.server.jsf.actions;
 
 import com.docdoku.core.common.Workspace;
+import com.docdoku.core.exceptions.AccountAlreadyExistsException;
 import com.docdoku.core.exceptions.AccountNotFoundException;
-import com.docdoku.core.services.IUserManagerLocal;
+import com.docdoku.core.exceptions.CreationException;
+import com.docdoku.core.services.IAccountManagerLocal;
 
-import javax.ejb.EJB;
 import javax.enterprise.context.RequestScoped;
 import javax.faces.context.FacesContext;
+import javax.inject.Inject;
 import javax.inject.Named;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpSession;
+import java.text.SimpleDateFormat;
 import java.util.*;
 
 @Named("accountBean")
 @RequestScoped
 public class AccountBean {
 
-    @EJB
-    private IUserManagerLocal userManager;
+    @Inject
+    private IAccountManagerLocal accountManager;
     
     private String password;
 
@@ -59,12 +64,28 @@ public class AccountBean {
     public AccountBean() {
     }
 
+    public String register() throws AccountAlreadyExistsException, CreationException, ServletException {
+
+        HttpServletRequest request = (HttpServletRequest) (FacesContext.getCurrentInstance().getExternalContext().getRequest());
+
+        if(language == null || "".equals(language) || " ".equals(language)){
+            language = getBrowserLanguage();
+        }
+
+        accountManager.createAccount(login, name, email, language, password, timeZone);
+        request.login(login, password);
+
+        HttpSession session = request.getSession();
+        session.setAttribute("remoteUser",login);
+        return request.getContextPath()+"/register.xhtml";
+    }
+
     public String updateAccount() throws AccountNotFoundException {
         if(language == null || "".equals(language) || " ".equals(language)){
             language = FacesContext.getCurrentInstance().getViewRoot().getLocale().getLanguage();
         }
         FacesContext.getCurrentInstance().getViewRoot().setLocale(new Locale(language));
-        userManager.updateAccount(name, email, language, password,timeZone);
+        accountManager.updateAccount(name, email, language, password,timeZone);
         HttpServletRequest request = (HttpServletRequest) (FacesContext.getCurrentInstance().getExternalContext().getRequest());
         return request.getContextPath()+"/";
     }
@@ -100,10 +121,15 @@ public class AccountBean {
     public String getLanguage() {
         return language;
     }
+
     public void setLanguage(String language) {
+        if(language == null || "".equals(language) || " ".equals(language)){
+            language = getBrowserLanguage();
+        }
         this.language = language;
         this.locale = new Locale(language);
     }
+
     public String getBrowserLanguage() {
         return FacesContext.getCurrentInstance().getViewRoot().getLocale().getLanguage();
     }
@@ -168,5 +194,26 @@ public class AccountBean {
 
     public Locale getLocale() {
         return locale;
+    }
+
+    public String addTimeZone(Date date){
+
+        if(date == null){
+            return "";
+        }
+        if(this.getLanguage() == null) {
+            this.setLanguage(this.getBrowserLanguage());
+        }
+        ResourceBundle resourceBundle = ResourceBundle.getBundle("com.docdoku.server.localization.part_permalink_resource",this.getLocale());
+        String format = resourceBundle.getString("date.format");
+
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat(format);
+
+        if(timeZone == null || timeZone.isEmpty()){
+            return simpleDateFormat.format(date);
+        }
+
+        simpleDateFormat.setTimeZone(TimeZone.getTimeZone(timeZone));
+        return simpleDateFormat.format(date);
     }
 }

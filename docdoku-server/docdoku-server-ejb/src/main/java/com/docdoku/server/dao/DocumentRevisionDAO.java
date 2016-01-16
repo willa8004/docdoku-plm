@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,11 +21,9 @@ package com.docdoku.server.dao;
 
 import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.common.User;
-import com.docdoku.core.document.DocumentIteration;
-import com.docdoku.core.document.DocumentRevision;
-import com.docdoku.core.document.DocumentRevisionKey;
-import com.docdoku.core.document.Folder;
+import com.docdoku.core.document.*;
 import com.docdoku.core.exceptions.CreationException;
+import com.docdoku.core.exceptions.DocumentIterationNotFoundException;
 import com.docdoku.core.exceptions.DocumentRevisionAlreadyExistsException;
 import com.docdoku.core.exceptions.DocumentRevisionNotFoundException;
 import com.docdoku.core.meta.Tag;
@@ -96,6 +94,15 @@ public class DocumentRevisionDAO {
         }
     }
 
+    public DocumentIteration loadDocI(DocumentIterationKey pKey) throws DocumentIterationNotFoundException {
+        DocumentIteration docI = em.find(DocumentIteration.class, pKey);
+        if (docI == null) {
+            throw new DocumentIterationNotFoundException(mLocale, pKey);
+        } else {
+            return docI;
+        }
+    }
+
     public DocumentRevision getDocRRef(DocumentRevisionKey pKey) throws DocumentRevisionNotFoundException {
         try {
             return em.getReference(DocumentRevision.class, pKey);
@@ -147,6 +154,9 @@ public class DocumentRevisionDAO {
         SharedEntityDAO sharedEntityDAO = new SharedEntityDAO(em);
         sharedEntityDAO.deleteSharesForDocument(pDocR);
 
+        DocumentMaster docM = pDocR.getDocumentMaster();
+        docM.removeRevision(pDocR);
+
         em.remove(pDocR);
         em.flush();
     }
@@ -161,9 +171,12 @@ public class DocumentRevisionDAO {
                 setParameter("workspaceId", pWorkspaceId).setParameter("assignedUserLogin", assignedUserLogin).getResultList();
     }
 
-    public List<DocumentRevision> findDocsRevisionsWithReferenceLike(String pWorkspaceId, String reference, int maxResults) {
-        return em.createNamedQuery("DocumentRevision.findByReference",DocumentRevision.class).
-                setParameter("workspaceId", pWorkspaceId).setParameter("id", "%" + reference + "%").setMaxResults(maxResults).getResultList();
+    public List<DocumentRevision> findDocsRevisionsWithReferenceOrTitleLike(String pWorkspaceId, String search, int maxResults) {
+        return em.createNamedQuery("DocumentRevision.findByReferenceOrTitle",DocumentRevision.class).
+                setParameter("workspaceId", pWorkspaceId)
+                .setParameter("id", "%" + search + "%")
+                .setParameter("title", "%" + search + "%")
+                .setMaxResults(maxResults).getResultList();
     }
 
     public int getTotalNumberOfDocuments(String pWorkspaceId) {

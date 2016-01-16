@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,7 +25,7 @@ import java.io.Serializable;
 import java.util.Date;
 
 /**
- * The <code>PartLog</code> class represents an entry in the log
+ * The PartLog class represents an entry in the log
  * table that keeps track of all activities around a specific part.
  * 
  * @author Florent Garin
@@ -37,7 +37,7 @@ import java.util.Date;
 @NamedQueries ({
     @NamedQuery(name="findLogByPartAndUserAndEvent", query="SELECT l FROM PartLog l WHERE l.userLogin = :userLogin AND l.partWorkspaceId = :partWorkspaceId AND l.partNumber = :partNumber AND l.partVersion = :partVersion AND l.partIteration = :partIteration AND l.event = :event ORDER BY l.logDate")
 })
-public class PartLog implements Serializable, Cloneable {
+public class PartLog implements Serializable {
 
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
@@ -54,6 +54,10 @@ public class PartLog implements Serializable, Cloneable {
 
 
     public PartLog() {
+    }
+
+    public int getId() {
+        return id;
     }
 
     public int getPartIteration() {

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,19 +25,23 @@ import javax.persistence.Table;
 import javax.xml.bind.annotation.XmlTransient;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * The Account class holds personal user data applicable inside the whole application.
- * However <a href="User.html">User</a> objects encapsulate personal information
+ * However {@link User} objects encapsulate personal information
  * only in the context of a particular workspace.
  *
  * @author Florent Garin
  * @version 1.0, 02/06/08
- * @since   V1.0
+ * @since V1.0
  */
 @Table(name="ACCOUNT")
 @javax.persistence.Entity
 public class Account implements Serializable, Cloneable {
+
+    private static final Logger LOGGER = Logger.getLogger(Account.class.getName());
 
     @javax.persistence.Id
     private String login="";
@@ -46,9 +50,6 @@ public class Account implements Serializable, Cloneable {
     private String email;
     private String language;
     private String timeZone = "Europe/London";
-
-    @ManyToOne
-    private Organization organization;
 
     @javax.persistence.Temporal(javax.persistence.TemporalType.TIMESTAMP)
     private Date creationDate;
@@ -101,14 +102,6 @@ public class Account implements Serializable, Cloneable {
         this.timeZone = timeZone;
     }
 
-    @XmlTransient
-    public Organization getOrganization() {
-        return organization;
-    }
-    public void setOrganization(Organization organization) {
-        this.organization = organization;
-    }
-
     public void setCreationDate(Date pCreationDate) {
         creationDate = (pCreationDate!=null) ? (Date) pCreationDate.clone() : null;
     }
@@ -147,6 +140,7 @@ public class Account implements Serializable, Cloneable {
         try {
             clone = (Account) super.clone();
         } catch (CloneNotSupportedException e) {
+            LOGGER.log(Level.WARNING,"CloneNotSupportedException on cloning account : "+this.getLogin(),e);
             throw new InternalError();
         }
         clone.creationDate = (Date) creationDate.clone();

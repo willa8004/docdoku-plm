@@ -5,8 +5,9 @@ define([
     'unorm',
     'text!common-objects/templates/file/file_list.html',
     'common-objects/models/file/attached_file',
-    'common-objects/views/file/file'
-], function (Backbone, Mustache, unorm, template, AttachedFile, FileView) {
+    'common-objects/views/file/file',
+    'common-objects/views/alert'
+], function (Backbone, Mustache, unorm, template, AttachedFile, FileView, AlertView) {
     'use strict';
 	var FileListView = Backbone.View.extend({
 
@@ -17,14 +18,17 @@ define([
 
         events: {
             'click form button.cancel-upload-btn': 'cancelButtonClicked',
-            'change form input#upload-btn': 'fileSelectHandler',
+            'change form input.upload-btn': 'fileSelectHandler',
             'dragover .droppable': 'fileDragHover',
             'dragleave .droppable': 'fileDragHover',
-            'drop .droppable': 'fileDropHandler'
+            'drop .droppable': 'fileDropHandler',
+            'submit form':'formSubmit',
+            'click a.toggle-checkAll': 'toggleCheckAll'
         },
 
         initialize: function () {
             this.editMode = this.options.editMode;
+            this.title = this.options.title;
 
             this.xhrs = [];
 
@@ -51,6 +55,8 @@ define([
             } else {
                 this.listenTo(this.collection, 'add', this.addOneFile);
             }
+            this.checkAll = true;
+
         },
 
         // cancel event and hover styling
@@ -67,8 +73,8 @@ define([
 
         fileDropHandler: function (e) {
             this.fileDragHover(e);
-            if(this.options.singleFile && e.dataTransfer.files.length > 1){
-                window.alert(App.config.i18n.SINGLE_FILE_RESTRICTION);
+            if (this.options.singleFile && e.dataTransfer.files.length > 1) {
+                this.printNotifications('error', App.config.i18n.SINGLE_FILE_RESTRICTION);
                 return;
             }
 
@@ -85,8 +91,7 @@ define([
 
         addOneFile: function (attachedFile) {
             var self = this;
-
-
+            this.$toggleCheckAll.show();
             var fileView = new FileView({
                 model: attachedFile,
                 filesToDelete: self.filesToDelete,
@@ -94,14 +99,34 @@ define([
                 uploadBaseUrl: self.options.uploadBaseUrl,
                 editMode: self.editMode
             });
+            this.listenTo(fileView,'notification',this.printNotifications);
+            this.listenTo(fileView,'clear', this.clearNotifications);
             fileView.render();
             self.filesUL.append(fileView.el);
+        },
 
+        printNotifications: function(type,message) {
+            this.notifications.append(new AlertView({
+                type: type,
+                message: message
+            }).render().$el);
+        },
+
+        clearNotifications: function() {
+            this.notifications.text('');
         },
 
         addSingleFile: function (attachedFile) {
             this.filesUL.empty();
             this.addOneFile(attachedFile);
+            this.$el.trigger('file:uploaded');
+        },
+
+        toggleCheckAll: function() {
+            this.$('input.file-check').prop('checked',this.checkAll).change();
+            this.checkAll = ! this.checkAll;
+            var text = this.checkAll ? App.config.i18n.CHECK_ALL : App.config.i18n.UNCHECK_ALL;
+            this.$toggleCheckAll.text(text);
         },
 
         uploadNewFile: function (file) {
@@ -120,9 +145,7 @@ define([
                 shortName: fileName
             });
 
-
             var xhr = new XMLHttpRequest();
-
 
             xhr.upload.addEventListener('progress', function (evt) {
                 if (evt.lengthComputable) {
@@ -134,19 +157,27 @@ define([
             xhr.addEventListener('load', function (e) {
 
                 if (e.currentTarget.status !== 200 && e.currentTarget.status !== 201) {
-                    window.alert(e.currentTarget.statusText);
-                    self.xhrFinished(xhr);
+                    self.xhrFinishedWithError(xhr, App.config.i18n.FILE + ' <' + fileName + '> : ' + e.currentTarget.statusText);
                     progressBar.remove();
                     return false;
                 }
 
-                self.xhrFinished(xhr);
+                self.xhrFinishedWithSuccess(xhr);
                 progressBar.remove();
                 newFile.isNew = function () {
                     return false;
                 };
-                self.collection.add(newFile);
-                self.newItems.add(newFile);
+                var existingFile = self.filesToDelete.findWhere({fullName:newFile.getFullName()});
+                if(existingFile){
+                    self.filesToDelete.remove(existingFile);
+                    var checkbox = self.$('[data-fullname="'+existingFile.getShortName()+'"]');
+                    if(checkbox && checkbox.is(':checked')){
+                        checkbox.click();
+                    }
+                }else{
+                    self.collection.add(newFile);
+                    self.newItems.add(newFile);
+                }
             }, false);
 
             xhr.open('POST', this.options.uploadBaseUrl);
@@ -159,19 +190,34 @@ define([
             this.xhrs.push(xhr);
         },
 
-        xhrFinished : function(xhr){
-            this.xhrs.splice(this.xhrs.indexOf(xhr),1);
-            if(!this.xhrs.length){
+        xhrFinishedWithSuccess: function(xhr) {
+            this.xhrs.splice(this.xhrs.indexOf(xhr), 1);
+            if (!this.xhrs.length) {
+                this.gotoIdleState();
+                var message = this.options.singleFile ? App.config.i18n.FILE_UPLOADED : App.config.i18n.FILES_UPLOADED;
+                this.printNotifications('info',message);
+            }
+
+        },
+
+        xhrFinishedWithError: function(xhr, error) {
+            this.printNotifications('error',error);
+
+            this.xhrs.splice(this.xhrs.indexOf(xhr), 1);
+            if (!this.xhrs.length) {
                 this.gotoIdleState();
             }
         },
 
         finished: function () {
+            this.$el.find('.progress.progress-striped').remove();
             this.gotoIdleState();
         },
 
         cancelButtonClicked: function () {
             _.invoke(this.xhrs,'abort');
+            //empty the array
+            this.xhrs.length = 0;
             this.finished();
         },
 
@@ -187,8 +233,8 @@ define([
             //Abort file upload if there is one
             _.invoke(this.xhrs,'abort');
 
-            /*deleting unwanted files that have been added by upload*/
-            /*we need to reverse read because model.destroy() remove elements from collection*/
+            //deleting unwanted files that have been added by upload
+            //we need to reverse read because model.destroy() remove elements from collection
             while (this.newItems.length !== 0) {
                 var file = this.newItems.pop();
 	            this.deleteAFile(file);
@@ -216,7 +262,7 @@ define([
         },
 
         render: function () {
-            this.$el.html(Mustache.render(template, {i18n: App.config.i18n, editMode: this.editMode, multiple:!this.options.singleFile}));
+            this.$el.html(Mustache.render(template, {i18n: App.config.i18n, title:this.title, editMode: this.editMode, multiple:!this.options.singleFile}));
 
             this.bindDomElements();
 
@@ -225,12 +271,18 @@ define([
             return this;
         },
 
+        formSubmit:function(){
+            return false;
+        },
+
         bindDomElements: function () {
-            this.filedroparea = this.$('#filedroparea');
+            this.filedroparea = this.$('.filedroparea');
             this.filesUL = this.$('ul.file-list');
-            this.uploadFileNameP = this.$('p#upload-file-shortname');
-            this.uploadInput = this.$('input#upload-btn');
+            this.uploadInput = this.$('input.upload-btn');
             this.progressBars = this.$('div.progress-bars');
+            this.notifications = this.$('div.notifications');
+            //Hide the toggleCheckAll link which will be shown on add new File
+            this.$toggleCheckAll = this.$('a.toggle-checkAll').hide();
         }
     });
     return FileListView;

@@ -1,11 +1,12 @@
-/*global _,define,App*/
+/*global _,define,App,$*/
 define([
     'backbone',
     'mustache',
     'text!common-objects/templates/udf/user_defined_function.html',
     'collections/configuration_items',
-    'common-objects/collections/baselines'
-], function (Backbone, Mustache, template,ConfigurationItemCollection,Baselines) {
+    'common-objects/collections/baselines',
+    'common-objects/views/udf/calculation'
+], function (Backbone, Mustache, template,ConfigurationItemCollection,Baselines, CalculationView) {
 
     'use strict';
 
@@ -14,51 +15,106 @@ define([
         events: {
             'hidden #user_defined_function_modal': 'onHidden',
             'submit #user_defined_function_form':'run',
-            'change .user-defined-product-select':'fetchBaselines'
+            'change .user-defined-product-select':'fetchValues',
+            'change .user-defined-type-select':'fetchValues',
+            'click .add-calculation':'addCalculation'
         },
 
         initialize: function () {
             _.bindAll(this);
+            this.calculationViews = [];
         },
 
         render: function () {
             this.$el.html(Mustache.render(template, {i18n: App.config.i18n}));
             this.$modal= this.$('#user_defined_function_modal');
             this.$productList = this.$('.user-defined-product-select');
-            this.$baselineList = this.$('.user-defined-baseline-select');
+            this.$typeList = this.$('.user-defined-type-select');
+            this.$valueList = this.$('.user-defined-value-select');
             this.$runButton = this.$('.run-udf');
-            this.$udfResult = this.$('.udf-result');
-            this.$userDefineInit = this.$('.user-defined-init');
-            this.$userDefineFunctionDef = this.$('.user-defined-function-def');
+            this.$calculations = this.$('.calculations');
             this.fetchProducts();
             return this;
         },
 
-        fetchProducts:function(){
+        setBaselineMode:function(){
+            this.$typeList.val('baseline');
+        },
+
+        fetchProducts: function () {
             var productList = this.$productList;
-            var baselineList = this.$baselineList;
+            var typeList = this.$typeList;
             var _this = this;
+
+            typeList.append('<option value="latest">'+App.config.i18n.LATEST_SHORT+'</option>');
+            typeList.append('<option value="baseline">'+App.config.i18n.BASELINE+'</option>');
+
             new ConfigurationItemCollection().fetch({success:function(products){
                 products.each(function(product){
                     productList.append('<option value="'+product.getId()+'">'+product.getId()+'</option>');
-                    baselineList.empty().append('<option value="latest">'+App.config.i18n.LATEST+'</option>');
                 });
-                _this.fetchBaselines();
+                _this.fetchValues();
+                _this.fetchAttributes();
             }});
+
         },
 
-        fetchBaselines:function(){
+        fetchValues: function () {
             var productId = this.$productList.val();
-            var baselineList = this.$baselineList;
-            baselineList.empty();
-            baselineList.append('<option value="latest">'+App.config.i18n.LATEST+'</option>');
-            if(productId){
-                new Baselines({},{type:'product',productId:productId}).fetch({success:function(baselines) {
-                    baselines.each(function(baseline){
-                        baselineList.append('<option value="'+baseline.getId()+'">'+baseline.getName()+'</option>');
-                    });
-                }});
+            var typeId = this.$typeList.val();
+            var valueList = this.$valueList;
+            valueList.empty();
+
+            if (productId) {
+                if (typeId === 'latest') {
+                    valueList.append('<option value="wip">'+App.config.i18n.HEAD_WIP+'</option>');
+                    valueList.append('<option value="latest">'+App.config.i18n.HEAD_CHECKIN+'</option>');
+                    valueList.append('<option value="latest-released">'+App.config.i18n.HEAD_RELEASED+'</option>');
+
+                } else if (typeId === 'baseline') {
+                    new Baselines({},{type:'product',productId:productId}).fetch({success:function(baselines) {
+                        baselines.each(function(baseline){
+                            valueList.append('<option value="'+baseline.getId()+'">'+baseline.getName()+'</option>');
+                        });
+                    }});
+
+                }
             }
+        },
+
+        fetchAttributes:function(){
+            this.availableAttributes = [];
+            var self = this;
+            $.ajax({
+                url: App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/attributes/part-iterations',
+                success: function (attributes) {
+                    _.each(attributes,function(attribute){
+                        if(attribute.type === 'NUMBER'){
+                            self.availableAttributes.push(attribute.name);
+                        }
+                    });
+                }
+            });
+        },
+
+        addCalculation:function(){
+            var _this = this;
+            var calculationView = new CalculationView({attributeNames:this.availableAttributes}).render();
+            this.$calculations.append(calculationView.$el);
+            this.calculationViews.push(calculationView);
+
+            calculationView.on('removed',function(){
+
+                _this.calculationViews.splice(_this.calculationViews.indexOf(calculationView),1);
+
+                if(!_this.calculationViews.length){
+                    _this.$runButton.hide();
+                }
+
+            });
+
+            this.$runButton.show();
+
         },
 
         openModal: function () {
@@ -74,19 +130,20 @@ define([
         },
 
         run: function(e){
-            this.$udfResult.html('');
-            var productList = this.$productList;
-            var productId = productList.val();
-            var baselineList = this.$baselineList;
-            var baselineId = baselineList.val();
+
+            _.each(this.calculationViews,function(view){
+                view.resetCalculation();
+            });
+
+            var productId = this.$productList.val();
+            var valueId = this.$valueList.val();
             var runButton = this.$runButton;
-            var _this = this;
 
             runButton.html(App.config.i18n.LOADING +' ...').prop('disabled',true);
 
-            var partCollection = Backbone.Collection.extend({
+            var PartCollection = Backbone.Collection.extend({
                 url: function () {
-                    return this.urlBase() + '?configSpec=' + baselineId + '&depth=10';
+                    return this.urlBase() + '/filter?configSpec=' + valueId + '&depth=10&path=-1';
                 },
 
                 urlBase: function () {
@@ -94,82 +151,77 @@ define([
                 }
             });
 
-            new partCollection().fetch({
-                success:function(rootComponent){
-                    _this.doUDF(rootComponent,function(){
-                        runButton.html(App.config.i18n.RUN).prop('disabled',false);
-                    });
-                }
+            new PartCollection().fetch({
+                success:this.doUDF.bind(this)
             });
-
 
             e.preventDefault();
             e.stopPropagation();
             return false;
         },
 
-        doUDF:function(pRootComponent,callback){
+        doUDF:function(pRootComponent){
 
-            var Fn = Function;
-            var memo;
+            var calculationViews = this.calculationViews;
 
-            try {
+            var onNodeVisited = function(node){
 
-                var initFunction = new Fn(this.$userDefineInit.val());
-                var reduceFunction =  new Fn('part','memo',this.$userDefineFunctionDef.val());
+                _.each(calculationViews,function(view){
 
-                memo = initFunction();
+                    var operator = view.getOperator();
+                    var attributeName = view.getAttributeName();
+                    var memo = view.getMemo();
 
-                var assemblyVisited = 0;
-                var instancesVisited = 0;
+                    var attribute = node.attrs[attributeName];
 
-                var visit = function(rootComponent,fn){
+                    if(attribute !== undefined){
 
-                    rootComponent.attrs = {};
+                        switch(operator){
+                            case 'SUM':
+                            case 'AVG':
+                                memo += attribute;
+                                break;
 
-                    _.each(rootComponent.attributes,function(attr){
-                        if(attr.type === 'NUMBER'){
-                            rootComponent.attrs[attr.name] = parseFloat(attr.value);
-                        }else{
-                            rootComponent.attrs[attr.name] = attr.value;
-                        }
-                    });
-
-                    for(var i = 0 ; i < rootComponent.amount ; i++) {
-
-                        if(rootComponent.components.length){
-                            assemblyVisited++;
-                        }else{
-                            instancesVisited++;
+                            default:
                         }
 
-                        memo = fn(rootComponent, memo);
+                        if(node.components.length){
+                            view.incVisitedAssemblies();
+                        }else{
+                            view.incVisitedInstances();
+                        }
 
-                        _.each(rootComponent.components,function(component){
-                            visit(component,fn);
-                        });
-
+                        view.setMemo(memo);
                     }
 
-                };
+                });
 
-                visit(pRootComponent.first().attributes,reduceFunction);
+            };
 
-                if(typeof memo !== 'String'){
-                    try{
-                        memo = JSON.stringify(memo);
-                    }catch(e1){
-                        memo = App.config.i18n.ERROR + ' : "' + e1 +'"';
+            var visit = function(rootComponent){
+
+                rootComponent.attrs = {};
+
+                _.each(rootComponent.attributes,function(attr){
+                    if(attr.type === 'NUMBER'){
+                        rootComponent.attrs[attr.name] = parseFloat(attr.value);
                     }
+                });
+
+                for(var i = 0 ; i < rootComponent.amount ; i++) {
+                    onNodeVisited(rootComponent);
+                    _.each(rootComponent.components,visit);
                 }
 
-            }catch(e2){
-                memo = App.config.i18n.ERROR + ' : "' + e2+'"';
-            }
+            };
 
-            this.$udfResult.html('memo = ' + memo);
+            visit(pRootComponent.first().attributes);
 
-            callback();
+            _.each(calculationViews,function(view){
+                view.onEnd();
+            });
+
+            this.$runButton.html(App.config.i18n.RUN).prop('disabled',false);
         }
 
     });

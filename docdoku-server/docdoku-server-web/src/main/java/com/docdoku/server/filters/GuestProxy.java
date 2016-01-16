@@ -1,3 +1,23 @@
+/*
+ * DocDoku, Professional Open Source
+ * Copyright 2006 - 2015 DocDoku SARL
+ *
+ * This file is part of DocDokuPLM.
+ *
+ * DocDokuPLM is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.docdoku.server.filters;
 
 import com.docdoku.core.common.BinaryResource;
@@ -13,13 +33,14 @@ import com.docdoku.core.product.PartRevisionKey;
 import com.docdoku.core.security.UserGroupMapping;
 import com.docdoku.core.services.IDocumentManagerLocal;
 import com.docdoku.core.services.IDocumentResourceGetterManagerLocal;
+import com.docdoku.core.services.IProductInstanceManagerLocal;
 import com.docdoku.core.services.IProductManagerLocal;
 
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RunAs;
-import javax.ejb.EJB;
 import javax.ejb.LocalBean;
 import javax.ejb.Stateless;
+import javax.inject.Inject;
 import javax.security.auth.login.LoginException;
 import java.io.InputStream;
 
@@ -28,13 +49,18 @@ import java.io.InputStream;
 @LocalBean
 @Stateless
 public class GuestProxy{
-    @EJB
-    private IProductManagerLocal productService;
-    @EJB
-    private IDocumentManagerLocal documentService;
-    @EJB
-    private IDocumentResourceGetterManagerLocal documentResourceGetterService;
 
+    @Inject
+    private IProductManagerLocal productService;
+
+    @Inject
+    private IProductInstanceManagerLocal productInstanceManagerLocal;
+
+    @Inject
+    private IDocumentManagerLocal documentService;
+
+    @Inject
+    private IDocumentResourceGetterManagerLocal documentResourceGetterService;
 
     public PartRevision getPublicPartRevision(PartRevisionKey partRevisionKey) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, PartRevisionNotFoundException, LoginException, AccessRightException {
 
@@ -101,8 +127,21 @@ public class GuestProxy{
             throws AccessRightException, NotAllowedException, EntityNotFoundException, UserNotActiveException{
         return productService.getBinaryResource(fullName);
     }
-    public InputStream getConvertedResource(String outputFormat, BinaryResource binaryResource) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, ConvertedResourceException {
-        return documentResourceGetterService.getConvertedResource(outputFormat, binaryResource);
+
+
+    public InputStream getDocumentConvertedResource(String outputFormat, BinaryResource binaryResource) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, ConvertedResourceException {
+        return documentResourceGetterService.getDocumentConvertedResource(outputFormat, binaryResource);
     }
 
+    public InputStream getPartConvertedResource(String outputFormat, BinaryResource binaryResource) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, ConvertedResourceException {
+        return documentResourceGetterService.getPartConvertedResource(outputFormat, binaryResource);
+    }
+
+    public BinaryResource getBinaryResourceForProducInstance(String fullName) throws UserNotActiveException, WorkspaceNotFoundException, UserNotFoundException, FileNotFoundException, NotAllowedException, AccessRightException {
+        return productInstanceManagerLocal.getBinaryResource(fullName);
+    }
+
+    public BinaryResource getBinaryResourceForPathData(String fullName) throws UserNotActiveException, WorkspaceNotFoundException, UserNotFoundException, FileNotFoundException, NotAllowedException, AccessRightException {
+        return productInstanceManagerLocal.getPathDataBinaryResource(fullName);
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,7 +23,7 @@ package com.docdoku.core.product;
 import java.io.Serializable;
 
 /**
- * Identity class of <a href="PartRevision.html">PartRevision</a> objects.
+ * Identity class of {@link PartRevision} objects.
  *
  * @author Florent Garin
  */
@@ -54,6 +54,13 @@ public class PartRevisionKey implements Serializable, Comparable<PartRevisionKey
         this.partMaster = partMaster;
     }
 
+    public String getWorkspaceId() {
+        return partMaster.getWorkspace();
+    }
+
+    public String getPartMasterNumber() {
+        return partMaster.getNumber();
+    }
 
     public String getVersion() {
         return version;
@@ -77,7 +84,7 @@ public class PartRevisionKey implements Serializable, Comparable<PartRevisionKey
             return false;
         }
         PartRevisionKey key = (PartRevisionKey) pObj;
-        return ((key.partMaster.equals(partMaster)) && (key.version.equals(version)));
+        return key.partMaster.equals(partMaster) && key.version.equals(version);
     }
 
     @Override

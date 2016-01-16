@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,12 +20,14 @@
 
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 
 /**
  *
  * @author Yassine Belouad
  */
+@XmlRootElement
 public class DocumentCreationDTO implements Serializable, Comparable<DocumentCreationDTO> {
 
     private String workspaceId;
@@ -154,7 +156,7 @@ public class DocumentCreationDTO implements Serializable, Comparable<DocumentCre
             return false;
         }
         DocumentCreationDTO docM = (DocumentCreationDTO) pObj;
-        return ((docM.reference.equals(reference)) && (docM.workspaceId.equals(workspaceId)) && (docM.version.equals(version)));
+        return docM.reference.equals(reference) && docM.workspaceId.equals(workspaceId) && docM.version.equals(version);
 
     }
 

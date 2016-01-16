@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,9 +20,10 @@
 
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 
-
+@XmlRootElement
 public class InstanceAttributeTemplateDTO implements Serializable {
 
     private String name;
@@ -31,17 +32,22 @@ public class InstanceAttributeTemplateDTO implements Serializable {
 
     private AttributeType attributeType;
 
+    private String lovName;
+
+    private boolean locked;
+
     public enum AttributeType {
-        TEXT, NUMBER, DATE, BOOLEAN, URL
+        TEXT, NUMBER, DATE, BOOLEAN, URL, LOV
     }
 
     public InstanceAttributeTemplateDTO() {
     }
 
-    public InstanceAttributeTemplateDTO(String pName, AttributeType pAttributeType, boolean pMandatory) {
+    public InstanceAttributeTemplateDTO(String pName, AttributeType pAttributeType, boolean pMandatory, boolean locked) {
         name = pName;
         attributeType = pAttributeType;
         mandatory = pMandatory;
+        this.locked = locked;
     }
 
     
@@ -67,6 +73,22 @@ public class InstanceAttributeTemplateDTO implements Serializable {
 
     public void setAttributeType(InstanceAttributeTemplateDTO.AttributeType attributeType) {
         this.attributeType = attributeType;
+    }
+
+    public String getLovName() {
+        return lovName;
+    }
+
+    public void setLovName(String lovName) {
+        this.lovName = lovName;
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public void setLocked(boolean locked) {
+        this.locked = locked;
     }
 
     @Override

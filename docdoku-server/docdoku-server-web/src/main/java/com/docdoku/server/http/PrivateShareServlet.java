@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -28,14 +28,12 @@ import com.docdoku.core.exceptions.SharedEntityNotFoundException;
 import com.docdoku.core.product.Geometry;
 import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.product.PartRevision;
-import com.docdoku.core.services.IDocumentManagerLocal;
-import com.docdoku.core.services.IProductManagerLocal;
 import com.docdoku.core.services.IShareManagerLocal;
 import com.docdoku.core.sharing.SharedDocument;
 import com.docdoku.core.sharing.SharedEntity;
 import com.docdoku.core.sharing.SharedPart;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -57,14 +55,10 @@ import java.util.regex.Pattern;
 
 public class PrivateShareServlet extends HttpServlet {
 
-    @EJB
-    private IDocumentManagerLocal documentService;
+    @Inject
+    private IShareManagerLocal shareService;
 
-    @EJB
-    private IProductManagerLocal productService;
-
-    @EJB
-    IShareManagerLocal shareService;
+    private static final Logger LOGGER = Logger.getLogger(PrivateShareServlet.class.getName());
 
     @Override
     protected void doPost(HttpServletRequest pRequest, HttpServletResponse pResponse) throws ServletException, IOException {
@@ -98,7 +92,7 @@ public class PrivateShareServlet extends HttpServlet {
             }
 
         } catch (Exception pEx) {
-            Logger.getLogger(PrivateShareServlet.class.getName()).log(Level.SEVERE, null, pEx);
+            LOGGER.log(Level.SEVERE, null, pEx);
             throw new ServletException("error while fetching your data.", pEx);
         }
 
@@ -118,12 +112,10 @@ public class PrivateShareServlet extends HttpServlet {
                 SharedEntity sharedEntity = shareService.findSharedEntityForGivenUUID(uuid);
 
                 // check if expire
-                if(sharedEntity.getExpireDate() != null){
-                    if(sharedEntity.getExpireDate().getTime() < new Date().getTime()){
-                        shareService.deleteSharedEntityIfExpired(sharedEntity);
-                        pRequest.getRequestDispatcher(pRequest.getContextPath()+"/faces/sharedEntityExpired.xhtml").forward(pRequest, pResponse);
-                        return;
-                    }
+                if(sharedEntity.getExpireDate() != null && sharedEntity.getExpireDate().getTime() < new Date().getTime()){
+                    shareService.deleteSharedEntityIfExpired(sharedEntity);
+                    pRequest.getRequestDispatcher(pRequest.getContextPath()+"/faces/sharedEntityExpired.xhtml").forward(pRequest, pResponse);
+                    return;
                 }
 
                 // check if password protected -> should come from the doPost
@@ -140,7 +132,7 @@ public class PrivateShareServlet extends HttpServlet {
             }
 
         } catch (Exception pEx) {
-            Logger.getLogger(PrivateShareServlet.class.getName()).log(Level.SEVERE, null, pEx);
+            LOGGER.log(Level.SEVERE, null, pEx);
             throw new ServletException("error while processing the request.", pEx);
         }
     }
@@ -159,7 +151,7 @@ public class PrivateShareServlet extends HttpServlet {
             }
 
             pRequest.setAttribute("documentRevision", documentRevision);
-            pRequest.setAttribute("attr",  new ArrayList<>(documentIteration.getInstanceAttributes().values()));
+            pRequest.setAttribute("attr", new ArrayList<>(documentIteration.getInstanceAttributes()));
             pRequest.getRequestDispatcher(pRequest.getContextPath()+"/faces/documentPermalink.xhtml").forward(pRequest, pResponse);
 
         }else if(sharedEntity instanceof SharedPart){
@@ -180,13 +172,13 @@ public class PrivateShareServlet extends HttpServlet {
             }
 
             String geometryFileURI = "";
-            if(partRevision.getLastIteration().getGeometries().size()>0){
+            if(!partRevision.getLastIteration().getGeometries().isEmpty()){
                 Geometry geometry = partRevision.getLastIteration().getSortedGeometries().get(0);
                 geometryFileURI ="/api/files/" + geometry.getFullName() + "/uuid/" + uuid;
             }
 
             pRequest.setAttribute("partRevision", partRevision);
-            pRequest.setAttribute("attr",  new ArrayList<>(partIteration.getInstanceAttributes().values()));
+            pRequest.setAttribute("attr", new ArrayList<>(partIteration.getInstanceAttributes()));
             pRequest.setAttribute("nativeCadFileURI",nativeCadFileURI);
             pRequest.setAttribute("geometryFileURI",geometryFileURI);
             pRequest.getRequestDispatcher(pRequest.getContextPath()+"/faces/partPermalink.xhtml").forward(pRequest, pResponse);

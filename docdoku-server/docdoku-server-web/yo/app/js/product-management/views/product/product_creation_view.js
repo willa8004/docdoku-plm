@@ -27,24 +27,43 @@ define([
             return this;
         },
 
+        setRootPart:function(part){
+            this.$inputPartNumber.val(part.getNumber());
+            this.$inputPartName.val(part.getName());
+            this.$inputPart.val(part.getName() + ' < ' + part.getNumber() + ' >');
+            return this;
+        },
+
         bindDomElements: function () {
             this.$notifications = this.$el.find('.notifications').first();
             this.$modal = this.$('#product_creation_modal');
             this.$inputPartNumber = this.$('#inputPartNumber');
+            this.$inputPart = this.$('#inputPart');
+            this.$inputPartName = this.$('#inputPartName');
             this.$inputProductId = this.$('#inputProductId');
             this.$inputDescription = this.$('#inputDescription');
         },
 
         bindTypeahead: function () {
-            this.$inputPartNumber.typeahead({
+            var map = {};
+            var that = this;
+            this.$inputPart.typeahead({
                 source: function (query, process) {
+                    var partNumbers = [];
+
                     $.getJSON(App.config.contextPath + '/api/workspaces/' + App.config.workspaceId + '/parts/numbers?q=' + query, function (data) {
-                        var partNumbers = [];
                         _(data).each(function (d) {
-                            partNumbers.push(d.partNumber);
+                            var label = d.partName + ' < ' + d.partNumber + ' >';
+                            partNumbers.push(label);
+                            map[label] = d;
                         });
                         process(partNumbers);
                     });
+                },
+                updater: function(item) {
+                    that.$inputPartName.val(map[item].partName);
+                    that.$inputPartNumber.val(map[item].partNumber);
+                    return item;
                 }
             });
         },
@@ -55,19 +74,28 @@ define([
 
         onSubmitForm: function (e) {
 
+            this.$notifications.empty();
+
             if(this.isValid){
                 this.model = new ConfigurationItem({
                     id: this.$inputProductId.val(),
                     workspaceId: App.config.workspaceId,
                     description: this.$inputDescription.val(),
-                    designItemNumber: this.$inputPartNumber.val()
+                    designItemNumber: this.$inputPartNumber.val(),
+                    designItemName: this.$inputPartName.val()
                 });
+
+                if (!this.model.getDesignItemNumber()) {
+                    this.onError(App.config.i18n.PART_NOT_FOUND);
+                    return false;
+                }
 
                 this.model.save({}, {
                     wait: true,
                     success: this.onProductCreated,
                     error: this.onError
                 });
+                this.model.fetch();
             }
 
             e.preventDefault();

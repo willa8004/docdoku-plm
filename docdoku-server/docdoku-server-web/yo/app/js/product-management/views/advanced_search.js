@@ -6,8 +6,9 @@ define([
     'common-objects/collections/users',
     'common-objects/views/attributes/attribute_list',
     'collections/part_templates',
-    'common-objects/utils/date'
-], function (Backbone, Mustache, template, Users, PartAttributeListView, Templates, date) {
+    'common-objects/utils/date',
+    'common-objects/collections/lovs'
+], function (Backbone, Mustache, template, Users, PartAttributeListView, Templates, date, LOVCollection) {
     'use strict';
     var AdvancedSearchView = Backbone.View.extend({
 
@@ -18,13 +19,15 @@ define([
             'change #template-attributes-helper': 'changeAttributes'
         },
 
+        lovs : new LOVCollection(),
+
         initialize: function () {
             _.bindAll(this);
 
         },
 
         render: function () {
-            this.$el.html(Mustache.render(template, {i18n: App.config.i18n}));
+            this.$el.html(Mustache.render(template, {i18n: App.config.i18n,timeZone:App.config.timeZone}));
             this.bindDomElements();
             this.fillInputs();
             this.initAttributesView();
@@ -35,11 +38,18 @@ define([
 
             this.attributes = new Backbone.Collection();
 
-            this.attributesView = new PartAttributeListView({
-                collection: this.attributes
+            var that = this;
+            this.lovs.fetch().success(function(){
+                that.attributesView = new PartAttributeListView({
+                    collection: that.attributes,
+                    lovs : that.lovs,
+                    displayOnly: true
+                });
+
+                that.$('#attributes-list').html(that.attributesView.$el);
             });
 
-            this.$('#attributes-list').html(this.attributesView.$el);
+
 
         },
 
@@ -94,10 +104,10 @@ define([
             this.remove();
         },
 
-        onSubmitForm: function (e) {
+        onSubmitForm: function () {
             var queryString = this.constructQueryString();
             if (queryString) {
-                App.router.navigate(App.config.workspaceId + '/parts-search/' + queryString, {trigger: true});
+                App.router.navigate(App.config.workspaceId + '/parts-search/' + encodeURIComponent(queryString), {trigger: true});
                 this.closeModal();
             }
             return false;
@@ -110,10 +120,14 @@ define([
             this.$type = this.$('#search-type');
             this.$version = this.$('#search-version');
             this.$author = this.$('#search-author');
-            this.$from = this.$('#search-from');
-            this.$to = this.$('#search-to');
+            this.$tags = this.$('#search-tags');
+            this.$createdFrom = this.$('#search-creation-from');
+            this.$createdTo = this.$('#search-creation-to');
+            this.$modifiedFrom = this.$('#search-modification-from');
+            this.$modifiedTo = this.$('#search-modification-to');
             this.$templatesId = this.$('#template-attributes-helper');
             this.$standardPart = this.$('input[name=search-standardPart]');
+            this.$content = this.$('#search-content');
         },
 
         changeAttributes: function (e) {
@@ -134,14 +148,18 @@ define([
             var type = this.$type.val();
             var version = this.$version.val();
             var author = this.$author.val();
-            var from = this.$from.val();
-            var to = this.$to.val();
+            var tags = this.$tags.val().replace(/ /g, '');
+            var createdFrom = this.$createdFrom.val();
+            var createdTo = this.$createdTo.val();
+            var modifiedFrom = this.$modifiedFrom.val();
+            var modifiedTo = this.$modifiedTo.val();
             var standardPart = this.$standardPart.filter(':checked').val() === 'all' ? null : this.$standardPart.filter(':checked').val();
+            var content = this.$content.val();
 
             var queryString = '';
 
             if (number) {
-                queryString += 'number=' + number;
+                queryString += '&number=' + number;
             }
             if (name) {
                 queryString += '&name=' + name;
@@ -155,14 +173,26 @@ define([
             if (author) {
                 queryString += '&author=' + author;
             }
-            if (from) {
-                queryString += '&from=' + date.toUTCWithTimeZoneOffset(from);
+            if (tags) {
+                queryString += '&tags=' + tags;
             }
-            if (to) {
-                queryString += '&to=' + date.toUTCWithTimeZoneOffset(to);
+            if (createdFrom) {
+                queryString += '&createdFrom=' + date.toUTCWithTimeZoneOffset(createdFrom);
+            }
+            if (createdTo) {
+                queryString += '&createdTo=' + date.toUTCWithTimeZoneOffset(createdTo);
+            }
+            if (modifiedFrom) {
+                queryString += '&modifiedFrom=' + date.toUTCWithTimeZoneOffset(modifiedFrom);
+            }
+            if (modifiedTo) {
+                queryString += '&modifiedTo=' + date.toUTCWithTimeZoneOffset(modifiedTo);
             }
             if (standardPart) {
                 queryString += '&standardPart=' + standardPart;
+            }
+            if (content) {
+                queryString += '&content=' + content;
             }
 
             if (this.attributes.length) {
@@ -171,13 +201,15 @@ define([
                     var type = attribute.get('type');
                     var name = attribute.get('name');
                     var value = attribute.get('value');
-                    value = type === 'BOOLEAN' ? (value ? '1' : '0') : value;
+                    value = type === 'BOOLEAN' ? (value ? 'true' : 'false') : value;
+                    value = type === 'LOV' ? attribute.get('items')[value].name : value;
                     queryString += type + ':' + name + ':' + value + ';';
                 });
                 // remove last '+'
                 queryString = queryString.substr(0, queryString.length - 1);
             }
-
+            //replace first occurence of & to ?
+            queryString = queryString.replace('&','?');
             return queryString;
 
         }

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -90,10 +90,10 @@ public class RoleDAO {
     }
 
     public boolean isRoleInUseInWorkflowModel(Role role) {
-        return em.createNamedQuery("Role.findRolesInUseByRoleName")
+        return !em.createNamedQuery("Role.findRolesInUseByRoleName")
                  .setParameter("roleName", role.getName())
                  .setParameter("workspace", role.getWorkspace())
-                 .getResultList().size() > 0;
+                 .getResultList().isEmpty();
 
     }
 
@@ -102,7 +102,7 @@ public class RoleDAO {
     }
 
     public void removeUserFromRoles(User pUser) {
-        Query query = em.createQuery("UPDATE Role r SET r.defaultUserMapped = NULL WHERE r.defaultUserMapped = :user");
+        Query query = em.createQuery("UPDATE Role r SET r.defaultAssignee = NULL WHERE r.defaultAssignee = :user");
         query.setParameter("user", pUser).executeUpdate();
     }
 }

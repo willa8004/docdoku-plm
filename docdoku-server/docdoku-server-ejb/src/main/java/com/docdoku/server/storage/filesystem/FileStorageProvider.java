@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -39,6 +39,8 @@ public class FileStorageProvider implements StorageProvider {
 
     private final String vaultPath;
 
+    private static final Logger LOGGER = Logger.getLogger(FileStorageProvider.class.getName());
+
     public FileStorageProvider(String vaultPath) {
         this.vaultPath = vaultPath;
     }
@@ -54,8 +56,26 @@ public class FileStorageProvider implements StorageProvider {
         return getInputStream(file);
     }
 
+    @Override
+    public File getBinaryResourceFile(BinaryResource pBinaryResource) throws StorageException, FileNotFoundException {
+        File file = new File(getVirtualPath(pBinaryResource));
+        if (file.exists()) {
+            try {
+                FileInputStream fileInputStream = new FileInputStream(file);
+                fileInputStream.close();
+                return file;
+            } catch (java.io.FileNotFoundException e) {
+                throw new StorageException(e.getMessage(), e);
+            } catch (IOException e) {
+                throw new StorageException(e.getMessage(), e);
+            }
+        } else {
+            throw new FileNotFoundException(new StringBuilder().append(file.getAbsolutePath()).append(" not found").toString());
+        }
+    }
+
     public InputStream getBinarySubResourceInputStream(BinaryResource pBinaryResource, String subResourceVirtualPath) throws StorageException, FileNotFoundException {
-        File subResourceFile = new File(getSubResourceFolder(pBinaryResource), subResourceVirtualPath);
+        File subResourceFile = new File(getSubResourceFolder(pBinaryResource), Tools.unAccent(subResourceVirtualPath));
         return getInputStream(subResourceFile);
     }
 
@@ -88,7 +108,7 @@ public class FileStorageProvider implements StorageProvider {
     }
 
     public OutputStream getBinarySubResourceOutputStream(BinaryResource binaryResource, String subResourceVirtualPath) throws StorageException {
-        File subResourceFile = new File(getSubResourceFolder(binaryResource), subResourceVirtualPath);
+        File subResourceFile = new File(getSubResourceFolder(binaryResource), Tools.unAccent(subResourceVirtualPath));
         subResourceFile.getParentFile().mkdirs();
         try {
             return new BufferedOutputStream(new FileOutputStream(subResourceFile));
@@ -109,6 +129,21 @@ public class FileStorageProvider implements StorageProvider {
             }
         } else {
             throw new FileNotFoundException(new StringBuilder("Can't find source file to copy ").append(pSourceBinaryResource.getFullName()).toString());
+        }
+    }
+
+    @Override
+    public File copyFile(File source, BinaryResource pTargetBinaryResource) throws StorageException, FileNotFoundException {
+        if (source.exists()) {
+            File target = new File(getVirtualPath(pTargetBinaryResource));
+            try {
+                FileIO.copyFile(source, target);
+                return target;
+            } catch (IOException e) {
+                throw new StorageException(new StringBuilder().append("Error in copying ").append(source.getAbsolutePath()).append(" to ").append(pTargetBinaryResource.getFullName()).toString(), e);
+            }
+        } else {
+            throw new FileNotFoundException(new StringBuilder("Can't find source file to copy ").append(source.getAbsolutePath()).toString());
         }
     }
 
@@ -138,7 +173,7 @@ public class FileStorageProvider implements StorageProvider {
     }
 
     public boolean exists(BinaryResource binaryResource, String subResourceVirtualPath) {
-        File subResourceFile = new File(getSubResourceFolder(binaryResource), subResourceVirtualPath);
+        File subResourceFile = new File(getSubResourceFolder(binaryResource), Tools.unAccent(subResourceVirtualPath));
         return subResourceFile.exists();
     }
 
@@ -148,7 +183,7 @@ public class FileStorageProvider implements StorageProvider {
             try {
                 FileUtils.copyDirectory(subResourceFolder, getSubResourceFolder(destination));
             } catch (IOException e) {
-                Logger.getLogger(FileStorageProvider.class.getName()).log(Level.WARNING, null, e);
+                LOGGER.log(Level.WARNING, null, e);
                 throw new StorageException("Can't copy subResourceFolder from " + source.getFullName() + " to " + destination.getFullName(), e);
             }
         }
@@ -162,7 +197,7 @@ public class FileStorageProvider implements StorageProvider {
     }
 
     public Date getLastModified(BinaryResource binaryResource, String subResourceVirtualPath) throws FileNotFoundException {
-        File subResourceFile = new File(getSubResourceFolder(binaryResource), subResourceVirtualPath);
+        File subResourceFile = new File(getSubResourceFolder(binaryResource), Tools.unAccent(subResourceVirtualPath));
         if (subResourceFile.exists()) {
             return new Date(subResourceFile.lastModified());
         } else {
@@ -172,15 +207,24 @@ public class FileStorageProvider implements StorageProvider {
 
     @Override
     public void deleteWorkspaceFolder(String workspaceId, List<BinaryResource> binaryResourcesInWorkspace) throws StorageException {
-        if(workspaceId != null && !workspaceId.equals("")){
+        if(workspaceId != null && !workspaceId.isEmpty()){
             try{
                 File rootFolder = new File(new StringBuilder().append(vaultPath).append("/").append(workspaceId).toString());
                 if(rootFolder.exists()){
                     FileUtils.deleteDirectory(rootFolder);
                 }
             } catch (IOException e) {
-                throw new StorageException(new StringBuilder().append("Error in deletind workspace directory for workspace : ").append(workspaceId).toString(), e);
+                throw new StorageException(new StringBuilder().append("Error in deleting workspace directory for workspace : ").append(workspaceId).toString(), e);
             }
+        }
+    }
+
+    @Override
+    public void renameData(File src, String pNewName) throws StorageException {
+        if(src.exists()){
+            src.renameTo(new File(new StringBuilder().append(src.getParentFile().getAbsolutePath()).append("/").append(Tools.unAccent(pNewName)).toString()));
+        }else{
+            throw new StorageException(new StringBuilder().append("Error in renaming file : ").append(src.getAbsolutePath()).toString());
         }
     }
 }

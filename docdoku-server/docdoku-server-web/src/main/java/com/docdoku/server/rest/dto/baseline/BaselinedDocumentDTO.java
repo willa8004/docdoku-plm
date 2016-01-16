@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,7 +22,11 @@ package com.docdoku.server.rest.dto.baseline;
 
 import com.docdoku.core.document.DocumentIteration;
 
-public class BaselinedDocumentDTO {
+import javax.xml.bind.annotation.XmlRootElement;
+import java.io.Serializable;
+
+@XmlRootElement
+public class BaselinedDocumentDTO implements Serializable {
 
     private String documentId;
     private String version;
@@ -33,7 +37,7 @@ public class BaselinedDocumentDTO {
 
     public BaselinedDocumentDTO(DocumentIteration partIteration){
         this.documentId = partIteration.getDocumentMasterId();
-        this.version = partIteration.getDocumentVersion();
+        this.version = partIteration.getVersion();
         this.iteration = partIteration.getIteration();
     }
 

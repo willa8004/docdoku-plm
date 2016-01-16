@@ -33,6 +33,7 @@ define([
                 placement: 'bottom',
                 title: App.config.i18n.SEARCH_OPTIONS,
                 trigger: 'manual',
+                container:'body',
                 content: function () {
                     return self.$helpPopover.html();
                 }
@@ -60,7 +61,7 @@ define([
 
         search: function (partNumber) {
             if (partNumber.length > 0) {
-                this.collection.searchString = partNumber;
+                this.collection.searchString = partNumber.replace(/%/g, '.*');
                 this.collection.fetch({reset: true});
             } else {
                 this.collection.reset();

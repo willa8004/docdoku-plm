@@ -1,4 +1,4 @@
-/*global define,App*/
+/*global define,App,_*/
 define([
     'common-objects/views/documents/checkbox_list',
     'views/document_list_item',
@@ -16,7 +16,11 @@ define([
             });
         },
         rendered: function () {
-            this.once('_ready', this.dataTable);
+            this.once('_ready', function() {
+                this.dataTable();
+                this.trigger('selectionChange'); // TODO rename event name accordingly to patterns ('entity:verb')
+            });
+
         },
         redraw: function () {
             this.dataTable();
@@ -25,12 +29,7 @@ define([
             var oldSort = [];
             if (this.oTable) {
                 oldSort = this.oTable.fnSettings().aaSorting;
-                try {
-                    this.oTable.fnDestroy();
-                } catch (e) {
-                    console.error(e);
-                }
-
+                this.oTable.fnDestroy();
             }
 
             this.oTable = this.$el.dataTable({
@@ -44,13 +43,24 @@ define([
                 },
                 sDom: 'ft',
                 aoColumnDefs: [
-                    { 'bSortable': false, 'aTargets': [ 0, 1, 12, 13, 14, 15 ] },
-                    { 'sType': App.config.i18n.DATE_SORT, 'aTargets': [8, 10] }
+                    { 'bSortable': false, 'aTargets': [ 0, 1, 11, 12, 13, 14, 15 ] },
+                    { 'sType': App.config.i18n.DATE_SORT, 'aTargets': [8] },
+                    { 'sType': 'strip_html', 'aTargets': [2] }
                 ]
             });
 
-
             this.$el.parent().find('.dataTables_filter input').attr('placeholder', App.config.i18n.FILTER);
+        },
+
+        checkCheckboxes: function (selectedDocuments) {
+            var that = this;
+            _.each(selectedDocuments, function(selectedView) {
+                _.each(that.subViews, function(view) {
+                    if(selectedView.model.getId() === view.model.getId()) {
+                        view.check();
+                    }
+                });
+            });
         }
 
     });

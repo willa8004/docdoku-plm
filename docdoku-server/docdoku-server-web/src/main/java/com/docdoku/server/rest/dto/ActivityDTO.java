@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,11 +20,12 @@
 
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-
+@XmlRootElement
 public class ActivityDTO implements Serializable {
 
     private int step;
@@ -38,7 +39,10 @@ public class ActivityDTO implements Serializable {
     private boolean inProgress;
     private boolean toDo;
 
-    public enum Type {SERIAL, PARALLEL}
+    public enum Type {
+        SERIAL,
+        PARALLEL
+    }
 
     public ActivityDTO(int step, List<TaskDTO> tasks, String lifeCycleState, Type type, Integer tasksToComplete, boolean complete, boolean stopped, boolean inProgress, boolean toDo, Integer relaunchStep) {
         this.step = step;
@@ -60,6 +64,7 @@ public class ActivityDTO implements Serializable {
     public Integer getTasksToComplete() {
         return tasksToComplete;
     }
+
     public void setTasksToComplete(Integer tasksToComplete) {
         this.tasksToComplete = tasksToComplete;
     }
@@ -67,6 +72,7 @@ public class ActivityDTO implements Serializable {
     public Type getType() {
         return type;
     }
+
     public void setType(Type type) {
         this.type = type;
     }
@@ -74,6 +80,7 @@ public class ActivityDTO implements Serializable {
     public List<TaskDTO> getTasks() {
         return tasks;
     }
+
     public void setTasks(List<TaskDTO> tasks) {
         this.tasks = tasks;
     }
@@ -81,6 +88,7 @@ public class ActivityDTO implements Serializable {
     public boolean isStopped() {
         return stopped;
     }
+
     public void setStopped(boolean stopped) {
         this.stopped = stopped;
     }
@@ -88,6 +96,7 @@ public class ActivityDTO implements Serializable {
     public boolean isComplete() {
         return complete;
     }
+
     public void setComplete(boolean complete) {
         this.complete = complete;
     }
@@ -95,6 +104,7 @@ public class ActivityDTO implements Serializable {
     public boolean isInProgress() {
         return inProgress;
     }
+
     public void setInProgress(boolean inProgress) {
         this.inProgress = inProgress;
     }
@@ -102,6 +112,7 @@ public class ActivityDTO implements Serializable {
     public boolean isToDo() {
         return toDo;
     }
+
     public void setToDo(boolean toDo) {
         this.toDo = toDo;
     }
@@ -109,6 +120,7 @@ public class ActivityDTO implements Serializable {
     public String getLifeCycleState() {
         return lifeCycleState;
     }
+
     public void setLifeCycleState(String lifeCycleState) {
         this.lifeCycleState = lifeCycleState;
     }

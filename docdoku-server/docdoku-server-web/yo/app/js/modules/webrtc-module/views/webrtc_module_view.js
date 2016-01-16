@@ -1,16 +1,95 @@
-/*global define,App,preferOpus,setDefaultCodec,removeCN,RTCSessionDescription,RTCIceCandidate,_*/
+/*global define,App,RTCSessionDescription,RTCIceCandidate,_*/
 define([
     'backbone',
-    'modules/webrtc-module/adapters/attachMediaStream',
-    'modules/webrtc-module/adapters/peerConnection',
-    'modules/webrtc-module/adapters/userMedia',
+    'modules/webrtc-module/adapters/webRTCAdapter',
     'text!modules/webrtc-module/templates/webrtc_module_template.html',
     'common-objects/websocket/channelMessagesType',
     'common-objects/websocket/callState',
     'common-objects/websocket/rejectCallReason'
 ],
-function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template, ChannelMessagesType, CALL_STATE, REJECT_CALL_REASON) {
+function (Backbone, webRTCAdapter, template, ChannelMessagesType, CALL_STATE, REJECT_CALL_REASON) {
+
 	'use strict';
+
+    function extractSdp(sdpLine, pattern) {
+        var result = sdpLine.match(pattern);
+        return (result && result.length === 2) ? result[1] : null;
+    }
+
+    // Strip CN from sdp before CN constraints is ready.
+    function removeCN(sdpLines, mLineIndex) {
+        var mLineElements = sdpLines[mLineIndex].split(' ');
+        // Scan from end for the convenience of removing an item.
+        for (var i = sdpLines.length - 1; i >= 0; i--) {
+            var payload = extractSdp(sdpLines[i], /a=rtpmap:(\d+) CN\/\d+/i);
+            if (payload) {
+                var cnPos = mLineElements.indexOf(payload);
+                if (cnPos !== -1) {
+                    // Remove CN payload from m line.
+                    mLineElements.splice(cnPos, 1);
+                }
+                // Remove CN line in sdp
+                sdpLines.splice(i, 1);
+            }
+        }
+
+        sdpLines[mLineIndex] = mLineElements.join(' ');
+        return sdpLines;
+    }
+
+    // Set the selected codec to the first in m line.
+    function setDefaultCodec(mLine, payload) {
+        var elements = mLine.split(' ');
+        var newLine = [];
+        var index = 0;
+        for (var i = 0; i < elements.length; i++) {
+            if (index === 3) { // Format of media starts from the fourth.
+                newLine[index++] = payload; // Put target payload to the first.
+            }
+            if (elements[i] !== payload) {
+                newLine[index++] = elements[i];
+            }
+        }
+        return newLine.join(' ');
+    }
+
+    // Set Opus as the default audio codec if it's present.
+    function preferOpus(sdp) {
+        var sdpLines = sdp.split('\r\n');
+
+        var mLineIndex = null;
+        // Search for m line.
+        for (var i = 0; i < sdpLines.length; i++) {
+            if (sdpLines[i].search('m=audio') !== -1) {
+                mLineIndex = i;
+                break;
+            }
+        }
+        if (mLineIndex === null) {
+            return sdp;
+        }
+
+        // If Opus is available, set it as the default in m line.
+        for (var j = 0; j < sdpLines.length; j++) {
+            if (sdpLines[j].search('opus/48000') !== -1) {
+                var opusPayload = extractSdp(sdpLines[j], /:(\d+) opus\/48000/i);
+                if (opusPayload) {
+                    sdpLines[mLineIndex] = setDefaultCodec(sdpLines[mLineIndex], opusPayload);
+                }
+                break;
+            }
+        }
+
+        // Remove CN in m line and sdp.
+        sdpLines = removeCN(sdpLines, mLineIndex);
+
+        sdp = sdpLines.join('\r\n');
+        return sdp;
+    }
+
+
+
+
     var WebRTCModuleView = Backbone.View.extend({
 
         el: '#webrtc_module',
@@ -30,7 +109,6 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
         remoteStream: null,
 
         // peer connection
-        pc: null,
         initiator: 0,
         started: false,
 
@@ -41,7 +119,8 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
             'mandatory': {
                 'OfferToReceiveAudio': true,
                 'OfferToReceiveVideo': true
-            }
+            },
+            'optional': [{'VoiceActivityDetection': false}]
         },
 
         isVideoMuted: false,
@@ -285,7 +364,7 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
 
         initMedia: function () {
             try {
-                getUserMedia({'audio': true, 'video': {'mandatory': {}, 'optional': []}}, this.onUserMediaSuccess, this.onUserMediaError);
+                webRTCAdapter.getUserMedia({'audio': true, 'video': {'mandatory': {}, 'optional': []}}, this.onUserMediaSuccess, this.onUserMediaError);
             } catch (e) {
                 this.setStatus(App.config.i18n.USER_MEDIA_FAILED);
             }
@@ -294,7 +373,7 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
         onUserMediaSuccess: function (stream) {
 
             this.localStream = stream;
-            attachMediaStream(this.localVideo, this.localStream);
+            webRTCAdapter.attachMediaStream(this.localVideo, this.localStream);
             this.localVideo.style.opacity = 1;
 
             // Caller creates PeerConnection.
@@ -337,42 +416,60 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
         },
 
         doCall: function () {
-            this.pc.createOffer(this.setLocalAndSendMessage, null, this.mediaConstraints);
+            this.pc.createOffer(this.setLocalAndSendOfferMessage, function(){
+            }, this.mediaConstraints);
         },
 
         doAnswer: function () {
-            this.pc.createAnswer(this.setLocalAndSendMessage, null, this.mediaConstraints);
+            this.pc.createAnswer(this.setLocalAndSendAnswerMessage, function(){
+            }, this.mediaConstraints);
         },
 
-        setLocalAndSendMessage: function (sessionDescription) {
+        setLocalAndSendOfferMessage: function (sessionDescription) {
+
             sessionDescription.sdp = preferOpus(sessionDescription.sdp);
             this.pc.setLocalDescription(sessionDescription);
-            sessionDescription.roomKey = this.roomKey;
-            sessionDescription.remoteUser = this.remoteUser;
-            App.mainChannel.sendJSON(sessionDescription);
+
+            App.mainChannel.sendJSON({
+                type:ChannelMessagesType.WEBRTC_OFFER,
+                sdp:sessionDescription.sdp,
+                roomKey:this.roomKey,
+                remoteUser:this.remoteUser
+            });
+
+        },
+        setLocalAndSendAnswerMessage: function (sessionDescription) {
+
+            sessionDescription.sdp = preferOpus(sessionDescription.sdp);
+            this.pc.setLocalDescription(sessionDescription);
+
+            App.mainChannel.sendJSON({
+                type:ChannelMessagesType.WEBRTC_ANSWER,
+                sdp:sessionDescription.sdp,
+                roomKey:this.roomKey,
+                remoteUser:this.remoteUser
+            });
+
         },
 
-        onWebRTCStatusChanged: function (status) {
+        onWebRTCStatusChanged: function () {
         },
 
         createPeerConnection: function () {
-
             try {
                 // Create an RTCPeerConnection via the adapter
-                this.pc = new RTCPeerConnection({'iceServers': [
+                this.pc = new webRTCAdapter.RTCPeerConnection({'iceServers': [
                     {'url': 'stun:stun.l.google.com:19302'}
                 ]});
-                this.pc.onicecandidate = this.onIceCandidate;
+                this.pc.onicecandidate = this.onIceCandidate.bind(this);
+                this.pc.onconnecting = this.onSessionConnecting.bind(this);
+                this.pc.onopen = this.onSessionOpened.bind(this);
+                this.pc.onaddstream = this.onRemoteStreamAdded.bind(this);
+                this.pc.onremovestream = this.onRemoteStreamRemoved.bind(this);
             } catch (e) {
                 // Failed to create PeerConnection
                 this.setStatus(App.config.i18n.CANNOT_CREATE_PC);
-                return;
             }
-
-            this.pc.onconnecting = this.onSessionConnecting;
-            this.pc.onopen = this.onSessionOpened;
-            this.pc.onaddstream = this.onRemoteStreamAdded;
-            this.pc.onremovestream = this.onRemoteStreamRemoved;
         },
 
         processSignalingMessage: function (msg) {
@@ -384,12 +481,11 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
                     this.maybeStart();
                 }
 
-                this.pc.setRemoteDescription(new RTCSessionDescription(msg));
-                this.doAnswer();
+                this.pc.setRemoteDescription(new RTCSessionDescription(msg),this.onRemoteDescriptionSet.bind(this), this.onError.bind(this));
 
             } else if (msg.type === ChannelMessagesType.WEBRTC_ANSWER && this.started) {
 
-                this.pc.setRemoteDescription(new RTCSessionDescription(msg));
+                this.pc.setRemoteDescription(new RTCSessionDescription(msg), this.onRemoteDescriptionSet.bind(this), this.onError.bind(this));
 
             } else if (msg.type === ChannelMessagesType.WEBRTC_CANDIDATE && this.started) {
 
@@ -402,6 +498,10 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
                 this.onRemoteHangup();
             }
 
+        },
+
+        onRemoteDescriptionSet:function(){
+            this.doAnswer();
         },
 
         onIceCandidate: function (event) {
@@ -417,11 +517,11 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
             }
         },
 
-        onSessionConnecting: function (message) {
+        onSessionConnecting: function () {
             this.setStatus(App.config.i18n.SESSION_CONNECTING);
         },
 
-        onSessionOpened: function (message) {
+        onSessionOpened: function () {
             this.setStatus(App.config.i18n.SESSION_OPENED);
             this.setState(CALL_STATE.RUNNING);
         },
@@ -429,11 +529,11 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
         onRemoteStreamAdded: function (event) {
             this.setStatus(App.config.i18n.REMOTE_STEAM_ADDED);
             this.remoteStream = event.stream;
-            attachMediaStream(this.remoteVideo, this.remoteStream);
+            webRTCAdapter.attachMediaStream(this.remoteVideo, this.remoteStream);
             this.waitForRemoteVideo();
         },
 
-        onRemoteStreamRemoved: function (event) {
+        onRemoteStreamRemoved: function () {
             this.setStatus(App.config.i18n.REMOTE_STEAM_REMOVED);
         },
 
@@ -441,13 +541,13 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
             this.setStatus(App.config.i18n.WAITING_REMOTE_VIDEO);
             var self = this;
             try {
-                // Try the new representation of tracks in a stream in M26.
+                //Try the new representation of tracks in a stream in M26.
                 this.videoTracks = this.remoteStream.getVideoTracks();
             } catch (e) {
                 this.videoTracks = this.remoteStream.videoTracks;
             }
 
-            if (this.videoTracks.length === 0 || this.remoteVideo.currentTime > 0) {
+            if (this.videoTracks.length === 0 || this.remoteVideo.readyState >= 2) {
                 this.remoteVideo.style.opacity = 1;
                 this.setStatus(App.config.i18n.CONNECTED);
                 this.setState(CALL_STATE.RUNNING);
@@ -459,83 +559,6 @@ function (Backbone, attachMediaStream, RTCPeerConnection, getUserMedia, template
         }
 
     });
-
-    function extractSdp(sdpLine, pattern) {
-        var result = sdpLine.match(pattern);
-        return (result && result.length === 2) ? result[1] : null;
-    }
-
-    // Set Opus as the default audio codec if it's present.
-    function preferOpus(sdp) {
-        var sdpLines = sdp.split('\r\n');
-
-        var mLineIndex = null;
-        // Search for m line.
-        for (var i = 0; i < sdpLines.length; i++) {
-            if (sdpLines[i].search('m=audio') !== -1) {
-                mLineIndex = i;
-                break;
-            }
-        }
-        if (mLineIndex === null) {
-            return sdp;
-        }
-
-        // If Opus is available, set it as the default in m line.
-        for (var j = 0; j < sdpLines.length; j++) {
-            if (sdpLines[j].search('opus/48000') !== -1) {
-                var opusPayload = extractSdp(sdpLines[j], /:(\d+) opus\/48000/i);
-                if (opusPayload) {
-                    sdpLines[mLineIndex] = setDefaultCodec(sdpLines[mLineIndex], opusPayload);
-                }
-                break;
-            }
-        }
-
-        // Remove CN in m line and sdp.
-        sdpLines = removeCN(sdpLines, mLineIndex);
-
-        sdp = sdpLines.join('\r\n');
-        return sdp;
-    }
-
-
-    // Set the selected codec to the first in m line.
-    function setDefaultCodec(mLine, payload) {
-        var elements = mLine.split(' ');
-        var newLine = [];
-        var index = 0;
-        for (var i = 0; i < elements.length; i++) {
-            if (index === 3) { // Format of media starts from the fourth.
-                newLine[index++] = payload; // Put target payload to the first.
-            }
-            if (elements[i] !== payload) {
-                newLine[index++] = elements[i];
-            }
-        }
-        return newLine.join(' ');
-    }
-
-    // Strip CN from sdp before CN constraints is ready.
-    function removeCN(sdpLines, mLineIndex) {
-        var mLineElements = sdpLines[mLineIndex].split(' ');
-        // Scan from end for the convenience of removing an item.
-        for (var i = sdpLines.length - 1; i >= 0; i--) {
-            var payload = extractSdp(sdpLines[i], /a=rtpmap:(\d+) CN\/\d+/i);
-            if (payload) {
-                var cnPos = mLineElements.indexOf(payload);
-                if (cnPos !== -1) {
-                    // Remove CN payload from m line.
-                    mLineElements.splice(cnPos, 1);
-                }
-                // Remove CN line in sdp
-                sdpLines.splice(i, 1);
-            }
-        }
-
-        sdpLines[mLineIndex] = mLineElements.join(' ');
-        return sdpLines;
-    }
 
     return WebRTCModuleView;
 

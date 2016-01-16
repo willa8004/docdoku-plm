@@ -65,7 +65,7 @@ define([
                     type: ChannelMessagesType.COLLABORATIVE_INVITE,
                     key: this.roomKey,
                     messageBroadcast: {
-                        url: '#' + App.config.workspaceId + '/' + App.config.productId,
+                        url: '#' + App.config.workspaceId + '/' + App.config.productId + '/config-spec/' + App.config.productConfigSpec,
                         context: App.config.workspaceId
                     },
                     remoteUser: user
@@ -74,7 +74,7 @@ define([
         },
 
         invite: function () {
-            Backbone.Events.trigger('EnableCollaborativeInvite');
+            Backbone.Events.trigger('collaboration:invite');
         },
 
         kick: function (e) {
@@ -136,11 +136,11 @@ define([
 
 			App.collaborativeController.sendSmartPath(App.partsTreeView.getSmartPath());
             App.collaborativeController.sendCameraInfos();
-            App.collaborativeController.sendEditedMeshes();
-            App.collaborativeController.sendColourEditedMeshes();
+            App.collaborativeController.sendEditedObjects();
+            App.collaborativeController.sendColourEditedObjects();
             App.collaborativeController.sendExplodeValue(App.$ControlsContainer.find('#slider-explode').val());
 
-            window.location.hash = [App.config.workspaceId , App.config.productId, 'room', this.roomKey].join('/');
+            window.location.hash = [App.config.workspaceId , App.config.productId, 'config-spec', App.config.productConfigSpec, 'room', this.roomKey].join('/');
 
             this.invite();
         },

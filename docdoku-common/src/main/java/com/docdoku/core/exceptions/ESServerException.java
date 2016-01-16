@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,7 +22,7 @@ package com.docdoku.core.exceptions;
 import java.util.Locale;
 
 /**
- * Exception on the Indexer Server usage
+ * Exception on the Indexer Server.
  * @author Taylor LABEJOF
  */
 public class ESServerException extends ApplicationException {

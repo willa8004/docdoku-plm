@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -39,7 +39,8 @@ public class CreationException extends ApplicationException {
     public CreationException(Locale pLocale, Throwable pCause) {
         super(pLocale, pCause);
     }
-    
+
+    @Override
     public String getLocalizedMessage() {
         return getBundleDefaultMessage();   
     }

@@ -2,28 +2,63 @@
 
   min-width: 500px;
 
+    &.displayComment{
+        .fa-quote-right{
+            opacity: 1;
+        }
+    }
+
+    .fa-quote-right{
+        color : green;
+        opacity: 0.5;
+    }
+    .fa-refresh{
+         color : green;
+    }
+
+    .fa-arrows-h{
+        padding-right: 5px;
+    }
+
+    .fa-question{
+        padding-right: 5px;
+    }
+
+    .fa-random{
+        padding-right: 5px;
+    }
+
   #product_title {
 
     background: none;
     font-weight: bold;
     cursor: pointer;
-    border-bottom: 1px dotted #ccc;
     line-height: 18px;
-    color: #999999;
+    color: #434C64;
     text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+    padding-top: 6px;
 
     img.loader{
       display:none;
       height: 13px;
     }
 
-    &:hover {
-      color: #666666;
-    }
     i {
       margin-top: 3px;
-      float: left;
+      margin-left: 5px;
+
     }
+
+      .product_title{
+
+          padding-left: 5px;
+          padding-right: 2px;
+
+          &.active{
+              background-color: #CFD7E4;
+          }
+
+      }
   }
 
   .fa-cogs {
@@ -115,7 +150,8 @@
         + i.fa-lock,
         + i.fa-pencil,
         + i.fa-eye,
-        + i.fa-ban{
+        + i.fa-check,
+        + i.fa-key{
           margin-left: -2px;
           opacity: 1;
         }
@@ -123,21 +159,37 @@
 
     }
 
-    i.fa-lock,
-    i.fa-pencil,
-    i.fa-eye,
-    i.fa-ban{
-      font-size: x-small;
-      margin-left: -8px;
-      vertical-align: bottom;
+    i.fa-pencil {
+      color:#f89406;
     }
 
-    i.fa-ban{
+    i.fa-lock {
+      color:#ee5f5b;
+    }
+
+    i.fa-check {
+      color:#51a351;
+    }
+
+    i.fa-exclamation {
+      color:#ee5f5b;
+    }
+
+    i.fa-key{
       color: red;
     }
 
     i.fa-lock,
-    i.fa-ban{
+    i.fa-pencil,
+    i.fa-eye,
+    i.fa-check,
+    i.fa-key{
+      &:hover{
+        cursor: pointer;
+      }
+    }
+    i.fa-lock,
+    i.fa-key{
       + ul{
         display: none;
       }

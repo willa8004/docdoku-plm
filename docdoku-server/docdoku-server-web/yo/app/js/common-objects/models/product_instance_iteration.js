@@ -1,6 +1,7 @@
-/*global _,$,define,App*/
-define(['backbone'], function (Backbone) {
-	'use strict';
+/*global _,define,App*/
+define(['backbone'
+], function (Backbone) {
+    'use strict';
     var ProductInstanceIteration = Backbone.Model.extend({
         idAttribute: 'iteration',
 
@@ -8,18 +9,9 @@ define(['backbone'], function (Backbone) {
             this.className = 'ProductInstanceIteration';
             _.bindAll(this);
         },
-
-        initBaselinedParts: function (context, callbacks) {
-            var that = this;
-            $.ajax({
-                context: context,
-                type: 'GET',
-                url: this.url() + '/baselined-parts',
-                success: function (baselinedParts) {
-                    that.setBaselinedParts(baselinedParts);
-                    callbacks.success(this);
-                }
-            });
+        defaults: {
+            attachedFiles: [],
+            instanceAttributes: []
         },
 
         urlRoot: function () {
@@ -29,6 +21,13 @@ define(['backbone'], function (Backbone) {
             } else {
                 return this.prototype.urlRoot();
             }
+        },
+        getUploadBaseUrl: function () {
+            return App.config.contextPath + '/api/files/' + this.getBaseName();
+
+        },
+        getBaseName: function () {
+            return App.config.workspaceId + '/product-instances/' + this.getSerialNumber() + '/' + this.getConfigurationItemId() + '/iterations/' + this.getIteration() + '/';
         },
         getSerialNumber: function () {
             return this.get('serialNumber');
@@ -48,40 +47,76 @@ define(['backbone'], function (Backbone) {
         getConfigurationItemId: function () {
             return this.get('configurationItemId');
         },
+        getBasedOnName: function () {
+            return this.get('basedOn').name;
+        },
+        getBasedOnId: function () {
+            return this.get('basedOn').id;
+        },
         getUpdateAuthor: function () {
             return this.get('updateAuthor');
         },
         getUpdateAuthorName: function () {
             return this.get('updateAuthorName');
         },
-        getUpdateDate: function () {
-            return this.get('updateDate');
+        getCreationDate: function() {
+            return this.get('creationDate');
+        },
+        getModificationDate: function () {
+            return this.get('modificationDate');
         },
         getBaselinedParts: function () {
-            return this.get('baselinedPartsList');
+            return this.get('baselinedParts');
         },
+        getACL: function () {
+            return this.get('acl');
+        },
+        getInstanceAttributes: function () {
+            return this.get('instanceAttributes');
+        },
+        getlinkedDocuments: function () {
+            return this.get('linkedDocuments');
+        },
+        getPathToPathLinks: function () {
+            return this.get('pathToPathLinks');
+        },
+
+        hasPathData: function () {
+            return this.getPathData().length;
+        },
+
+        getPathData: function () {
+            return this.get('pathDataMasterList');
+        },
+
+        getPathDataPaths: function () {
+            return this.get('pathDataPaths');
+        },
+
+        getAttachedFiles: function () {
+            return this.get('attachedFiles');
+        },
+
+        setInstanceAttributes: function (instanceAttributes) {
+            return this.set('instanceAttributes', instanceAttributes);
+        },
+
         setBaselinedParts: function (baselinedParts) {
-            this.set('baselinedPartsList', baselinedParts);
+            this.set('baselinedParts', baselinedParts);
         },
-        getBaselinePartsWithReference: function (ref, callback) {
-            var baselinedParts = null;
-            $.ajax({
-                type: 'GET',
-                url: this.url() + '/baselined-parts?q=' + ref,
-                contentType: 'application/json; charset=utf-8',
-                success: function (data) {
-                    baselinedParts = data;
-                    if (callback && callback.success) {
-                        callback.success(data);
-                    }
-                },
-                error: function (data) {
-                    if (callback && callback.error) {
-                        callback.error(data);
-                    }
-                }
-            });
-            return baselinedParts;
+        setConfigurationItemId: function (configurationItemId) {
+            this.set('configurationItemId', configurationItemId);
+        },
+
+        getSubstitutesParts: function () {
+            return this.get('substitutesParts');
+        },
+        getOptionalsParts: function () {
+            return this.get('optionalsParts');
+        },
+
+        setLinkedDocuments: function (linkedDocuments) {
+            this.set('linkedDocuments', linkedDocuments);
         }
     });
 

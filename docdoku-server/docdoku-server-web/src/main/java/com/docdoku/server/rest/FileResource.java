@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,29 +20,33 @@
 package com.docdoku.server.rest;
 
 import com.docdoku.core.security.UserGroupMapping;
-import com.docdoku.server.rest.file.DocumentBinaryResource;
-import com.docdoku.server.rest.file.DocumentTemplateBinaryResource;
-import com.docdoku.server.rest.file.PartBinaryResource;
-import com.docdoku.server.rest.file.PartTemplateBinaryResource;
+import com.docdoku.server.rest.file.*;
 
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.ws.rs.Path;
 
-@Stateless
+@RequestScoped
 @Path("files")
 @DeclareRoles({UserGroupMapping.REGULAR_USER_ROLE_ID,UserGroupMapping.GUEST_PROXY_ROLE_ID})
 public class FileResource {
-    @EJB
+
+    @Inject
     private DocumentBinaryResource documentBinaryResource;
-    @EJB
+
+    @Inject
     private PartBinaryResource partBinaryResource;
-    @EJB
+
+    @Inject
     private DocumentTemplateBinaryResource documentTemplateBinaryResource;
-    @EJB
+
+    @Inject
     private PartTemplateBinaryResource partTemplateBinaryResource;
+
+    @Inject
+    private ProductInstanceBinaryResource productInstanceBinaryResource;
 
     public FileResource() {
     }
@@ -68,4 +72,11 @@ public class FileResource {
     public PartTemplateBinaryResource partTemplateFile(){
         return partTemplateBinaryResource;
     }
+
+    @Path("/{workspaceId}/product-instances/{serialNumber}/{ciId}/")
+    @RolesAllowed({UserGroupMapping.REGULAR_USER_ROLE_ID})
+    public ProductInstanceBinaryResource productInstanceFile(){
+        return productInstanceBinaryResource;
+    }
+
 }

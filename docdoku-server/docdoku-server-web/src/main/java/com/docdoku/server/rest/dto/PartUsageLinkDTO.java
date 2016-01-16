@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,17 +20,23 @@
 package com.docdoku.server.rest.dto;
 
 
+import javax.xml.bind.annotation.XmlRootElement;
+import java.io.Serializable;
 import java.util.List;
 
-public class PartUsageLinkDTO {
+@XmlRootElement
+public class PartUsageLinkDTO implements Serializable {
 
     private int id;
+    private String fullId;
     private double amount;
     private String comment;
     private ComponentDTO component;
     private String referenceDescription;
     private String unit;
+    private boolean optional;
     private List<CADInstanceDTO> cadInstances;
+    private List<PartSubstituteLinkDTO> substitutes;
 
     public int getId() {
         return id;
@@ -72,6 +78,14 @@ public class PartUsageLinkDTO {
         this.referenceDescription = referenceDescription;
     }
 
+    public boolean isOptional() {
+        return optional;
+    }
+
+    public void setOptional(boolean optional) {
+        this.optional = optional;
+    }
+
     public String getUnit() {
         return unit;
     }
@@ -86,5 +100,21 @@ public class PartUsageLinkDTO {
 
     public void setCadInstances(List<CADInstanceDTO> cadInstances) {
         this.cadInstances = cadInstances;
+    }
+
+    public List<PartSubstituteLinkDTO> getSubstitutes() {
+        return substitutes;
+    }
+
+    public void setSubstitutes(List<PartSubstituteLinkDTO> substitutes) {
+        this.substitutes = substitutes;
+    }
+
+    public String getFullId() {
+        return fullId;
+    }
+
+    public void setFullId(String fullId) {
+        this.fullId = fullId;
     }
 }

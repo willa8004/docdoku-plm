@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,14 +25,19 @@ import com.docdoku.core.exceptions.*;
 import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.services.IDataManagerLocal;
 import com.docdoku.core.util.FileIO;
+import com.docdoku.server.InternalService;
 import com.docdoku.server.converters.CADConverter;
-import com.google.common.io.Files;
-import com.google.common.io.InputSupplier;
+import com.docdoku.server.converters.utils.ConversionResult;
+import com.docdoku.server.converters.utils.ConverterUtils;
 
-import javax.ejb.EJB;
-import java.io.*;
+import javax.inject.Inject;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,78 +48,73 @@ public class AllFileConverterImpl implements CADConverter{
     private static final String CONF_PROPERTIES="/com/docdoku/server/converters/all/conf.properties";
     private static final Properties CONF = new Properties();
 
-    @EJB
+    @InternalService
+    @Inject
     private IDataManagerLocal dataManager;
 
     private static final Logger LOGGER = Logger.getLogger(AllFileConverterImpl.class.getName());
 
     static{
-        InputStream inputStream = null;
-        try {
-            inputStream = AllFileConverterImpl.class.getResourceAsStream(CONF_PROPERTIES);
+        try (InputStream inputStream = AllFileConverterImpl.class.getResourceAsStream(CONF_PROPERTIES)){
             CONF.load(inputStream);
         } catch (IOException e) {
-            LOGGER.log(Level.WARNING, null, e);
-        } finally {
-            try{
-                if(inputStream!=null){
-                    inputStream.close();
-                }
-            }catch (IOException e){
-                LOGGER.log(Level.FINEST, null, e);
-            }
+            LOGGER.log(Level.SEVERE, null, e);
         }
     }
 
-
     @Override
-    public File convert(PartIteration partToConvert, final BinaryResource cadFile, File tempDir) throws IOException, InterruptedException, UserNotActiveException, PartRevisionNotFoundException, WorkspaceNotFoundException, CreationException, UserNotFoundException, NotAllowedException, FileAlreadyExistsException, StorageException {
+    public ConversionResult convert(PartIteration partToConvert, final BinaryResource cadFile, File tempDir) throws IOException, InterruptedException, UserNotActiveException, PartRevisionNotFoundException, WorkspaceNotFoundException, CreationException, UserNotFoundException, NotAllowedException, FileAlreadyExistsException, StorageException {
 
+        UUID uuid = UUID.randomUUID();
         String extension = FileIO.getExtension(cadFile.getName());
         File tmpCadFile = new File(tempDir, partToConvert.getKey() + "." + extension);
-        String convertedFileName = tempDir.getAbsolutePath() + "/" + partToConvert.getKey() ;
-        String meshconvBinary = CONF.getProperty("meshconv_path");
+        String convertedFileName = tempDir.getAbsolutePath() + "/" + uuid ;
+        String meshConvBinary = CONF.getProperty("meshconv_path");
 
-        Files.copy(new InputSupplier<InputStream>() {
-            @Override
-            public InputStream getInput() throws IOException {
-                try {
-                    return dataManager.getBinaryResourceInputStream(cadFile);
-                } catch (StorageException e) {
-                    LOGGER.log(Level.WARNING, null, e);
-                    throw new IOException(e);
-                }
-            }
-        }, tmpCadFile);
+        File executable = new File(meshConvBinary);
 
-        String[] args = {meshconvBinary, tmpCadFile.getAbsolutePath(), "-c" , "obj", "-o", convertedFileName};
+        if(!executable.exists()){
+            LOGGER.log(Level.SEVERE, "Cannot convert file \""+cadFile.getName()+"\", \""+meshConvBinary+"\" is not available");
+            return null;
+        }
+
+        if(!executable.canExecute()){
+            LOGGER.log(Level.SEVERE, "Cannot convert file \""+cadFile.getName()+"\", \""+meshConvBinary+"\" has no execution rights");
+            return null;
+        }
+
+        try(InputStream in = dataManager.getBinaryResourceInputStream(cadFile)) {
+            Files.copy(in, tmpCadFile.toPath());
+        } catch (StorageException e) {
+            LOGGER.log(Level.WARNING, null, e);
+            throw new IOException(e);
+        }
+
+
+        String[] args = {meshConvBinary, tmpCadFile.getAbsolutePath(), "-c" , "obj", "-o", convertedFileName};
         ProcessBuilder pb = new ProcessBuilder(args);
         Process proc = pb.start();
 
-        StringBuilder output = new StringBuilder();
-        String line;
-        // Read buffer
-        InputStreamReader isr = new InputStreamReader(proc.getInputStream(),"UTF-8");
-        BufferedReader br = new BufferedReader(isr);
-        while ((line = br.readLine()) != null){
-            output.append(line).append("\n");
-        }
-        br.close();
+        // Read buffers
+        String stdOutput = ConverterUtils.getOutput(proc.getInputStream());
+        String errorOutput = ConverterUtils.getOutput(proc.getErrorStream());
+
+        LOGGER.info(stdOutput);
 
         proc.waitFor();
 
         if(proc.exitValue() == 0){
-            return new File(convertedFileName + ".obj");
+            return new ConversionResult(new File(convertedFileName + ".obj"));
         }
 
-        LOGGER.log(Level.SEVERE, "Cannot convert to obj : " + tmpCadFile.getAbsolutePath(), output.toString());
+        LOGGER.log(Level.SEVERE, "Cannot convert to obj : " + tmpCadFile.getAbsolutePath(), errorOutput);
+
         return null;
     }
 
     @Override
     public boolean canConvertToOBJ(String cadFileExtension) {
-        // Also convert obj files, makes them smaller
-        return Arrays.asList("dxf","obj","off","ply","stl","3ds","wrl").contains(cadFileExtension);
+        return Arrays.asList("stl","off","ply","3ds","wrl").contains(cadFileExtension);
     }
 
 }

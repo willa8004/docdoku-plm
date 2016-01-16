@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,8 +27,8 @@ import com.docdoku.server.mainchannel.util.ChannelMessagesBuilder;
 import com.docdoku.server.mainchannel.util.ChannelMessagesType;
 import com.docdoku.server.mainchannel.util.Room;
 
-import javax.ejb.EJB;
 import javax.ejb.Stateless;
+import javax.inject.Inject;
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
@@ -46,15 +46,17 @@ import java.util.logging.Logger;
 @ServerEndpoint(value = "/mainChannelSocket", decoders = {MessageDecoder.class}, encoders = {WebRTCMessageEncoder.class, StatusMessageEncoder.class, ChatMessageEncoder.class, CollaborativeMessageEncoder.class})
 public class MainChannelApplication {
 
+    @Inject
+    private IUserManagerLocal userManager;
+
     // Users WebSockets Map : <UserLogin, <SessionId, Session>>
     private static final ConcurrentMap<String, Map<String, Session>> CHANNELS = new ConcurrentHashMap<>();
 
     private static final Logger LOGGER = Logger.getLogger(MainChannelApplication.class.getName());
-    @EJB
-    private IUserManagerLocal userManager;
 
     public static boolean hasChannels(String userLogin) {
         return CHANNELS!=null
+                && userLogin !=null
                 && CHANNELS.get(userLogin) != null
                 && !CHANNELS.get(userLogin).isEmpty();
     }
@@ -314,27 +316,20 @@ public class MainChannelApplication {
         // webRTC P2P signaling messages
         // These messages are forwarded to the remote peer(s) in the room
         Room room = Room.getByKeyName(webRTC.getRoomKey());
-        if (room != null) {
-            if (room.hasUser(callerLogin)) {
-                // forward the message to the other peer
-                Session otherSession = room.getOtherUserSession(session);
+        if (room != null && room.hasUser(callerLogin)) {
+            // forward the message to the other peer
+            Session otherSession = room.getOtherUserSession(session);
 
-                // on bye message, remove the user from the room
-                if (ChannelMessagesType.WEBRTC_BYE.equals(webRTC.getType())) {
-                    room.removeUserSession(session);
-                }
+            // on bye message, remove the user from the room
+            if (ChannelMessagesType.WEBRTC_BYE.equals(webRTC.getType())) {
+                room.removeUserSession(session);
+            }
 
-                if (otherSession != null) {
-                    MainChannelDispatcher.send(otherSession, webRTC);
-                } //else {
-                // tell the user the room is empty ?
-                //}
-            } //else {
-            // tell the user he's not in the room ?
-            //}
-        } //else {
-        // tell the user the room doesn't exists ?
-        //}
+            if (otherSession != null) {
+                MainChannelDispatcher.send(otherSession, webRTC);
+            }
+        }
+
     }
 
     private void process(Session session, StatusMessage status) {
@@ -347,7 +342,7 @@ public class MainChannelApplication {
 
     private void process(Session session, String callerLogin, ChatMessage chat) {
         if (!MainChannelApplication.hasChannels(chat.getRemoteUser())) {
-            MainChannelDispatcher.send(session, new ChatMessage(ChannelMessagesType.CHAT_MESSAGE, chat.getRemoteUser(), null, null, chat.getContext(), ChatMessage.CHAT_MESSAGE_UNREACHABLE));
+            MainChannelDispatcher.send(session, new ChatMessage(ChannelMessagesType.CHAT_MESSAGE, chat.getRemoteUser(), "", "", chat.getContext(), ChatMessage.CHAT_MESSAGE_UNREACHABLE));
         } else {
             MainChannelDispatcher.sendToAllUserChannels(callerLogin, new ChatMessage(ChannelMessagesType.CHAT_MESSAGE_ACK, chat.getRemoteUser(), callerLogin, chat.getMessage(), chat.getContext(), null));
             MainChannelDispatcher.sendToAllUserChannels(chat.getRemoteUser(), new ChatMessage(ChannelMessagesType.CHAT_MESSAGE, callerLogin, callerLogin, chat.getMessage(), chat.getContext(), null));

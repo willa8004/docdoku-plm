@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,23 +20,19 @@
 
 package com.docdoku.server.rest.util;
 
-import com.docdoku.core.configuration.ConfigSpec;
+import com.docdoku.core.configuration.PSFilter;
 import com.docdoku.core.exceptions.*;
 import com.docdoku.core.meta.InstanceAttribute;
-import com.docdoku.core.product.CADInstance;
-import com.docdoku.core.product.Geometry;
-import com.docdoku.core.product.PartIteration;
-import com.docdoku.core.product.PartUsageLink;
-import com.docdoku.core.services.IProductConfigSpecManagerLocal;
+import com.docdoku.core.product.*;
+import com.docdoku.core.services.IProductManagerLocal;
+import com.docdoku.core.util.Tools;
+import com.docdoku.server.rest.collections.InstanceCollection;
+import com.docdoku.server.rest.collections.VirtualInstanceCollection;
 import com.docdoku.server.rest.dto.InstanceAttributeDTO;
-import org.apache.commons.lang.StringUtils;
 import org.dozer.DozerBeanMapperSingletonWrapper;
 import org.dozer.Mapper;
 
 import javax.json.stream.JsonGenerator;
-import javax.naming.Context;
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
 import javax.vecmath.Matrix4d;
 import javax.vecmath.Vector3d;
 import java.util.ArrayList;
@@ -49,26 +45,86 @@ import java.util.logging.Logger;
  * @author Taylor LABEJOF
  */
 public class InstanceBodyWriterTools {
-    private static Context context;
-    private static IProductConfigSpecManagerLocal productConfigSpecService;
+
     private static final Logger LOGGER = Logger.getLogger(InstanceBodyWriterTools.class.getName());
-    private static Mapper mapper;
+    private static Mapper mapper = DozerBeanMapperSingletonWrapper.getInstance();
 
-    static {
+    public static void generateInstanceStreamWithGlobalMatrix(IProductManagerLocal productService, List<PartLink> currentPath, Matrix4d matrix, InstanceCollection instanceCollection, List<Integer> instanceIds, JsonGenerator jg) {
+
         try {
-            context = new InitialContext();
-            productConfigSpecService = (IProductConfigSpecManagerLocal) context.lookup("java:global/docdoku-server-ear/docdoku-server-ejb/ProductConfigSpecManagerBean");
-            mapper = DozerBeanMapperSingletonWrapper.getInstance();
-        } catch (NamingException e) {
-            Logger.getLogger(InstanceBodyWriterTools.class.getName()).log(Level.WARNING,null,e);
+
+            if(currentPath == null){
+                PartLink rootPartUsageLink = productService.getRootPartUsageLink(instanceCollection.getCiKey());
+                currentPath = new ArrayList<>();
+                currentPath.add(rootPartUsageLink);
+            }
+
+            Component component = productService.filterProductStructure(instanceCollection.getCiKey(),
+                    instanceCollection.getFilter(), currentPath,1);
+
+            PartLink partLink = component.getPartLink();
+            PartIteration partI = component.getRetainedIteration();
+
+            for (CADInstance instance : partLink.getCadInstances()) {
+
+                List<Integer> copyInstanceIds = new ArrayList<>(instanceIds);
+                copyInstanceIds.add(instance.getId());
+
+                Vector3d instanceTranslation = new Vector3d(instance.getTx(), instance.getTy(), instance.getTz());
+                Vector3d instanceRotation = new Vector3d(instance.getRx(), instance.getRy(), instance.getRz());
+                Matrix4d combinedMatrix = combineTransformation(matrix, instanceTranslation, instanceRotation);
+
+                if (!partI.isAssembly() && !partI.getGeometries().isEmpty() && instanceCollection.isFiltered(currentPath)) {
+                    writeLeaf(currentPath, copyInstanceIds, partI, combinedMatrix, jg);
+                } else {
+                    for (Component subComponent : component.getComponents()) {
+                        generateInstanceStreamWithGlobalMatrix(productService, subComponent.getPath(), combinedMatrix, instanceCollection, copyInstanceIds, jg);
+                    }
+                }
+            }
+
+        } catch (PartMasterNotFoundException | PartUsageLinkNotFoundException | UserNotFoundException | WorkspaceNotFoundException | ConfigurationItemNotFoundException e) {
+            LOGGER.log(Level.FINEST, null, e);
+        } catch (AccessRightException | EntityConstraintException | NotAllowedException | UserNotActiveException e) {
+            LOGGER.log(Level.FINEST, null, e);
         }
+
     }
 
-    private InstanceBodyWriterTools(){
-        super();
+    public static void generateInstanceStreamWithGlobalMatrix(List<PartLink> currentPath, Matrix4d matrix, VirtualInstanceCollection virtualInstanceCollection, List<Integer> instanceIds, JsonGenerator jg) {
+
+        PartLink partLink = currentPath.get(currentPath.size()-1);
+        PSFilter filter = virtualInstanceCollection.getFilter();
+        List<PartIteration> filteredPartIterations = filter.filter(partLink.getComponent());
+
+        if(!filteredPartIterations.isEmpty()){
+
+            PartIteration partI = filteredPartIterations.iterator().next();
+
+            for (CADInstance instance : partLink.getCadInstances()) {
+
+                List<Integer> copyInstanceIds = new ArrayList<>(instanceIds);
+                copyInstanceIds.add(instance.getId());
+
+                Vector3d instanceTranslation = new Vector3d(instance.getTx(), instance.getTy(), instance.getTz());
+                Vector3d instanceRotation = new Vector3d(instance.getRx(), instance.getRy(), instance.getRz());
+                Matrix4d combinedMatrix = combineTransformation(matrix, instanceTranslation, instanceRotation);
+
+                if (!partI.isAssembly() && !partI.getGeometries().isEmpty()) {
+                    writeLeaf(currentPath, copyInstanceIds, partI, combinedMatrix, jg);
+                } else {
+                    for (PartLink subLink : partI.getComponents()) {
+                        List<PartLink> subPath = new ArrayList<>(currentPath);
+                        subPath.add(subLink);
+                        generateInstanceStreamWithGlobalMatrix(subPath, combinedMatrix, virtualInstanceCollection, copyInstanceIds, jg);
+                    }
+                }
+            }
+        }
+
     }
 
-    public static Matrix4d combineTransformation(Matrix4d matrix, Vector3d translation, Vector3d rotation){
+    private static Matrix4d combineTransformation(Matrix4d matrix, Vector3d translation, Vector3d rotation){
         Matrix4d gM=new Matrix4d(matrix);
         Matrix4d m=new Matrix4d();
 
@@ -91,59 +147,19 @@ public class InstanceBodyWriterTools {
         return gM;
     }
 
-    public static void generateInstanceStreamWithGlobalMatrix(PartUsageLink pUsageLink, Matrix4d matrix, List<Integer> filteredPath, ConfigSpec cs, List<Integer> instanceIds, JsonGenerator jg) {
-        try {
-            PartUsageLink usageLink = productConfigSpecService.filterProductStructure(pUsageLink, cs, 0);
-            PartIteration partI = usageLink.getComponent().getLastRevision().getLastIteration();
-
-            for (CADInstance instance : usageLink.getCadInstances()) {
-                List<Integer> copyInstanceIds = new ArrayList<>(instanceIds);
-                if (instance.getId() != -1) {
-                    copyInstanceIds.add(instance.getId());
-                }
-
-                Vector3d instanceTranslation = new Vector3d(instance.getTx(), instance.getTy(), instance.getTz());
-                Vector3d instanceRotation = new Vector3d(instance.getRx(), instance.getRy(), instance.getRz());
-                Matrix4d combinedMatrix = combineTransformation(matrix, instanceTranslation, instanceRotation);
-
-                if (!partI.isAssembly() && !partI.getGeometries().isEmpty() && filteredPath.isEmpty()) {
-                    writeLeaf(partI,combinedMatrix,copyInstanceIds,jg);
-                } else {
-                    writeNode(partI,cs,filteredPath,combinedMatrix,copyInstanceIds,jg);
-                }
-            }
-        } catch (NotAllowedException | UserNotFoundException | UserNotActiveException | AccessRightException e) {
-            LOGGER.log(Level.WARNING, "You have no right to filter the usageLink : " + pUsageLink.getId(), e);
-        } catch (WorkspaceNotFoundException | ConfigurationItemNotFoundException | PartUsageLinkNotFoundException e) {
-            LOGGER.log(Level.WARNING, "Some resources are missing :", e);
-        }
-    }
-
-    private static void writeNode(PartIteration partI, ConfigSpec cs, List<Integer> filteredPath, Matrix4d combinedMatrix, List<Integer> copyInstanceIds, JsonGenerator jg){
-        for (PartUsageLink component : partI.getComponents()) {
-            if (filteredPath.isEmpty()) {
-                generateInstanceStreamWithGlobalMatrix(component, combinedMatrix, filteredPath, cs, copyInstanceIds, jg);
-
-            } else if (component.getId() == filteredPath.get(0)) {
-                List<Integer> copyWithoutCurrentId = new ArrayList<>(filteredPath);
-                copyWithoutCurrentId.remove(0);
-                generateInstanceStreamWithGlobalMatrix(component, combinedMatrix, copyWithoutCurrentId, cs, copyInstanceIds, jg);
-            }
-        }
-    }
-    private static void writeLeaf(PartIteration partI, Matrix4d combinedMatrix, List<Integer> copyInstanceIds, JsonGenerator jg){
-        String id = StringUtils.join(copyInstanceIds.toArray(), "-");
+    private static void writeLeaf(List<PartLink> currentPath, List<Integer> copyInstanceIds, PartIteration partI, Matrix4d combinedMatrix, JsonGenerator jg){
         String partIterationId = partI.toString();
         List<InstanceAttributeDTO> attributes = new ArrayList<>();
-        for (InstanceAttribute attr : partI.getInstanceAttributes().values()) {
+        for (InstanceAttribute attr : partI.getInstanceAttributes()) {
             attributes.add(mapper.map(attr, InstanceAttributeDTO.class));
         }
 
         jg.writeStartObject();
-        jg.write("id", id);
+        jg.write("id", Tools.getPathInstanceAsString(currentPath, copyInstanceIds));
         jg.write("partIterationId", partIterationId);
+        jg.write("path", Tools.getPathAsString(currentPath));
 
-        writeMatrix(combinedMatrix,jg);
+        writeMatrix(combinedMatrix, jg);
         writeGeometries(partI.getSortedGeometries(),jg);
         writeAttributes(attributes,jg);
 
@@ -182,6 +198,7 @@ public class InstanceBodyWriterTools {
         }
         jg.writeEnd();
     }
+
     private static void writeAttributes(List<InstanceAttributeDTO> attributes, JsonGenerator jg){
         jg.writeStartArray("attributes");
         for (InstanceAttributeDTO a : attributes) {
@@ -193,4 +210,5 @@ public class InstanceBodyWriterTools {
         }
         jg.writeEnd();
     }
+
 }

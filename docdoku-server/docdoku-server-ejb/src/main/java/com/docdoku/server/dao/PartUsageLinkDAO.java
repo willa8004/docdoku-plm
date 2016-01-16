@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,6 +22,7 @@ package com.docdoku.server.dao;
 import com.docdoku.core.exceptions.PartUsageLinkNotFoundException;
 import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.product.PartMasterKey;
+import com.docdoku.core.product.PartSubstituteLink;
 import com.docdoku.core.product.PartUsageLink;
 
 import javax.persistence.EntityManager;
@@ -56,7 +57,7 @@ public class PartUsageLinkDAO {
         
         return usagePaths;
     }
-    
+
     private void createPath(PartUsageLink currentUsage, List<PartUsageLink> currentPath, List<PartUsageLink[]> usagePaths){
         
         PartIteration owner = em.createNamedQuery("PartUsageLink.getPartOwner",PartIteration.class)
@@ -85,15 +86,47 @@ public class PartUsageLinkDAO {
     public boolean hasPartUsages(String workspaceId, String partNumber){
         return !findPartUsages(workspaceId,partNumber).isEmpty();
     }
+
+    public List<PartSubstituteLink> findPartSubstitutes(String workspaceId, String partNumber) {
+        return em.createNamedQuery("PartSubstituteLink.findBySubstitute", PartSubstituteLink.class)
+                .setParameter("partNumber", partNumber)
+                .setParameter("workspaceId", workspaceId)
+                .getResultList();
+    }
+
+    public boolean hasPartSubstitutes(String workspaceId, String partNumber) {
+        return !findPartSubstitutes(workspaceId,partNumber).isEmpty();
+    }
     
     public PartUsageLink loadPartUsageLink(int pId) throws PartUsageLinkNotFoundException {
-        PartUsageLink usageLink = em.find(PartUsageLink.class, pId);
-        if (usageLink == null) {
+        PartUsageLink link = em.find(PartUsageLink.class, pId);
+        if (link == null) {
             throw new PartUsageLinkNotFoundException(mLocale, pId);
         } else {
-            return usageLink;
+            return link;
         }
     }
 
+    public PartSubstituteLink loadPartSubstituteLink(int pId) throws PartUsageLinkNotFoundException {
+        PartSubstituteLink link = em.find(PartSubstituteLink.class, pId);
+        if (link == null) {
+            throw new PartUsageLinkNotFoundException(mLocale, pId);
+        } else {
+            return link;
+        }
+    }
 
+    public void removeOrphanPartLinks() {
+        List<PartUsageLink> partUsageLinks = em.createNamedQuery("PartUsageLink.findOrphans", PartUsageLink.class).getResultList();
+
+        PathToPathLinkDAO pathToPathLinkDAO = new PathToPathLinkDAO(mLocale, em);
+
+        for(PartUsageLink partUsageLink:partUsageLinks){
+            pathToPathLinkDAO.removePathToPathLinks(partUsageLink.getFullId());
+            for (PartSubstituteLink partSubstituteLink : partUsageLink.getSubstitutes()) {
+                pathToPathLinkDAO.removePathToPathLinks(partSubstituteLink.getFullId());
+            }
+            em.remove(partUsageLink);
+        }
+    }
 }

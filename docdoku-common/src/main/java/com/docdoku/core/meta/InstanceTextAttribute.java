@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,7 +24,7 @@ import javax.persistence.Entity;
 import javax.persistence.Table;
 
 /**
- * Defines a text type custom attribute of a document.
+ * Defines a text type custom attribute of a document, part, product and other objects.
  * 
  * @author Florent Garin
  * @version 1.0, 02/06/08
@@ -52,7 +52,7 @@ public class InstanceTextAttribute extends InstanceAttribute{
     }
     @Override
     public boolean setValue(Object pValue) {
-        textValue=pValue + "";
+        textValue = pValue != null ? pValue + "" : "";
         return true;
     }
 

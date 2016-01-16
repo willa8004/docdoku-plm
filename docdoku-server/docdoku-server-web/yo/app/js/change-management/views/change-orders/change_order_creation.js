@@ -18,7 +18,8 @@ define([
         events: {
             'click .modal-footer .btn-primary': 'interceptSubmit',
             'submit #order_creation_form': 'onSubmitForm',
-            'hidden #order_creation_modal': 'onHidden'
+            'hidden #order_creation_modal': 'onHidden',
+            'close-modal-request':'closeModal'
         },
 
         initialize: function () {
@@ -80,6 +81,7 @@ define([
             that._affectedDocumentsCollection = new LinkedDocumentCollection();
             that._linkedDocumentsView = new LinkedDocumentsView({
                 editMode: true,
+                commentEditable:false,
                 collection: that._affectedDocumentsCollection
             }).render();
 

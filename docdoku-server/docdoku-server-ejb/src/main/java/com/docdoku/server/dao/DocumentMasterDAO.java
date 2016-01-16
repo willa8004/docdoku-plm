@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,6 +27,7 @@ import com.docdoku.core.exceptions.DocumentMasterAlreadyExistsException;
 import javax.persistence.EntityExistsException;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
@@ -67,8 +68,8 @@ public class DocumentMasterDAO {
 
     public void removeDocM(DocumentMaster pDocM) {
         DocumentRevisionDAO documentRevisionDAO = new DocumentRevisionDAO(mLocale, em);
-
-        for(DocumentRevision documentRevision:pDocM.getDocumentRevisions()){
+        List<DocumentRevision> docRs = new ArrayList<>(pDocM.getDocumentRevisions());
+        for(DocumentRevision documentRevision:docRs){
             documentRevisionDAO.removeRevision(documentRevision);
         }
         em.remove(pDocM);
@@ -76,7 +77,7 @@ public class DocumentMasterDAO {
 
 
     public List<DocumentMaster> getAllByWorkspace(String workspaceId) {
-        return em.createNamedQuery("DocumentMaster.findByWorkspace")
+        return em.createNamedQuery("DocumentMaster.findByWorkspace",DocumentMaster.class)
                                                  .setParameter("workspaceId",workspaceId)
                                                  .getResultList();
     }

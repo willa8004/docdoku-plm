@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,16 +24,20 @@ import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.exceptions.FileNotFoundException;
 import com.docdoku.core.exceptions.StorageException;
 
+import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 
 public interface StorageProvider {
     InputStream getBinaryResourceInputStream(BinaryResource pBinaryResource) throws StorageException, FileNotFoundException;
+    File getBinaryResourceFile(BinaryResource pBinaryResource) throws StorageException, FileNotFoundException;
     OutputStream getBinaryResourceOutputStream(BinaryResource pBinaryResource) throws StorageException;
     void copyData(BinaryResource pSourceBinaryResource, BinaryResource pTargetBinaryResource) throws StorageException, FileNotFoundException;
+    File copyFile(File file, BinaryResource pTargetBinaryResource) throws StorageException, FileNotFoundException;
     void delData(BinaryResource pBinaryResource) throws StorageException;
     String getExternalResourceURI(BinaryResource binaryResource);
     String getShortenExternalResourceURI(BinaryResource binaryResource);
-    public void deleteWorkspaceFolder(String workspaceId, List<BinaryResource> binaryResourcesInWorkspace) throws StorageException;
+    void deleteWorkspaceFolder(String workspaceId, List<BinaryResource> binaryResourcesInWorkspace) throws StorageException;
+    void renameData(File file, String pNewName) throws StorageException;
 }

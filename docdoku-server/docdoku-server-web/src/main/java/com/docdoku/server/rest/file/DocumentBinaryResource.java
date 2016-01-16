@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,6 +20,7 @@
 package com.docdoku.server.rest.file;
 
 import com.docdoku.core.common.BinaryResource;
+import com.docdoku.core.document.DocumentIteration;
 import com.docdoku.core.document.DocumentIterationKey;
 import com.docdoku.core.document.DocumentRevision;
 import com.docdoku.core.exceptions.*;
@@ -29,18 +30,17 @@ import com.docdoku.core.services.*;
 import com.docdoku.core.sharing.SharedDocument;
 import com.docdoku.core.sharing.SharedEntity;
 import com.docdoku.server.filters.GuestProxy;
+import com.docdoku.server.helpers.Streams;
 import com.docdoku.server.rest.exceptions.*;
 import com.docdoku.server.rest.file.util.BinaryResourceDownloadMeta;
 import com.docdoku.server.rest.file.util.BinaryResourceDownloadResponseBuilder;
 import com.docdoku.server.rest.file.util.BinaryResourceUpload;
 import com.docdoku.server.rest.interceptors.Compress;
 
-import javax.annotation.Resource;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.SessionContext;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
@@ -52,28 +52,39 @@ import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URLEncoder;
+import java.text.Normalizer;
 import java.util.Collection;
 import java.util.Date;
 import java.util.Locale;
+import java.util.logging.Logger;
 
-@Stateless
+@RequestScoped
 @DeclareRoles({UserGroupMapping.REGULAR_USER_ROLE_ID,UserGroupMapping.GUEST_PROXY_ROLE_ID})
 public class DocumentBinaryResource {
-    @EJB
+
+    @Inject
     private IDataManagerLocal dataManager;
-    @EJB
+
+    @Inject
     private IDocumentManagerLocal documentService;
-    @EJB
+
+    @Inject
+    private IContextManagerLocal contextManager;
+
+    @Inject
     private IDocumentResourceGetterManagerLocal documentResourceGetterService;
-    @EJB
+
+    @Inject
     private IDocumentPostUploaderManagerLocal documentPostUploaderService;
-    @EJB
+
+    @Inject
     private IShareManagerLocal shareService;
-    @EJB
+
+    @Inject
     private GuestProxy guestProxy;
 
-    @Resource
-    private SessionContext ctx;
+    private static final Logger LOGGER = Logger.getLogger(DocumentBinaryResource.class.getName());
 
     public DocumentBinaryResource() {
     }
@@ -83,10 +94,10 @@ public class DocumentBinaryResource {
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     @RolesAllowed({UserGroupMapping.REGULAR_USER_ROLE_ID})
     public Response uploadDocumentFiles(@Context HttpServletRequest request,
-                                       @PathParam("workspaceId") final String workspaceId,
-                                       @PathParam("documentId") final String documentId,
-                                       @PathParam("version") final String version,
-                                       @PathParam("iteration") final int iteration)
+                                        @PathParam("workspaceId") final String workspaceId,
+                                        @PathParam("documentId") final String documentId,
+                                        @PathParam("version") final String version,
+                                        @PathParam("iteration") final int iteration)
             throws EntityNotFoundException, EntityAlreadyExistsException, UserNotActiveException, AccessRightException, NotAllowedException, CreationException {
         try {
             String fileName=null;
@@ -98,7 +109,7 @@ public class DocumentBinaryResource {
             }
 
             if(formParts.size()==1) {
-                return BinaryResourceUpload.tryToRespondCreated(request.getRequestURI()+fileName);
+                return BinaryResourceUpload.tryToRespondCreated(request.getRequestURI()+ URLEncoder.encode(fileName, "UTF-8"));
             }
             return Response.ok().build();
 
@@ -110,7 +121,7 @@ public class DocumentBinaryResource {
     private String uploadAFile(Part formPart,DocumentIterationKey docPK)
             throws EntityNotFoundException, EntityAlreadyExistsException, AccessRightException, NotAllowedException, CreationException, UserNotActiveException, StorageException, IOException {
 
-        String fileName = formPart.getSubmittedFileName();
+        String fileName = Normalizer.normalize(formPart.getSubmittedFileName(), Normalizer.Form.NFC);
         // Init the binary resource with a null length
         BinaryResource binaryResource = documentService.saveFileInDocument(docPK, fileName, 0);
         OutputStream outputStream = dataManager.getBinaryResourceOutputStream(binaryResource);
@@ -179,8 +190,8 @@ public class DocumentBinaryResource {
             return rb.build();
         }
 
+        InputStream binaryContentInputStream = null;
         try {
-            InputStream binaryContentInputStream;
             if(virtualSubResource!=null && !virtualSubResource.isEmpty()){
                 binaryContentInputStream = dataManager.getBinarySubResourceInputStream(binaryResource, fullName+"/"+virtualSubResource);
             }else if(output!=null && !output.isEmpty()){
@@ -190,6 +201,7 @@ public class DocumentBinaryResource {
             }
             return BinaryResourceDownloadResponseBuilder.prepareResponse(binaryContentInputStream, binaryResourceDownloadMeta, range);
         } catch (StorageException | FileConversionException e) {
+            Streams.close(binaryContentInputStream);
             return BinaryResourceDownloadResponseBuilder.downloadError(e, fullName);
         }
     }
@@ -203,10 +215,10 @@ public class DocumentBinaryResource {
      */
     private InputStream getConvertedBinaryResource(BinaryResource binaryResource, String outputFormat) throws FileConversionException {
         try {
-            if(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)){
-                return documentResourceGetterService.getConvertedResource(outputFormat, binaryResource);
+            if(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)){
+                return documentResourceGetterService.getDocumentConvertedResource(outputFormat, binaryResource);
             }else{
-                return guestProxy.getConvertedResource(outputFormat, binaryResource);
+                return guestProxy.getDocumentConvertedResource(outputFormat, binaryResource);
             }
         } catch (Exception e) {
             throw new FileConversionException(e);
@@ -214,7 +226,7 @@ public class DocumentBinaryResource {
     }
 
     private boolean canAccess(DocumentIterationKey docIKey) throws UserNotActiveException, EntityNotFoundException {
-        if(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)){
+        if(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)){
             return documentService.canAccess(docIKey);
         }else{
             return guestProxy.canAccess(docIKey);
@@ -223,7 +235,7 @@ public class DocumentBinaryResource {
 
     private BinaryResource getBinaryResource(String fullName)
             throws NotAllowedException, AccessRightException, UserNotActiveException, EntityNotFoundException {
-        if(ctx.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)){
+        if(contextManager.isCallerInRole(UserGroupMapping.REGULAR_USER_ROLE_ID)){
             return documentService.getBinaryResource(fullName);
         }else{
             return guestProxy.getBinaryResourceForDocument(fullName);
@@ -241,11 +253,11 @@ public class DocumentBinaryResource {
 
         String shareEntityWorkspaceId = sharedEntity.getWorkspace().getId();
         DocumentRevision documentRevision = ((SharedDocument) sharedEntity).getDocumentRevision();
-
+        DocumentIteration lastCheckedInIteration = documentRevision.getLastCheckedInIteration();
         if(!shareEntityWorkspaceId.equals(workspaceId) ||
                 !documentRevision.getDocumentMasterId().equals(documentId) ||
                 !documentRevision.getVersion().equals(version) ||
-                documentRevision.getLastCheckedInIteration().getIteration() < iteration){
+                (null != lastCheckedInIteration && lastCheckedInIteration.getIteration() < iteration)){
             throw new UnmatchingUuidException();
         }
     }

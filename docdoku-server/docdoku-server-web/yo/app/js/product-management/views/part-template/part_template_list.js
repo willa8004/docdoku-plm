@@ -3,9 +3,10 @@ define([
     'backbone',
     'mustache',
     'text!templates/part-template/part_template_list.html',
-    'views/part-template/part_template_list_item'
-], function (Backbone, Mustache, template, PartTemplateListItemView) {
-	'use strict';
+    'views/part-template/part_template_list_item',
+    'common-objects/views/security/acl_edit'
+], function (Backbone, Mustache, template, PartTemplateListItemView, ACLEditView) {
+    'use strict';
     var PartTemplateListView = Backbone.View.extend({
 
         events: {
@@ -29,9 +30,10 @@ define([
             var _this = this;
             this.collection.fetch({
                 reset: true,
-                error:function(err){
-                    _this.trigger('error',err);
-                }});
+                error: function (err) {
+                    _this.trigger('error', err);
+                }
+            });
             return this;
         },
         bindDomElements: function () {
@@ -124,18 +126,21 @@ define([
 
         onNoPartTemplateSelected: function () {
             this.trigger('delete-button:display', false);
+            this.trigger('acl-button:display', false);
         },
         onOnePartTemplateSelected: function () {
             this.trigger('delete-button:display', true);
+            this.trigger('acl-button:display', true);
         },
         onSeveralPartTemplatesSelected: function () {
             this.trigger('delete-button:display', true);
+            this.trigger('acl-button:display', false);
         },
 
         deleteSelectedPartTemplates: function () {
             var _this = this;
-            bootbox.confirm(App.config.i18n.CONFIRM_DELETE_PART_TEMPLATE, function(result){
-                if(result){
+            bootbox.confirm(App.config.i18n.CONFIRM_DELETE_PART_TEMPLATE, function (result) {
+                if (result) {
                     _(_this.listItemViews).each(function (view) {
                         if (view.isChecked()) {
                             view.model.destroy({
@@ -143,14 +148,53 @@ define([
                                 success: function () {
                                     _this.removePartTemplate(view.model);
                                     _this.onSelectionChanged();
-                                }, error: function (model, err) {
-                                    _this.trigger('error',model,err);
+                                },
+                                error: function (model, err) {
+                                    _this.trigger('error', model, err);
                                     _this.onSelectionChanged();
-                                }});
+                                }
+                            });
                         }
                     });
                 }
             });
+        },
+
+        editSelectedPartTemplateACL: function () {
+            var templateSelected;
+            var _this = this;
+            _(_this.listItemViews).each(function (view) {
+                if (view.isChecked()) {
+                    templateSelected = view.model;
+                }
+            });
+
+            var aclEditView = new ACLEditView({
+                editMode: true,
+                acl: templateSelected.get('acl')
+            });
+
+            aclEditView.setTitle(templateSelected.getId());
+            window.document.body.appendChild(aclEditView.render().el);
+
+            aclEditView.openModal();
+            aclEditView.on('acl:update', function () {
+
+                var acl = aclEditView.toList();
+
+                templateSelected.updateACL({
+                    acl: acl || {userEntries: {}, groupEntries: {}},
+                    success: function () {
+                        templateSelected.set('acl', acl);
+                        aclEditView.closeModal();
+                    },
+                    error: function(error){
+                        aclEditView.onError(error);
+                    }
+                });
+            });
+
+            return false;
         },
 
         redraw: function () {
@@ -175,8 +219,8 @@ define([
                 },
                 sDom: 'ft',
                 aoColumnDefs: [
-                    { 'bSortable': false, 'aTargets': [ 0 ] },
-                    { 'sType': App.config.i18n.DATE_SORT, 'aTargets': [5] }
+                    {'bSortable': false, 'aTargets': [0, 6, 7]},
+                    {'sType': App.config.i18n.DATE_SORT, 'aTargets': [5]}
                 ]
             });
             this.$el.parent().find('.dataTables_filter input').attr('placeholder', App.config.i18n.FILTER);

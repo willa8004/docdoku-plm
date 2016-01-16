@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -203,6 +203,10 @@ public abstract class ChangeItem implements Serializable {
     }
     public void setAssignee(User assignee) {
         this.assignee = assignee;
+    }
+
+    public String getAssigneeName() {
+        return assignee == null ? null : assignee.getName();
     }
 
     public Set<DocumentIteration> getAffectedDocuments() {

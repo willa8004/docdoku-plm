@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -38,7 +38,6 @@ import java.util.logging.Logger;
 public class BinaryResourceUpload {
     private static final Logger LOGGER = Logger.getLogger(BinaryResourceUpload.class.getName());
 
-
     private BinaryResourceUpload(){
         super();
     }
@@ -47,49 +46,21 @@ public class BinaryResourceUpload {
     /**
      * Upload a form file in a specific output
      * @param outputStream BinaryResource output stream (in server vault repository)
-     * @param formPart The formulaire part list
-     * @return The lenght of the file uploaded
+     * @param formPart The form part list
+     * @return The length of the file uploaded
      */
     public static long uploadBinary(OutputStream outputStream, Part formPart)
             throws IOException {
-        InputStream inputStream = null;
-        long length = -1;
-        try {
-            inputStream = formPart.getInputStream();
-            length = ByteStreams.copy(inputStream, outputStream);
-        } finally {
-            closeInputStream(inputStream);
-            closeOutputStream(outputStream);
+        long length;
+        try(InputStream in = formPart.getInputStream();OutputStream out=outputStream) {
+            length = ByteStreams.copy(in, out);
         }
-
         return length;
-    }
-
-
-    private static void closeInputStream(InputStream inputStream){
-        if(inputStream!=null){
-            try {
-                inputStream.close();
-            } catch (IOException e) {
-                LOGGER.log(Level.SEVERE,"A inputStream can not be close",e);
-            }
-        }
-    }
-
-    private static void closeOutputStream(OutputStream outputStream){
-        if(outputStream!=null){
-            try {
-                outputStream.flush();
-                outputStream.close();
-            } catch (IOException e) {
-                LOGGER.log(Level.SEVERE, "A outputStream can not be close", e);
-            }
-        }
     }
 
     /**
      * Log error & return a 500 error.
-     * @param e The catched exception which cause the error.
+     * @param e The exception which cause the error.
      * @return A 500 error.
      */
     public static Response uploadError(Exception e){

@@ -1,4 +1,4 @@
-/*global _,define,App*/
+/*global _,define,App,$*/
 define([
     'backbone',
     'mustache',
@@ -18,7 +18,7 @@ define([
             'add': 'collectionAdd',
             'remove': 'collectionRemove'
         },
-        initialize: function (options) {
+        initialize: function () {
 
             // Owned events
             this.events = {};

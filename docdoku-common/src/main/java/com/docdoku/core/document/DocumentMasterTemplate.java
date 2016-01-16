@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,16 +25,15 @@ import com.docdoku.core.common.FileHolder;
 import com.docdoku.core.common.User;
 import com.docdoku.core.common.Workspace;
 import com.docdoku.core.meta.InstanceAttributeTemplate;
+import com.docdoku.core.security.ACL;
+import com.docdoku.core.workflow.WorkflowModel;
 
 import javax.persistence.*;
 import java.io.Serializable;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 /**
- * A model object from which we can create a
- * <a href="DocumentMaster.html">DocumentMaster</a>.
+ * A model object from which we can create a {@link DocumentMaster}.
  * Creating a document through a model offers the ability to enforce a input
  * mask for the document ID, as well as some insuring that the starting
  * iteration defines some custom attributes or has some specific binary files.
@@ -46,6 +45,10 @@ import java.util.Set;
 @Table(name="DOCUMENTMASTERTEMPLATE")
 @javax.persistence.IdClass(com.docdoku.core.document.DocumentMasterTemplateKey.class)
 @javax.persistence.Entity
+@NamedQueries({
+        @NamedQuery(name="DocumentMasterTemplate.findWhereLOV", query="SELECT d FROM DocumentMasterTemplate d WHERE EXISTS ( SELECT i FROM InstanceAttributeTemplate i, ListOfValuesAttributeTemplate il WHERE i member of d.attributeTemplates AND i = il AND il.lov.name = :lovName AND il.lov.workspaceId = :workspace_id)"),
+        @NamedQuery(name="DocumentMasterTemplate.findWhereWorkflowModel", query="SELECT d FROM DocumentMasterTemplate d WHERE :workflowModel = d.workflowModel")
+})
 public class DocumentMasterTemplate implements Serializable, FileHolder, Comparable<DocumentMasterTemplate> {
 
     @Column(length=100)
@@ -61,7 +64,10 @@ public class DocumentMasterTemplate implements Serializable, FileHolder, Compara
     private String documentType;
     
     private String mask;
-    
+
+    @OneToOne(orphanRemoval = true, cascade=CascadeType.ALL, fetch=FetchType.EAGER)
+    private ACL acl;
+
     @OneToMany(cascade={CascadeType.REMOVE,CascadeType.REFRESH}, fetch=FetchType.EAGER)
     @JoinTable(name="DOCUMENTMASTERTEMPLATE_BINRES",
         inverseJoinColumns={
@@ -74,8 +80,8 @@ public class DocumentMasterTemplate implements Serializable, FileHolder, Compara
     )
     private Set<BinaryResource> attachedFiles = new HashSet<>();
 
-
-    @OneToMany(cascade={CascadeType.ALL}, fetch=FetchType.EAGER)
+    @OrderColumn(name="ATTR_ORDER")
+    @OneToMany(cascade={CascadeType.ALL}, fetch=FetchType.EAGER, orphanRemoval = true)
     @JoinTable(name="DOCUMENTMASTERTEMPLATE_ATTR",
             inverseJoinColumns={
                     @JoinColumn(name="INSTANCEATTRIBUTETEMPLATE_ID", referencedColumnName="ID")
@@ -85,7 +91,7 @@ public class DocumentMasterTemplate implements Serializable, FileHolder, Compara
                     @JoinColumn(name="DOCUMENTMASTERTEMPLATE_ID", referencedColumnName="ID")
             }
     )
-    private Set<InstanceAttributeTemplate> attributeTemplates=new HashSet<>();
+    private List<InstanceAttributeTemplate> attributeTemplates=new ArrayList<>();
 
     private boolean attributesLocked;
     
@@ -101,7 +107,20 @@ public class DocumentMasterTemplate implements Serializable, FileHolder, Compara
     
     @javax.persistence.ManyToOne(optional=false, fetch=FetchType.EAGER)
     private Workspace workspace;
-    
+
+    @ManyToOne(fetch=FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name="WORKFLOWMODEL_ID", referencedColumnName="ID"),
+            @JoinColumn(name="WORKFLOWMODEL_WORKSPACE_ID", referencedColumnName="WORKSPACE_ID")
+    })
+    private WorkflowModel workflowModel;
+
+
+    @Column(name = "WORKFLOWMODEL_ID", length=100, insertable = false, updatable = false)
+    private String workflowModelId;
+
+
+
     public DocumentMasterTemplate() {
     }
     
@@ -120,8 +139,28 @@ public class DocumentMasterTemplate implements Serializable, FileHolder, Compara
     public void setDocumentType(String documentType) {
         this.documentType = documentType;
     }
-    
-    
+
+    public String getWorkflowModelId() {
+        return workflowModelId;
+    }
+
+    public void setWorkflowModelId(String workflowModelId) {
+        this.workflowModelId = workflowModelId;
+    }
+
+    public WorkflowModel getWorkflowModel() {
+        return workflowModel;
+    }
+
+    public void setWorkflowModel(WorkflowModel workflowModel) {
+        this.workflowModel = workflowModel;
+        if (workflowModel == null) {
+            setWorkflowModelId(null);
+        } else {
+            setWorkflowModelId(workflowModel.getId());
+        }
+    }
+
     public String getMask(){
         return mask;
     }
@@ -154,26 +193,17 @@ public class DocumentMasterTemplate implements Serializable, FileHolder, Compara
     public void addFile(BinaryResource pBinaryResource){
         attachedFiles.add(pBinaryResource);
     }
-    
+    @Override
     public Set<BinaryResource> getAttachedFiles() {
         return attachedFiles;
     }
 
-    public Set<InstanceAttributeTemplate> getAttributeTemplates() {
+    public List<InstanceAttributeTemplate> getAttributeTemplates() {
         return attributeTemplates;
     }
     
-    public void setAttributeTemplates(Set<InstanceAttributeTemplate> pAttributeTemplates) {
-        attributeTemplates.retainAll(pAttributeTemplates);
-        for(InstanceAttributeTemplate currentAttr:attributeTemplates){
-            for(InstanceAttributeTemplate attr:pAttributeTemplates){
-                if(attr.equals(currentAttr)) {
-                    currentAttr.setAttributeType(attr.getAttributeType());
-                }
-            }
-        }
-        pAttributeTemplates.removeAll(attributeTemplates);
-        attributeTemplates.addAll(pAttributeTemplates);
+    public void setAttributeTemplates(List<InstanceAttributeTemplate> pAttributeTemplates) {
+        attributeTemplates=pAttributeTemplates;
     }
 
     public boolean isAttributesLocked() {
@@ -204,7 +234,13 @@ public class DocumentMasterTemplate implements Serializable, FileHolder, Compara
         workspace=pWorkspace;
         workspaceId=workspace.getId();
     }
-    
+    public ACL getAcl() {
+        return acl;
+    }
+
+    public void setAcl(ACL acl) {
+        this.acl = acl;
+    }
     public Workspace getWorkspace(){
         return workspace;
     }

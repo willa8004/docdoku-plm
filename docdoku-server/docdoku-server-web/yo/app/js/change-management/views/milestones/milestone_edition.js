@@ -32,7 +32,14 @@ define([
             var hasOrder = this.model.getNumberOfOrders() > 0;
             this.removeSubviews();
             this.editMode = this.model.isWritable();
-            this.$el.html(Mustache.render(template, {timeZone:App.config.timeZone,i18n: App.config.i18n, hasRequest: hasRequest, hasOrder: hasOrder, model: this.model}));
+            this.$el.html(Mustache.render(template, {
+                timeZone: App.config.timeZone,
+                language : App.config.locale,
+                i18n: App.config.i18n,
+                hasRequest: hasRequest,
+                hasOrder: hasOrder,
+                model: this.model
+            }));
             this.bindDomElements();
             this.initValue();
             this.linkManagement();

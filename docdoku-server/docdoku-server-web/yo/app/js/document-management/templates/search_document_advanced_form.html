@@ -16,7 +16,10 @@
                     <a href="#tab-search-attributes" data-toggle="tab">{{i18n.ATTRIBUTES}}</a>
                 </li>
                 <li>
-                    <a href="#tab-search-advanced" data-toggle="tab">{{i18n.ADVANCED}}</a>
+                    <a href="#tab-search-tags" data-toggle="tab">{{i18n.TAGS}}</a>
+                </li>
+                <li>
+                    <a href="#tab-search-text" data-toggle="tab">{{i18n.CONTENT}}</a>
                 </li>
             </ul>
 
@@ -62,7 +65,7 @@
                             <div class="controls">
                                 <input type="text" id="search-version" class="input-medium">
 
-                                <p class="help-block">{{i18n.VERSION_HELP}}</p>
+                                <p class="help-block">{{i18n.DOCUMENT_VERSION_HELP}}</p>
                             </div>
                         </div>
 
@@ -79,11 +82,21 @@
                         </div>
 
                         <div class="control-group creationDates">
-                            <label class="control-label" for="search-from">{{i18n.CREATION_DATE}}</label>
+                            <label class="control-label" for="search-creation-from">{{i18n.CREATION_DATE}}</label>
 
                             <div class="controls">
-                                <input id="search-from" type="date"><br/>
-                                <input id="search-to" type="date">
+                                <p>{{i18n.FROM}}</p> <input id="search-creation-from" type="text" data-provide="datepicker" data-date-format="yyyy-mm-dd" data-date-language="{{language}}" data-date-today-highlight="true"/><br/>
+                                <p>{{i18n.TO}}</p> <input id="search-creation-to" type="text" data-provide="datepicker" data-date-format="yyyy-mm-dd" data-date-language="{{language}}" data-date-today-highlight="true" />
+                                <p class="help-block"> <i class="fa fa-clock-o">{{timeZone}}</i></p>
+                            </div>
+                        </div>
+
+                        <div class="control-group modificationDates">
+                            <label class="control-label" for="search-modification-from">{{i18n.MODIFICATION_DATE}}</label>
+
+                            <div class="controls">
+                                <p>{{i18n.FROM}}</p> <input id="search-modification-from" type="text" data-provide="datepicker" data-date-format="yyyy-mm-dd" data-date-language="{{language}}" data-date-today-highlight="true" /><br/>
+                                <p>{{i18n.TO}}</p> <input id="search-modification-to" type="text" data-provide="datepicker" data-date-format="yyyy-mm-dd" data-date-language="{{language}}" data-date-today-highlight="true" />
                                 <p class="help-block"> <i class="fa fa-clock-o">{{timeZone}}</i></p>
                             </div>
                         </div>
@@ -105,7 +118,7 @@
                         <div id="attributes-list" class="attributes-edit"></div>
                     </div>
 
-                    <div id="tab-search-advanced" class="ModalTabsPane tab-pane advanced ">
+                    <div id="tab-search-tags" class="ModalTabsPane tab-pane advanced ">
                         <div class="control-group">
                             <label class="control-label" for="search-tags">{{i18n.TAGS}}</label>
 
@@ -115,11 +128,14 @@
                                 <p class="help-block">{{i18n.TAGS_HELP}}</p>
                             </div>
                         </div>
+
+                    </div>
+                    <div id="tab-search-text" class="ModalTabsPane tab-pane advanced ">
                         <div class="control-group">
                             <label class="control-label" for="search-content">{{i18n.CONTENT}}</label>
 
                             <div class="controls">
-                                <input type="text" id="search-content" class="input-medium">
+                                <textarea id="search-content" class="input-medium"></textarea>
 
                                 <p class="help-block">{{i18n.CONTENT_HELP}}</p>
                             </div>

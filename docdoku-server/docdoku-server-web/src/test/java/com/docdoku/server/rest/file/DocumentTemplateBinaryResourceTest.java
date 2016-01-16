@@ -1,3 +1,23 @@
+/*
+ * DocDoku, Professional Open Source
+ * Copyright 2006 - 2015 DocDoku SARL
+ *
+ * This file is part of DocDokuPLM.
+ *
+ * DocDokuPLM is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.docdoku.server.rest.file;
 
 import com.docdoku.core.common.BinaryResource;
@@ -16,7 +36,6 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.Part;
 import javax.ws.rs.core.Request;
 import javax.ws.rs.core.Response;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -72,13 +91,8 @@ public class DocumentTemplateBinaryResourceTest {
         binaryResource = Mockito.spy(new BinaryResource(ResourceUtil.FILENAME1,ResourceUtil.DOCUMENT_SIZE,new Date()));
         Collection<Part> filesParts = new ArrayList<Part>();
         filesParts.add(new PartImp(new File(getClass().getClassLoader().getResource(ResourceUtil.SOURCE_FILE_STORAGE + ResourceUtil.FILENAME1).getFile())));
-        File uploadedFile = new File(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME1);
-        if (!uploadedFile.getParentFile().exists()){
-            uploadedFile.getParentFile().mkdirs();
-        }
-        if (!uploadedFile.exists()){
-            uploadedFile.createNewFile();
-        }
+        File uploadedFile = File.createTempFile(ResourceUtil.TARGET_FILE_STORAGE + "new_" + ResourceUtil.FILENAME1,ResourceUtil.TEMP_SUFFIX);
+
         OutputStream outputStream = new FileOutputStream(uploadedFile);
         Mockito.when(documentService.saveFileInTemplate(Matchers.any(DocumentMasterTemplateKey.class),Matchers.anyString(), Matchers.anyInt())).thenReturn(binaryResource);
         Mockito.when(dataManager.getBinaryResourceOutputStream(binaryResource)).thenReturn(outputStream);
@@ -91,6 +105,9 @@ public class DocumentTemplateBinaryResourceTest {
         Assert.assertNotNull(response);
         Assert.assertEquals(response.getStatus(),200);
         Assert.assertEquals(response.getStatusInfo(), Response.Status.OK);
+
+        //delete temporary file
+        uploadedFile.deleteOnExit();
 
 
     }

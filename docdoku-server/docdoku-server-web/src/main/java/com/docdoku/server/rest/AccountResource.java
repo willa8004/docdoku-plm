@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -26,6 +26,7 @@ import com.docdoku.core.exceptions.CreationException;
 import com.docdoku.core.exceptions.EntityAlreadyExistsException;
 import com.docdoku.core.exceptions.EntityNotFoundException;
 import com.docdoku.core.security.UserGroupMapping;
+import com.docdoku.core.services.IAccountManagerLocal;
 import com.docdoku.core.services.IUserManagerLocal;
 import com.docdoku.server.rest.dto.AccountDTO;
 import com.docdoku.server.rest.dto.GCMAccountDTO;
@@ -34,29 +35,28 @@ import org.dozer.DozerBeanMapperSingletonWrapper;
 import org.dozer.Mapper;
 
 import javax.annotation.PostConstruct;
-import javax.annotation.Resource;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.SessionContext;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.ws.rs.*;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.ArrayList;
 import java.util.List;
 
-@Stateless
+@RequestScoped
 @Path("accounts")
 @DeclareRoles(UserGroupMapping.REGULAR_USER_ROLE_ID)
 @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
 public class AccountResource {
 
-    @EJB
-    private IUserManagerLocal userManager;
+    @Inject
+    private IAccountManagerLocal accountManager;
 
-    @Resource
-    private SessionContext ctx;
+    @Inject
+    private IUserManagerLocal userManager;
 
     private Mapper mapper;
 
@@ -71,9 +71,8 @@ public class AccountResource {
     @GET
     @Path("/me")
     @Produces(MediaType.APPLICATION_JSON)
-    public AccountDTO getAccount()
-            throws AccountNotFoundException {
-        Account account = userManager.getAccount(ctx.getCallerPrincipal().getName());
+    public AccountDTO getAccount() throws AccountNotFoundException {
+        Account account = accountManager.getMyAccount();
         return mapper.map(account,AccountDTO.class);
     }
 
@@ -81,15 +80,17 @@ public class AccountResource {
     @GET
     @Path("/workspaces")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<WorkspaceDTO> getWorkspaces(){
-        Workspace[] workspacesWhereCallerIsActive = userManager.getWorkspacesWhereCallerIsActive();
+    public Response getWorkspaces(){
+        Workspace[] workspaces = userManager.getWorkspacesWhereCallerIsActive();
 
         List<WorkspaceDTO> workspaceDTOs = new ArrayList<>();
-        for (Workspace aWorkspacesWhereCallerIsActive : workspacesWhereCallerIsActive) {
-            workspaceDTOs.add(mapper.map(aWorkspacesWhereCallerIsActive, WorkspaceDTO.class));
+        for (Workspace workspace : workspaces) {
+            workspaceDTOs.add(mapper.map(workspace, WorkspaceDTO.class));
         }
 
-        return workspaceDTOs;
+        return Response.ok(new GenericEntity<List<WorkspaceDTO>>((List<WorkspaceDTO>) workspaceDTOs) {
+        }).build();
+
     }
 
     @PUT
@@ -97,7 +98,7 @@ public class AccountResource {
     @Consumes(MediaType.APPLICATION_JSON)
     public Response setGCMAccount(GCMAccountDTO data)
             throws EntityAlreadyExistsException, AccountNotFoundException, CreationException {
-        userManager.setGCMAccount(data.getGcmId());
+        accountManager.setGCMAccount(data.getGcmId());
         return Response.ok().build();
     }
 
@@ -105,7 +106,7 @@ public class AccountResource {
     @DELETE
     @Path("gcm")
     public Response deleteGCMAccount() throws EntityNotFoundException {
-        userManager.deleteGCMAccount();
+        accountManager.deleteGCMAccount();
         return Response.ok().build();
     }
 

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -27,8 +27,7 @@ import java.io.Serializable;
  * An Effectivity is an abstract subclass which is
  * a kind of qualification object.
  * 
- * Effectivities are primarily applied to
- * <a href="PartRevision.html">PartRevision</a> objects.
+ * Effectivities are primarily applied to {@link PartRevision} objects.
  * 
  * 
  * @author Florent Garin
@@ -69,14 +68,12 @@ public abstract class Effectivity implements Serializable {
     public Effectivity() {
     }
 
-    public int getId() {
-        return id;
-    }
-    
-     
-
     public Effectivity(String pName) {
         name = pName;
+    }
+
+    public int getId() {
+        return id;
     }
 
     public String getName() {

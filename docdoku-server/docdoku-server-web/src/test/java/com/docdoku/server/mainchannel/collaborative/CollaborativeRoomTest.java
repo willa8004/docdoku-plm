@@ -1,3 +1,23 @@
+/*
+ * DocDoku, Professional Open Source
+ * Copyright 2006 - 2015 DocDoku SARL
+ *
+ * This file is part of DocDokuPLM.
+ *
+ * DocDokuPLM is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.docdoku.server.mainchannel.collaborative;
 
 
@@ -8,7 +28,6 @@ import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
 import org.mockito.Mockito;
 import org.mockito.runners.MockitoJUnitRunner;
 
@@ -98,7 +117,7 @@ public class CollaborativeRoomTest {
         //Given
         CollaborativeRoom collaborativeRoom1 = Mockito.spy(new CollaborativeRoom(master));
         //Then
-        Assert.assertTrue(collaborativeRoom1.getLastMaster().equals("master1"));
+        Assert.assertTrue("master1".equals(collaborativeRoom1.getLastMaster()));
     }
 
     @Test
@@ -186,7 +205,7 @@ public class CollaborativeRoomTest {
                 "            \"z\":0.07787502335635015\n" +
                 "         },\n" +
                 "         \"layers\":\"create layer\",\n" +
-                "         \"colourEditedMeshes\":true,\n" +
+                "         \"colourEditedObjects\":true,\n" +
                 "         \"clipping\":\"1\",\n" +
                 "         \"explode\":\"3\",\n" +
                 "         \"smartPath\":[  \n" +

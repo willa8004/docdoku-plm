@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,15 +24,19 @@ import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.exceptions.*;
 import com.docdoku.core.product.PartIteration;
 import com.docdoku.core.services.IDataManagerLocal;
-import com.docdoku.core.util.FileIO;
+import com.docdoku.server.InternalService;
 import com.docdoku.server.converters.CADConverter;
-import com.google.common.io.Files;
-import com.google.common.io.InputSupplier;
+import com.docdoku.server.converters.utils.ConversionResult;
+import com.docdoku.server.converters.utils.ConverterUtils;
 
-import javax.ejb.EJB;
-import java.io.*;
+import javax.inject.Inject;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -44,91 +48,83 @@ public class CatiaFileConverterImpl implements CADConverter{
 
     private static final Properties CONF = new Properties();
 
-    @EJB
+    @InternalService
+    @Inject
     private IDataManagerLocal dataManager;
 
     private static final Logger LOGGER = Logger.getLogger(CatiaFileConverterImpl.class.getName());
 
     static{
-        InputStream inputStream = null;
-        try {
-            inputStream = CatiaFileConverterImpl.class.getResourceAsStream(CONF_PROPERTIES);
+        try (InputStream inputStream = CatiaFileConverterImpl.class.getResourceAsStream(CONF_PROPERTIES)){
             CONF.load(inputStream);
         } catch (IOException e) {
-            Logger.getLogger(CatiaFileConverterImpl.class.getName()).log(Level.WARNING, null, e);
-        } finally {
-            try{
-                if(inputStream!=null){
-                    inputStream.close();
-                }
-            }catch (IOException e){
-                Logger.getLogger(CatiaFileConverterImpl.class.getName()).log(Level.FINEST,null, e);
-            }
+            LOGGER.log(Level.SEVERE, null, e);
         }
     }
 
     @Override
-    public File convert(PartIteration partToConvert, final BinaryResource cadFile, File tempDir) throws IOException, InterruptedException, UserNotActiveException, PartRevisionNotFoundException, WorkspaceNotFoundException, CreationException, UserNotFoundException, NotAllowedException, FileAlreadyExistsException, StorageException {
-        String woExName = FileIO.getFileNameWithoutExtension(cadFile.getName());
+    public ConversionResult convert(PartIteration partToConvert, final BinaryResource cadFile, File tempDir) throws IOException, InterruptedException, UserNotActiveException, PartRevisionNotFoundException, WorkspaceNotFoundException, CreationException, UserNotFoundException, NotAllowedException, FileAlreadyExistsException, StorageException {
         File tmpCadFile = new File(tempDir, cadFile.getName());
-        File tmpDAEFile = new File(tempDir, woExName+".dae");
+        File tmpDAEFile = new File(tempDir, UUID.randomUUID()+".dae");
         String catPartConverter = CONF.getProperty("catPartConverter");
 
-        Files.copy(new InputSupplier<InputStream>() {
-            @Override
-            public InputStream getInput() throws IOException {
-                try {
-                    return dataManager.getBinaryResourceInputStream(cadFile);
-                } catch (StorageException e) {
-                    Logger.getLogger(CatiaFileConverterImpl.class.getName()).log(Level.INFO, null, e);
-                    throw new IOException(e);
-                }
-            }
-        }, tmpCadFile);
+        File executable = new File(catPartConverter);
+
+        if(!executable.exists()){
+            LOGGER.log(Level.SEVERE, "Cannot convert file \""+cadFile.getName()+"\", \""+catPartConverter+"\" is not available");
+            return null;
+        }
+
+        if(!executable.canExecute()){
+            LOGGER.log(Level.SEVERE, "Cannot convert file \""+cadFile.getName()+"\", \""+catPartConverter+"\" has no execution rights");
+            return null;
+        }
+
+        try(InputStream in = dataManager.getBinaryResourceInputStream(cadFile)) {
+            Files.copy(in, tmpCadFile.toPath());
+        } catch (StorageException e) {
+            LOGGER.log(Level.WARNING, null, e);
+            throw new IOException(e);
+        }
+
 
         String[] args = {"sh", catPartConverter, tmpCadFile.getAbsolutePath() , tmpDAEFile.getAbsolutePath()};
 
         ProcessBuilder pb = new ProcessBuilder(args);
-        Process process = pb.start();
+        Process process1 = pb.start();
 
-        StringBuilder output = new StringBuilder();
-        String line;
+        // Read buffers
+        String stdOutput1 = ConverterUtils.getOutput(process1.getInputStream());
+        String errorOutput1 = ConverterUtils.getOutput(process1.getErrorStream());
 
-        InputStreamReader isr = new InputStreamReader(process.getInputStream(),"UTF-8");
-        BufferedReader br = new BufferedReader(isr);
-        while ((line=br.readLine()) != null){
-            output.append(line).append("\n");
-        }
-        br.close();
+        LOGGER.info(stdOutput1);
 
-        process.waitFor();
+        process1.waitFor();
 
         // Convert to OBJ once converted to DAE
-        if (process.exitValue() == 0 & tmpDAEFile.exists() && tmpDAEFile.length() > 0 ){
+        if (process1.exitValue() == 0 && tmpDAEFile.exists() && tmpDAEFile.length() > 0 ){
+
             String assimp = CONF.getProperty("assimp");
-            String convertedFileName = FileIO.getFileNameWithoutExtension(tmpDAEFile.getAbsolutePath()) + ".obj";
+            String convertedFileName = tempDir.getAbsolutePath() + "/" + UUID.randomUUID() + ".obj";
             String[] argsOBJ = {assimp, "export", tmpDAEFile.getAbsolutePath(), convertedFileName};
             pb = new ProcessBuilder(argsOBJ);
-            Process proc = pb.start();
+            Process process2 = pb.start();
 
-            output = new StringBuilder();
+            // Read buffers
+            String stdOutput2 = ConverterUtils.getOutput(process2.getInputStream());
+            String errorOutput2 = ConverterUtils.getOutput(process2.getErrorStream());
 
-            InputStreamReader isr2 = new InputStreamReader(proc.getInputStream(),"UTF-8");
-            BufferedReader br2 = new BufferedReader(isr2);
-            while ((line=br2.readLine()) != null){
-                output.append(line).append("\n");
-            }
-            br2.close();
+            LOGGER.info(stdOutput2);
 
-            proc.waitFor();
+            process2.waitFor();
 
-            if (proc.exitValue() == 0) {
-                return new File(convertedFileName);
+            if (process2.exitValue() == 0) {
+                return new ConversionResult( new File(convertedFileName));
             }else {
-                LOGGER.log(Level.SEVERE, "Cannot convert to obj : " + tmpCadFile.getAbsolutePath(), output.toString());
+                LOGGER.log(Level.SEVERE, "Cannot convert to obj : " + tmpCadFile.getAbsolutePath(), errorOutput2);
             }
         } else {
-            LOGGER.log(Level.SEVERE, "Cannot convert to dae : " + tmpCadFile.getAbsolutePath(), output.toString());
+            LOGGER.log(Level.SEVERE, "Cannot convert to dae : " + tmpCadFile.getAbsolutePath(), errorOutput1);
         }
 
         return null;

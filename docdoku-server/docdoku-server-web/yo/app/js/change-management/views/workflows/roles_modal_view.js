@@ -37,16 +37,14 @@ define([
             }
             this.rolesInUse = new RoleInUseList();
 
+            this.userList.fetch({reset: true, success: function () {
+                _this.createRoleViews();
+                _this.rolesInUse.fetch({reset: true});
+            }});
+
             this.rolesToDelete = [];
 
-            this.listenTo(this.collection, 'reset', this.onCollectionReset);
             this.listenTo(this.collection, 'add', this.onModelAddedToCollection);
-
-            this.userList.fetch({reset: true, success: function () {
-                _this.rolesInUse.fetch({reset: true, success: function () {
-                    _this.collection.fetch({reset: true});
-                }});
-            }});
 
             return this;
         },
@@ -70,7 +68,7 @@ define([
                 this.collection.add({
                     workspaceId: App.config.workspaceId,
                     name: this.$newRoleName.val(),
-                    defaultUserMapped: null
+                    defaultAssignee: null
                 });
                 this.resetNewRoleForm();
             }
@@ -123,7 +121,7 @@ define([
             return false;
         },
 
-        onCollectionReset: function () {
+        createRoleViews: function () {
             var _this = this;
             this.roleViews = [];
             this.collection.each(function (model) {

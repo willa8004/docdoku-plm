@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -23,7 +23,7 @@ package com.docdoku.core.workflow;
 import java.io.Serializable;
 
 /**
- * Identity class of <a href="WorkflowModel.html">WorkflowModel</a> objects.
+ * Identity class of {@link WorkflowModel} objects.
  *
  * @author Florent Garin
  */

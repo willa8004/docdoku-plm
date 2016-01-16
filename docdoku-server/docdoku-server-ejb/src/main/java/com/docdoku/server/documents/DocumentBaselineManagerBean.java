@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -40,9 +40,9 @@ import com.docdoku.server.dao.WorkspaceDAO;
 
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
 import javax.ejb.Local;
 import javax.ejb.Stateless;
+import javax.inject.Inject;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
 import java.util.ArrayList;
@@ -58,9 +58,10 @@ public class DocumentBaselineManagerBean implements IDocumentBaselineManagerLoca
     @PersistenceContext
     private EntityManager em;
 
-    @EJB
+    @Inject
     private IUserManagerLocal userManager;
-    @EJB
+
+    @Inject
     private IDocumentManagerLocal documentService;
 
     @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
@@ -121,7 +122,7 @@ public class DocumentBaselineManagerBean implements IDocumentBaselineManagerLoca
     private void fillBaselineDocument(DocumentBaseline baseline, List<DocumentRevisionKey> revisionKeys) throws DocumentRevisionNotFoundException, FolderNotFoundException, UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException {
         // Add all document
         for(DocumentRevisionKey revisionKey : revisionKeys){
-            User user = userManager.checkWorkspaceReadAccess(revisionKey.getWorkspaceId());
+            User user = userManager.checkWorkspaceReadAccess(revisionKey.getDocumentMaster().getWorkspace());
 
             // Ignore already existing document
             if(baseline.hasBaselinedDocument(revisionKey)){

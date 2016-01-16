@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -40,10 +40,10 @@ import java.util.List;
  * @since   V1.0
  */
 @Table(name="DOCUMENTMASTER")
-@javax.persistence.IdClass(com.docdoku.core.document.DocumentMasterKey.class)
-@javax.persistence.Entity
-@javax.persistence.NamedQueries ({
-        @NamedQuery(name="DocumentMaster.findByWorkspace", query="SELECT dm FROM DocumentMaster dm WHERE dm.workspace.id = :workspaceId ORDER BY dm.creationDate DESC")
+@IdClass(com.docdoku.core.document.DocumentMasterKey.class)
+@Entity
+@NamedQueries ({
+    @NamedQuery(name="DocumentMaster.findByWorkspace", query="SELECT dm FROM DocumentMaster dm WHERE dm.workspace.id = :workspaceId ORDER BY dm.creationDate DESC")
 })
 public class DocumentMaster implements Serializable, Comparable<DocumentMaster> {
 
@@ -63,7 +63,7 @@ public class DocumentMaster implements Serializable, Comparable<DocumentMaster> 
     private User author;
     
     @javax.persistence.Temporal(javax.persistence.TemporalType.TIMESTAMP)
-    private java.util.Date creationDate;
+    private Date creationDate;
     
     private String type;
     

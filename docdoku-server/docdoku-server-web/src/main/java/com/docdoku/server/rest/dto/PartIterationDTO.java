@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -32,19 +32,26 @@ public class PartIterationDTO implements Serializable {
     private String nativeCADFile;
     private String iterationNote;
     private UserDTO author;
+
     private Date creationDate;
+    private Date modificationDate;
+    private Date checkInDate;
     private List<InstanceAttributeDTO> instanceAttributes;
+    private List<InstanceAttributeTemplateDTO> instanceAttributeTemplates;
     private List<PartUsageLinkDTO> components;
-    private List<DocumentIterationDTO> linkedDocuments;
+    private List<DocumentRevisionDTO> linkedDocuments;
     private String number;
+    private String name;
     private String version;
+    private List<String> attachedFiles;
 
     public PartIterationDTO() {
     }
 
-    public PartIterationDTO(String pWorkspaceId, String pNumber, String pVersion, int pIteration) {
+    public PartIterationDTO(String pWorkspaceId, String pName, String pNumber, String pVersion, int pIteration) {
         workspaceId = pWorkspaceId;
         number = pNumber;
+        name = pName;
         version = pVersion;
         iteration = pIteration;
     }
@@ -97,6 +104,22 @@ public class PartIterationDTO implements Serializable {
         this.creationDate = creationDate;
     }
 
+    public Date getModificationDate() {
+        return modificationDate;
+    }
+
+    public void setModificationDate(Date modificationDate) {
+        this.modificationDate = modificationDate;
+    }
+
+    public Date getCheckInDate() {
+        return checkInDate;
+    }
+
+    public void setCheckInDate(Date checkInDate) {
+        this.checkInDate = checkInDate;
+    }
+
     public List<InstanceAttributeDTO> getInstanceAttributes() {
         return instanceAttributes;
     }
@@ -113,11 +136,11 @@ public class PartIterationDTO implements Serializable {
         this.components = components;
     }
 
-    public List<DocumentIterationDTO> getLinkedDocuments() {
+    public List<DocumentRevisionDTO> getLinkedDocuments() {
         return linkedDocuments;
     }
 
-    public void setLinkedDocuments(List<DocumentIterationDTO> linkedDocuments) {
+    public void setLinkedDocuments(List<DocumentRevisionDTO> linkedDocuments) {
         this.linkedDocuments = linkedDocuments;
     }
 
@@ -136,4 +159,29 @@ public class PartIterationDTO implements Serializable {
     public void setVersion(String version) {
         this.version = version;
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public List<InstanceAttributeTemplateDTO> getInstanceAttributeTemplates() {
+        return instanceAttributeTemplates;
+    }
+
+    public void setInstanceAttributeTemplates(List<InstanceAttributeTemplateDTO> instanceAttributeTemplates) {
+        this.instanceAttributeTemplates = instanceAttributeTemplates;
+    }
+
+    public List<String> getAttachedFiles() {
+        return attachedFiles;
+    }
+
+    public void setAttachedFiles(List<String> attachedFiles) {
+        this.attachedFiles = attachedFiles;
+    }
+
 }

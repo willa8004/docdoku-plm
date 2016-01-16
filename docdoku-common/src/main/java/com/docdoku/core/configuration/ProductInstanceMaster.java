@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -19,13 +19,12 @@
  */
 package com.docdoku.core.configuration;
 
-import com.docdoku.core.common.User;
 import com.docdoku.core.product.ConfigurationItem;
+import com.docdoku.core.security.ACL;
 
 import javax.persistence.*;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -34,17 +33,19 @@ import java.util.List;
  *
  * The composition of the instance may vary according to modifications
  * applied on it so to track this evolution the part collection is kept
- * on several <a href="ProductInstanceIteration.html">ProductInstanceIteration</a>.
+ * on several {@link ProductInstanceIteration}.
  *
  * @author Florent Garin
  * @version 2.0, 24/02/14
- * @since   V2.0
+ * @since V2.0
  */
 @Table(name="PRODUCTINSTANCEMASTER")
 @IdClass(com.docdoku.core.configuration.ProductInstanceMasterKey.class)
 @Entity
 @NamedQueries({
-        @NamedQuery(name="ProductInstanceMaster.findByConfigurationItemId", query="SELECT pim FROM ProductInstanceMaster pim WHERE pim.instanceOf.id = :ciId AND pim.instanceOf.workspace.id = :workspaceId")
+        @NamedQuery(name="ProductInstanceMaster.findByPathData", query="SELECT p.productInstanceMaster FROM ProductInstanceIteration p WHERE :pathDataMasterList member of p.pathDataMasterList"),
+        @NamedQuery(name="ProductInstanceMaster.findByConfigurationItemId", query="SELECT pim FROM ProductInstanceMaster pim WHERE pim.instanceOf.id = :ciId AND pim.instanceOf.workspace.id = :workspaceId"),
+        @NamedQuery(name="ProductInstanceMaster.findByPart", query="SELECT DISTINCT pim FROM ProductInstanceMaster pim JOIN ProductBaseline pb JOIN BaselinedPart bp WHERE pim.instanceOf = pb.configurationItem AND pb.partCollection = bp.partCollection AND bp.targetPart.partRevision = :partRevision ORDER BY pb.configurationItem.id")
 })
 public class ProductInstanceMaster implements Serializable {
 
@@ -64,6 +65,9 @@ public class ProductInstanceMaster implements Serializable {
     @OneToMany(mappedBy = "productInstanceMaster", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @OrderBy("iteration ASC")
     private List<ProductInstanceIteration> productInstanceIterations = new ArrayList<>();
+
+    @OneToOne(orphanRemoval = true, cascade=CascadeType.ALL, fetch=FetchType.EAGER)
+    private ACL acl;
 
     public ProductInstanceMaster() {
     }
@@ -115,28 +119,47 @@ public class ProductInstanceMaster implements Serializable {
             return productInstanceIterations.get(index);
     }
 
-    public User getUpdateAuthor(){
-        ProductInstanceIteration productInstanceIteration = getLastIteration();
-        if(productInstanceIteration==null){
-            return null;
-        }
-        return getLastIteration().getUpdateAuthor();
+    public ACL getAcl() {
+        return acl;
     }
 
-    public String getUpdateAuthorName(){
-        User author = getUpdateAuthor();
-        if(author==null){
-            return null;
-        }
-        return author.getName();
+    public void setAcl(ACL acl) {
+        this.acl = acl;
     }
 
-    public Date getUpdateDate(){
-        ProductInstanceIteration productInstanceIteration = getLastIteration();
-        if(productInstanceIteration==null){
-            return null;
-        }else{
-            return getLastIteration().getUpdateDate();
+    public void setProductInstanceIterations(List<ProductInstanceIteration> productInstanceIterations) {
+        this.productInstanceIterations = productInstanceIterations;
+    }
+
+    public String getIdentifier(){
+        return instanceOf.getId() + "-" + serialNumber;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
         }
+        if (o == null || getClass() != o.getClass()){
+            return false;
+        }
+
+        ProductInstanceMaster that = (ProductInstanceMaster) o;
+
+        if (instanceOf != null ? !instanceOf.equals(that.instanceOf) : that.instanceOf != null){
+            return false;
+        }
+        if (serialNumber != null ? !serialNumber.equals(that.serialNumber) : that.serialNumber != null){
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public int hashCode() {
+        int result = serialNumber != null ? serialNumber.hashCode() : 0;
+        result = 31 * result + (instanceOf != null ? instanceOf.hashCode() : 0);
+        return result;
     }
 }

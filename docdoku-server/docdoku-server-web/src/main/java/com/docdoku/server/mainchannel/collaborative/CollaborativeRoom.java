@@ -1,3 +1,23 @@
+/*
+ * DocDoku, Professional Open Source
+ * Copyright 2006 - 2015 DocDoku SARL
+ *
+ * This file is part of DocDokuPLM.
+ *
+ * DocDokuPLM is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
 package com.docdoku.server.mainchannel.collaborative;
 
 
@@ -57,6 +77,7 @@ public class CollaborativeRoom {
         this.lastMaster = lastMaster;
     }
 
+    @Override
     public String toString() {
         return this.getContext().toString();
     }
@@ -157,10 +178,11 @@ public class CollaborativeRoom {
     public void saveCommand(JsonObject command) {
         final String cameraInfosField = "cameraInfos";
         final String smartPath = "smartPath";
-        final String editedMeshes = "editedMeshes";
-        final String colourEditedMeshes = "colourEditedMeshes";
+        final String editedObjects = "editedObjects";
+        final String colourEditedMeshes = "colourEditedObjects";
         final String explode = "explode";
         final String clipping = "clipping";
+        final String measures = "measures";
 
         if (command.containsKey(cameraInfosField)) {
             saveJsonCommands.add(cameraInfosField,command.getJsonObject(cameraInfosField));
@@ -168,14 +190,16 @@ public class CollaborativeRoom {
             JsonValue path = command.getJsonArray(smartPath);
             path = ((JsonArray) path).isEmpty() ? JsonValue.NULL : path;
             saveJsonCommands.add(smartPath, path);
-        } else if (command.containsKey(editedMeshes)) {
-            saveJsonCommands.add(editedMeshes,command.getJsonArray(editedMeshes));
+        } else if (command.containsKey(editedObjects)) {
+            saveJsonCommands.add(editedObjects,command.getJsonArray(editedObjects));
         } else if (command.containsKey(colourEditedMeshes)) {
             saveJsonCommands.add(colourEditedMeshes,command.getBoolean(colourEditedMeshes));
         } else if (command.containsKey(explode)) {
             saveJsonCommands.add(explode,command.getString(explode));
         } else if (command.containsKey(clipping)) {
             saveJsonCommands.add(clipping,command.getString(clipping));
+        }else if (command.containsKey(measures)) {
+            saveJsonCommands.add(measures,command.getJsonArray(measures));
         }
     }
 }

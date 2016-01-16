@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,14 +21,13 @@ package com.docdoku.server;
 
 import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.services.IDataManagerLocal;
-import com.docdoku.core.services.IDocumentViewerManagerLocal;
+import com.docdoku.core.services.IFileViewerManagerLocal;
 import com.docdoku.server.viewers.DocumentViewer;
 import com.docdoku.server.viewers.ViewerUtils;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
 
-import javax.ejb.EJB;
 import javax.ejb.Stateless;
 import javax.enterprise.inject.Any;
 import javax.enterprise.inject.Instance;
@@ -36,18 +35,21 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @Stateless(name="DocumentViewerBean")
-public class DocumentViewerBean implements IDocumentViewerManagerLocal {
+public class DocumentViewerBean implements IFileViewerManagerLocal {
 
-    @EJB
+    @Inject
     private IDataManagerLocal dataManager;
 
     @Inject
     @Any
     private Instance<DocumentViewer> documentViewers;
+
+    private static final Logger LOGGER = Logger.getLogger(DocumentViewerBean.class.getName());
 
     @Override
     public String getHtmlForViewer(BinaryResource binaryResource, String uuid) {
@@ -61,7 +63,7 @@ public class DocumentViewerBean implements IDocumentViewerManagerLocal {
                 template = getDefaultTemplate(binaryResource,uuid);
             }
         } catch (Exception e) {
-            Logger.getLogger(DocumentViewerBean.class.getName()).log(Level.INFO, null, e);
+            LOGGER.log(Level.INFO, null, e);
             template = new StringBuilder().append("<p>").append("Can't render ").append(binaryResource.getName()).append("</p>").toString();
         }
 
@@ -83,7 +85,7 @@ public class DocumentViewerBean implements IDocumentViewerManagerLocal {
 
         MustacheFactory mf = new DefaultMustacheFactory();
         Mustache mustache = mf.compile("com/docdoku/server/viewers/default_viewer.mustache");
-        HashMap<Object,Object> scopes = new HashMap<>();
+        Map<Object,Object> scopes = new HashMap<>();
         scopes.put("uriResource", ViewerUtils.getURI(binaryResource, uuid));
         scopes.put("fileName", binaryResource.getName());
         StringWriter templateWriter = new StringWriter();

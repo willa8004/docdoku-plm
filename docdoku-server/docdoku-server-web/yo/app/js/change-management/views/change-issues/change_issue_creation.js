@@ -16,7 +16,8 @@ function (Backbone, Mustache, template, ChangeIssueModel, UserList, LinkedDocume
         events: {
             'click .modal-footer .btn-primary': 'interceptSubmit',
             'submit #issue_creation_form': 'onSubmitForm',
-            'hidden #issue_creation_modal': 'onHidden'
+            'hidden #issue_creation_modal': 'onHidden',
+            'close-modal-request':'closeModal'
         },
 
         initialize: function () {
@@ -69,6 +70,7 @@ function (Backbone, Mustache, template, ChangeIssueModel, UserList, LinkedDocume
             that._affectedDocumentsCollection = new LinkedDocumentCollection();
             var linkedDocumentsView = new LinkedDocumentsView({
                 editMode: true,
+                commentEditable: false,
                 collection: that._affectedDocumentsCollection
             }).render();
 
@@ -95,6 +97,7 @@ function (Backbone, Mustache, template, ChangeIssueModel, UserList, LinkedDocume
             this.$inputIssuePriority = this.$('#inputIssuePriority');
             this.$inputIssueAssignee = this.$('#inputIssueAssignee');
             this.$inputIssueCategory = this.$('#inputIssueCategory');
+            this.$inputIssueInitiator = this.$('#inputIssueInitiator');
         },
 
         interceptSubmit : function(){
@@ -111,7 +114,7 @@ function (Backbone, Mustache, template, ChangeIssueModel, UserList, LinkedDocume
                     assignee: this.$inputIssueAssignee.val(),
                     priority: this.$inputIssuePriority.val(),
                     category: this.$inputIssueCategory.val(),
-                    initiator: App.config.login
+                    initiator: this.$inputIssueInitiator.val()
                 };
 
                 this.model.save(data, {

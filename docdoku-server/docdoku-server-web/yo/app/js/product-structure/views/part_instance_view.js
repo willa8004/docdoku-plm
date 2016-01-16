@@ -2,7 +2,7 @@
 define(['backbone', 'mustache', 'text!templates/part_instance.html'],
 function (Backbone, Mustache, template) {
     'use strict';
-    var PartMetadataView = Backbone.View.extend({
+    var PartInstanceView = Backbone.View.extend({
 
         tagName: 'div',
 
@@ -21,18 +21,18 @@ function (Backbone, Mustache, template) {
 
         },
 
-        setMesh: function (mesh) {
+        setObject: function (object) {
             if (App.sceneManager.transformControlsEnabled()) {
-                App.sceneManager.deleteTransformControls(this.mesh);
-                App.sceneManager.setTransformControls(mesh);
+                App.sceneManager.deleteTransformControls(this.object);
+                App.sceneManager.setTransformControls(object);
 
             }
-            this.mesh = mesh;
+            this.object = object;
             return this;
         },
 
         render: function () {
-            this.$el.html(Mustache.render(template, {mesh: this.mesh, i18n: App.config.i18n}));
+            this.$el.html(Mustache.render(template, {object: this.object, i18n: App.config.i18n}));
             if (App.sceneManager.transformControlsEnabled()) {
                 var mode = App.sceneManager.getTransformControlsMode();
                 this.$('button#' + mode).addClass('active');
@@ -48,23 +48,22 @@ function (Backbone, Mustache, template) {
         },
 
         flyTo: function () {
-            App.sceneManager.flyTo(this.mesh);
+            App.sceneManager.flyTo(this.object);
         },
 
         lookAt: function () {
-            App.sceneManager.lookAt(this.mesh);
+            App.sceneManager.lookAt(this.object);
         },
 
         transformView: function (e) {
-            App.sceneManager.setTransformControls(this.mesh, e.currentTarget.id);
+            App.sceneManager.setTransformControls(this.object, e.currentTarget.id);
         },
 
         cancelTransformation: function () {
-            //$('#transform_mode_view_btn').removeClass('active');
-            App.sceneManager.cancelTransformation(this.mesh);
+            App.sceneManager.cancelTransformation(this.object);
         }
 
     });
 
-    return PartMetadataView;
+    return PartInstanceView;
 });

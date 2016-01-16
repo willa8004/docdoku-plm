@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -20,9 +20,11 @@
 
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 import java.util.Date;
 
+@XmlRootElement
 public class TaskDTO implements Serializable {
 
     public enum Status {
@@ -71,8 +73,8 @@ public class TaskDTO implements Serializable {
     public Date getClosureDate() {
         return (closureDate!=null) ? (Date) closureDate.clone() : null;
     }
-    public void setClosureDate(java.util.Date date) {
-        this.closureDate = (closureDate!=null) ? (Date) closureDate.clone() : null;
+    public void setClosureDate(Date date) {
+        this.closureDate = (date!=null) ? (Date) date.clone() : null;
     }
 
     public Status getStatus() {

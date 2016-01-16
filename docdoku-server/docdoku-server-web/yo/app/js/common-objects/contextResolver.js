@@ -4,17 +4,28 @@ define([
     'common-objects/models/workspace',
     'common-objects/views/forbidden'
 ], function (User, Workspace, ForbiddenView) {
+
     'use strict';
+
     var ContextResolver = function () {
     };
 
-    ContextResolver.prototype.resolve = function (success) {
+    $.ajaxSetup({
+        statusCode: {
+            401: function(){
+                window.location.href = App.config.contextPath + '/faces/login.xhtml?originURL=' + window.location.pathname + window.location.hash;
+            }
+        }
+    });
+
+    ContextResolver.prototype.resolveUser = function (success) {
         $.getJSON('../server.properties.json').success(function (properties) {
 
             App.config.contextPath = properties.contextRoot;
 
             User.whoami(App.config.workspaceId, function (user, groups) {
                 Workspace.getWorkspaces(function (workspaces) {
+
                     App.config.login = user.login;
                     App.config.userName = user.name;
                     App.config.timeZone = user.timeZone;
@@ -23,7 +34,14 @@ define([
                     App.config.workspaceAdmin = _.select(App.config.workspaces.administratedWorkspaces, function (workspace) {
                         return workspace.id === App.config.workspaceId;
                     }).length === 1;
-                    window.localStorage.setItem('locale', user.language || 'en');
+
+                    if(window.localStorage.locale === 'unset'){
+                        window.localStorage.locale = user.language || 'en';
+                        window.location.reload();
+                        return;
+                    }else{
+                        window.localStorage.locale = user.language || 'en';
+                    }
 
                     success();
                 });
@@ -37,14 +55,11 @@ define([
                 }
                 // Connected but the workspace doesn't exist
                 else if(res.status === 404){
-                    window.location.href = App.config.contextPath;
+                    window.location.href = App.config.contextPath + '/faces/admin/workspace/workspacesMenu.xhtml';
                 }
-                // UnAuthorized
-                // We shouldn't get a 401 code, due to AuthFilter which has normally redirected us on login page.
-                // See : docdoku-server/docdoku-server-web/src/main/webapp/WEB-INF/web.xml
                 // However, for dev purposes, if we catch an error, we just reset the url. Should happen only in dev env.
                 else{
-                    window.location.href = App.config.contextPath;
+                    window.location.href = App.config.contextPath + '/faces/admin/workspace/workspacesMenu.xhtml';
                 }
             });
         });

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,6 +22,7 @@ package com.docdoku.server.dao;
 import com.docdoku.core.exceptions.CreationException;
 import com.docdoku.core.exceptions.PartMasterTemplateAlreadyExistsException;
 import com.docdoku.core.exceptions.PartMasterTemplateNotFoundException;
+import com.docdoku.core.meta.ListOfValuesKey;
 import com.docdoku.core.product.PartMasterTemplate;
 import com.docdoku.core.product.PartMasterTemplateKey;
 
@@ -57,16 +58,9 @@ public class PartMasterTemplateDAO {
         return template;
     }
 
-    public PartMasterTemplate[] findAllPartMTemplates(String pWorkspaceId) {
-        PartMasterTemplate[] templates;
+    public List<PartMasterTemplate> findAllPartMTemplates(String pWorkspaceId) {
         Query query = em.createQuery("SELECT DISTINCT t FROM PartMasterTemplate t WHERE t.workspaceId = :workspaceId");
-        List listTemplates = query.setParameter("workspaceId", pWorkspaceId).getResultList();
-        templates = new PartMasterTemplate[listTemplates.size()];
-        for (int i = 0; i < listTemplates.size(); i++) {
-            templates[i] = (PartMasterTemplate) listTemplates.get(i);
-        }
-
-        return templates;
+        return query.setParameter("workspaceId", pWorkspaceId).getResultList();
     }
 
     public PartMasterTemplate loadPartMTemplate(PartMasterTemplateKey pKey)
@@ -92,5 +86,12 @@ public class PartMasterTemplateDAO {
             //thrown instead of EntityExistsException
             throw new CreationException(mLocale);
         }
+    }
+
+    public List<PartMasterTemplate> findAllPartMTemplatesFromLOV(ListOfValuesKey lovKey){
+        return em.createNamedQuery("PartMasterTemplate.findWhereLOV", PartMasterTemplate.class)
+                .setParameter("lovName", lovKey.getName())
+                .setParameter("workspace_id", lovKey.getWorkspaceId())
+                .getResultList();
     }
 }

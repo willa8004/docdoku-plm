@@ -12,7 +12,8 @@ define([
 
         events: {
             'click input[type=checkbox]': 'selectionChanged',
-            'click td.reference': 'toPartTemplateEditModal'
+            'click td.reference': 'toPartTemplateEditModal',
+            'click .part-attached-files i' : 'openPartTemplateModal'
         },
 
         tagName: 'tr',
@@ -60,9 +61,12 @@ define([
         },
 
         toPartTemplateEditModal: function () {
-            var that = this;
-            var partTemplateEditView = new PartTemplateEditView({model: that.model}).render();
-            partTemplateEditView.show();
+            new PartTemplateEditView({model: this.model});
+        },
+
+        openPartTemplateModal: function () {
+            var partTemplateEditView = new PartTemplateEditView({model: this.model});
+            partTemplateEditView.activateFileTab();
         }
 
     });

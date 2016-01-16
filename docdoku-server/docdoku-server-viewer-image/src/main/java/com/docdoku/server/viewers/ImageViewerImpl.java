@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,19 +22,29 @@ package com.docdoku.server.viewers;
 import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.services.IDataManagerLocal;
 import com.docdoku.core.util.FileIO;
+import com.docdoku.server.InternalService;
+import com.docdoku.server.ServiceLocator;
 import com.github.mustachejava.DefaultMustacheFactory;
 import com.github.mustachejava.Mustache;
 import com.github.mustachejava.MustacheFactory;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
+import javax.naming.NamingException;
 import java.io.StringWriter;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ImageViewerImpl implements DocumentViewer {
 
-    @EJB
+    private static final Logger LOGGER = Logger.getLogger(ImageViewerImpl.class.getName());
+
+    @InternalService
+    @Inject
     private IDataManagerLocal dataManager;
+
+
 
     @Override
     public boolean canRenderViewerTemplate(BinaryResource binaryResource) {
@@ -50,9 +60,7 @@ public class ImageViewerImpl implements DocumentViewer {
         StringWriter templateWriter = new StringWriter();
         mustache.execute(templateWriter, scopes).flush();
 
-        String html = ViewerUtils.getViewerTemplate(dataManager, imageResource, uuid, templateWriter.toString());
-
-        return html;
+        return ViewerUtils.getViewerTemplate(dataManager, imageResource, uuid, templateWriter.toString());
     }
 
 }

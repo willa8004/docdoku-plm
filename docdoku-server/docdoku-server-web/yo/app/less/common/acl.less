@@ -1,4 +1,4 @@
-.acl-info, .document-acl-info, .part-acl-info{
+.acl-info, .document-acl-info, .part-acl-info,.template-acl-info, .workflow-acl-info{
   i{
     &.read-only{
       color: #ffb600;
@@ -16,8 +16,12 @@
     margin-bottom: 6px;
 
     .acl-key{
+      box-shadow: none;
+      outline: none;
       font-weight: bold;
-      width: 190px;
+      width: 150px;
+      border: none;
+      background: transparent;
     }
 
     .acl-radios{

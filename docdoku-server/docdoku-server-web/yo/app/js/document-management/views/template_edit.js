@@ -2,10 +2,11 @@
 define([
     'common-objects/utils/date',
     'common-objects/views/components/modal',
+    'common-objects/views/workflow/workflow_list',
     'common-objects/views/attributes/template_new_attributes',
     'common-objects/views/file/file_list',
     'text!templates/template_new.html'
-], function (date, ModalView, TemplateNewAttributesView, FileListView, template) {
+], function (date, ModalView, DocumentWorkflowListView, TemplateNewAttributesView, FileListView, template) {
 	'use strict';
     var TemplateEditView = ModalView.extend({
 
@@ -20,15 +21,28 @@ define([
             // keep track of the created template edit view
             TemplateEditView._instance = this;
 
-            this.events["click .modal-footer button.btn-primary"] = "interceptSubmit";
-            this.events["submit form"] = "onSubmitForm";
+            this.events['click .modal-footer button.btn-primary'] = 'interceptSubmit';
+            this.events['submit form'] = 'onSubmitForm';
+            this.tabs = this.$('.nav-tabs li');
         },
 
         rendered: function () {
+            this.workflowsView = this.addSubView(
+                new DocumentWorkflowListView({
+                    el: '#workflows-' + this.cid
+                })
+            );
+
+            var _this = this;
+            this.workflowsView.collection.on('reset', function() {
+                _this.workflowsView.setValue(_this.model.get('workflowModelId'));
+            });
+
             this.attributesView = this.addSubView(
                 new TemplateNewAttributesView({
                     el: '#tab-attributes-' + this.cid,
-                    attributesLocked: this.model.isAttributesLocked()
+                    attributesLocked: this.model.isAttributesLocked(),
+                    editMode:true
                 })
             );
             this.attributesView.render();
@@ -44,11 +58,20 @@ define([
             // Add the fileListView to the tab
             this.$('#tab-files-' + this.cid).append(this.fileListView.el);
 
-            this.$('a#mask-help').popover({
+            var $popoverLink = this.$('a#mask-help');
+
+            $popoverLink.popover({
                 title: App.config.i18n.MASK,
                 placement: 'left',
                 html: true,
-                content: App.config.i18n.MASK_HELP
+                content: App.config.i18n.MASK_HELP.nl2br(),
+                trigger:'manual',
+                container:'.modal.new-template'
+            }).click(function(e){
+                $popoverLink.popover('show');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
             });
 
         },
@@ -59,12 +82,15 @@ define([
 
         onSubmitForm: function (e) {
 
-            if(this.isValid){
+            if (this.isValid) {
+                var workflow = this.workflowsView.selected();
+
                 this.model.unset('reference');
                 this.model.save({
                     documentType: this.$('#form-' + this.cid + ' .type').val(),
                     mask: this.$('#form-' + this.cid + ' .mask').val(),
                     idGenerated: this.$('#form-' + this.cid + ' .id-generated').is(':checked'),
+                    workflowModelId: workflow ? workflow.get('id') : null,
                     attributeTemplates: this.attributesView.collection.toJSON(),
                     attributesLocked: this.attributesView.isAttributesLocked()
                 }, {
@@ -86,6 +112,12 @@ define([
             this.fileListView.deleteNewFiles();
         },
 
+        activateTab: function (index) {
+            this.tabs.eq(index).children().tab('show');
+        },
+        activateFileTab: function(){
+            this.activateTab(3);
+        },
         success: function () {
             this.hide();
         },

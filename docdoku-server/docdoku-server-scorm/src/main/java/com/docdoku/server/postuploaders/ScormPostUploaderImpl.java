@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -22,10 +22,11 @@ package com.docdoku.server.postuploaders;
 import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.exceptions.StorageException;
 import com.docdoku.core.services.IDataManagerLocal;
+import com.docdoku.server.InternalService;
 import com.docdoku.server.viewers.utils.ScormUtil;
 import com.google.common.io.ByteStreams;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -37,16 +38,18 @@ import java.util.zip.ZipInputStream;
 
 public class ScormPostUploaderImpl implements DocumentPostUploader {
 
-    @EJB
+    private static final Logger LOGGER = Logger.getLogger(ScormPostUploaderImpl.class.getName());
+
+    @InternalService
+    @Inject
     private IDataManagerLocal dataManager;
 
     @Override
     public boolean canProcess(final BinaryResource binaryResource) {
-        try {
-            InputStream binaryContentInputStream = dataManager.getBinaryResourceInputStream(binaryResource);
+        try (InputStream binaryContentInputStream = dataManager.getBinaryResourceInputStream(binaryResource)) {
             return ScormUtil.isScormArchive(binaryResource.getName(), binaryContentInputStream);
-        } catch (StorageException e) {
-            Logger.getLogger(ScormPostUploaderImpl.class.getName()).log(Level.INFO, null, e);
+        } catch (StorageException | IOException e) {
+            LOGGER.log(Level.SEVERE, null, e);
             return false;
         }
     }
@@ -57,9 +60,9 @@ public class ScormPostUploaderImpl implements DocumentPostUploader {
     }
 
     public void unzipScormArchive(BinaryResource archiveBinaryResource) {
-        ZipInputStream zipInputStream = null;
-        try {
-            zipInputStream = new ZipInputStream(dataManager.getBinaryResourceInputStream(archiveBinaryResource), Charset.forName("ISO-8859-1"));
+
+        try (ZipInputStream zipInputStream = new ZipInputStream(dataManager.getBinaryResourceInputStream(archiveBinaryResource), Charset.forName("ISO-8859-1"))){
+
             ZipEntry zipEntry;
             while ((zipEntry = zipInputStream.getNextEntry()) != null) {
                 if (!zipEntry.isDirectory()) {
@@ -77,17 +80,10 @@ public class ScormPostUploaderImpl implements DocumentPostUploader {
                     }
                 }
             }
-        } catch (Exception e) {
-            Logger.getLogger(ScormPostUploaderImpl.class.getName()).log(Level.INFO, null, e);
-        } finally {
-            try {
-                if (zipInputStream != null) {
-                    zipInputStream.close();
-                }
-            } catch (IOException e) {
-                Logger.getLogger(ScormPostUploaderImpl.class.getName()).log(Level.INFO, null, e);
-            }
+        } catch (StorageException | IOException e) {
+            LOGGER.log(Level.SEVERE, null, e);
         }
+
     }
 
 }

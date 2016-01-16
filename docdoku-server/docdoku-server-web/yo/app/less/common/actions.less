@@ -27,6 +27,9 @@
   .new-product .icon {
     .plm-icon-action-product-new;
   }
+  .new-configuration .icon {
+    .plm-icon-action-configuration-new;
+  }
   .udf .icon {
     .plm-icon-action-udf;
   }
@@ -54,6 +57,9 @@
   .roles .icon {
     .plm-icon-action-workflow-roles;
   }
+    .list-lov .icon {
+        .plm-icon-action-lov;
+    }
 
   .delete {
     display: none;
@@ -69,23 +75,10 @@
     }
   }
 
-  .new-baseline {
+  .new-baseline{
+    display: none;
     .icon {
       .plm-icon-action-new-baseline;
-    }
-  }
-
-  .new-latest-baseline{
-    display: none;
-    .icon {
-      .plm-icon-action-snap-latest-baseline;
-    }
-  }
-
-  .new-released-baseline{
-    display: none;
-    .icon {
-      .plm-icon-action-snap-released-baseline;
     }
   }
 
@@ -99,6 +92,12 @@
     display: none;
     .icon {
       .plm-icon-action-new-release;
+    }
+  }
+  .mark-as-obsolete{
+    display: none;
+    .icon {
+        .plm-icon-action-mark-as-obsolete;
     }
   }
   .edit-acl {

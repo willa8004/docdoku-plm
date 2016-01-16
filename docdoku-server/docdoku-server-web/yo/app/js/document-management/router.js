@@ -45,7 +45,7 @@ function (Backbone, singletonDecorator, FolderNavView, TagNavView, SearchNavView
             if(!configSpec){
                 return this.home(workspaceId);
             }
-            App.config.configSpec =  configSpec || 'latest';
+            App.config.documentConfigSpec =  configSpec || 'latest';
             this.executeOrReload(workspaceId,function(){
 	            this.initNavViews();
                 this.configSpecAdaptMenu(configSpec);
@@ -56,7 +56,7 @@ function (Backbone, singletonDecorator, FolderNavView, TagNavView, SearchNavView
             if(!configSpec){
                 return this.navigate(workspaceId+ '/configspec/latest/folders/'+ path,{trigger:true});
             }
-            App.config.configSpec =  configSpec || 'latest';
+            App.config.documentConfigSpec =  configSpec || 'latest';
             this.executeOrReload(workspaceId,function(){
 	            this.initNavViews();
                 this.configSpecAdaptMenu(configSpec);
@@ -101,7 +101,7 @@ function (Backbone, singletonDecorator, FolderNavView, TagNavView, SearchNavView
         },
 
         home:function(workspaceId){
-          this.navigate(workspaceId+'/configspec/latest/folders',{trigger:true});
+            this.navigate(workspaceId+'/configspec/latest/folders',{trigger:true});
         },
 
 	    configSpecAdaptMenu:function(configSpec){

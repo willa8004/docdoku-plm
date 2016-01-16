@@ -1,6 +1,6 @@
 <div class="actions well">
-    <input id="workflow-name" type="text" autofocus placeholder="{{i18n.WORKFLOW_NAME_PLACEHOLDER}}"
-           value="{{workflowId}}" required/>
+    <input  id="workflow-name" type="text" placeholder="{{i18n.WORKFLOW_NAME_PLACEHOLDER}}"
+            {{#workflowId}}value="{{workflowId}}"  readonly {{/workflowId}} {{^workflowId}}autofocus required{{/workflowId}}/>
     <button id="cancel-workflow" class="btn">
         {{i18n.CANCEL}}
     </button>
@@ -9,7 +9,7 @@
         {{^workflowId}}{{i18n.CREATE}}{{/workflowId}}
     </button>
     {{#workflowId}}
-    <button id="copy-workflow" class="btn" title="{{i18n.COPY_WORKFLOW}}">
+    <button id="copy-workflow" class="btn" title="{{i18n.DUPLICATE_WORKFLOW}}">
         <i class="fa fa-files-o"></i>
     </button>
     {{/workflowId}}

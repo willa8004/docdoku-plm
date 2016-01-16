@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,9 +24,9 @@ import javax.persistence.Entity;
 import javax.persistence.Table;
 
 /**
- * Defines an URL type custom attribute of a document.
+ * Defines an URL type custom attribute of a document, part, product and other objects.
  * 
- * @author Emmanuel Nhan <emmanuel.nhan@insa-lyon.fr>
+ * @author Emmanuel Nhan
  * @version 1.0 23/07/2009
  * @since   V1.0
  */
@@ -45,12 +45,12 @@ public class InstanceURLAttribute extends InstanceAttribute {
     }
 
     @Override
-    public Object getValue() {
+    public String getValue() {
         return urlValue;
     }
     @Override
     public boolean setValue(Object pValue) {
-        urlValue = pValue + "";
+        urlValue = pValue != null ? pValue + "" : "";
         return true;
     }
 

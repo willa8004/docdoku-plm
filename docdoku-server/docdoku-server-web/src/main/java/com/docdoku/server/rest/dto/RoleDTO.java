@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -19,13 +19,27 @@
  */
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
 
 /**
  *
  * @author Yassine Belouad
  */
+@XmlRootElement
 public class RoleDTO implements Serializable {
+
+    private String id;
+    private String name;
+    private String workspaceId;
+    private UserDTO defaultAssignee;
+
+    public RoleDTO(){
+    }
+
+    public RoleDTO(String name){
+        this.name=name;
+    }
 
     public String getId() {
         return id;
@@ -33,18 +47,6 @@ public class RoleDTO implements Serializable {
 
     public void setId(String id) {
         this.id = id;
-    }
-
-    private String id;
-    private String name;
-    private String workspaceId;
-    private UserDTO defaultUserMapped;
-
-    public RoleDTO(){
-    }
-
-    public RoleDTO(String name){
-        this.name=name;
     }
 
     public String getName() {
@@ -63,11 +65,11 @@ public class RoleDTO implements Serializable {
         this.workspaceId = workspaceId;
     }
 
-    public UserDTO getDefaultUserMapped() {
-        return defaultUserMapped;
+    public UserDTO getDefaultAssignee() {
+        return defaultAssignee;
     }
 
-    public void setDefaultUserMapped(UserDTO defaultUserMapped) {
-        this.defaultUserMapped = defaultUserMapped;
+    public void setDefaultAssignee(UserDTO defaultAssignee) {
+        this.defaultAssignee = defaultAssignee;
     }
 }

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -40,12 +40,18 @@ public class SearchQuery  implements Serializable {
     protected String type;
     protected Date creationDateFrom;
     protected Date creationDateTo;
+    protected Date modificationDateFrom;
+    protected Date modificationDateTo;
     protected AbstractAttributeQuery[] attributes;
+    protected String[] tags;
+    protected String content;
 
     public SearchQuery(){
 
     }
-    public SearchQuery(String workspaceId, String fullText, String version, String author, String type, Date creationDateFrom, Date creationDateTo, AbstractAttributeQuery[] attributes) {
+    public SearchQuery(String workspaceId, String fullText, String version, String author, String type,
+                       Date creationDateFrom, Date creationDateTo, Date modificationDateFrom, Date modificationDateTo,
+                       AbstractAttributeQuery[] attributes, String[] tags, String content) {
         this.workspaceId = workspaceId;
         this.fullText =fullText;
         this.version = version;
@@ -53,7 +59,11 @@ public class SearchQuery  implements Serializable {
         this.type = type;
         this.creationDateFrom = (creationDateFrom!=null) ? (Date) creationDateFrom.clone() : null;
         this.creationDateTo = (creationDateTo!=null) ? (Date) creationDateTo.clone() : null;
+        this.modificationDateFrom = (modificationDateFrom!=null) ? (Date) modificationDateFrom.clone() : null;
+        this.modificationDateTo = (modificationDateTo!=null) ? (Date) modificationDateTo.clone() : null;
         this.attributes = attributes;
+        this.tags = tags;
+        this.content = content;
     }
 
     // Getter
@@ -72,14 +82,26 @@ public class SearchQuery  implements Serializable {
     public String getType() {
         return type;
     }
+    public String[] getTags() {
+        return tags;
+    }
     public Date getCreationDateFrom() {
         return (creationDateFrom!=null) ? (Date) creationDateFrom.clone() : null;
     }
     public Date getCreationDateTo() {
         return (creationDateTo!=null) ? (Date) creationDateTo.clone() : null;
     }
+    public Date getModificationDateFrom() {
+        return (modificationDateFrom!=null) ? (Date) modificationDateFrom.clone() : null;
+    }
+    public Date getModificationDateTo() {
+        return (modificationDateTo!=null) ? (Date) modificationDateTo.clone() : null;
+    }
     public AbstractAttributeQuery[] getAttributes() {
         return attributes;
+    }
+    public String getContent() {
+        return content;
     }
 
     //Setter
@@ -98,18 +120,31 @@ public class SearchQuery  implements Serializable {
     public void setType(String type) {
         this.type = type;
     }
+    public void setTags(String[] tags) {
+        this.tags = tags;
+    }
     public void setCreationDateFrom(Date creationDateFrom) {
         this.creationDateFrom = (creationDateFrom!=null) ? (Date) creationDateFrom.clone() : null;
     }
     public void setCreationDateTo(Date creationDateTo) {
         this.creationDateTo = (creationDateTo!=null) ? (Date) creationDateTo.clone() : null;
     }
+    public void setModificationDateFrom(Date modificationDateFrom) {
+        this.modificationDateFrom = (modificationDateFrom!=null) ? (Date) modificationDateFrom.clone() : null;
+    }
+    public void setModificationDateTo(Date modificationDateTo) {
+        this.modificationDateTo = (modificationDateTo!=null) ? (Date) modificationDateTo.clone() : null;
+    }
+
     public void setAttributes(AbstractAttributeQuery[] attributes) {
         this.attributes = attributes;
     }
+    public void setContent(String content) {
+        this.content = content;
+    }
 
     @XmlSeeAlso({TextAttributeQuery.class, NumberAttributeQuery.class, DateAttributeQuery.class, BooleanAttributeQuery.class, URLAttributeQuery.class})
-    public static abstract class AbstractAttributeQuery implements Serializable{
+    public abstract static class AbstractAttributeQuery implements Serializable{
         protected String name;
 
         public String getName() {
@@ -128,6 +163,9 @@ public class SearchQuery  implements Serializable {
             this.name=name;
         }
         public abstract boolean attributeMatches(InstanceAttribute attr);
+        public abstract boolean hasValue();
+        @Override
+        public abstract String toString();
     }
 
     public static class TextAttributeQuery extends AbstractAttributeQuery{
@@ -149,13 +187,23 @@ public class SearchQuery  implements Serializable {
         public boolean attributeMatches(InstanceAttribute attr){
             return attr.isValueEquals(textValue);
         }
+
+        @Override
+        public boolean hasValue() {
+            return !textValue.isEmpty();
+        }
+
+        @Override
+        public String toString() {
+            return textValue;
+        }
     }
     public static class NumberAttributeQuery extends AbstractAttributeQuery{
-        private float numberValue;
+        private Float numberValue;
         public NumberAttributeQuery(){
 
         }
-        public NumberAttributeQuery(String name, float value){
+        public NumberAttributeQuery(String name, Float value){
             super(name);
             this.numberValue=value;
         }
@@ -168,6 +216,16 @@ public class SearchQuery  implements Serializable {
         @Override
         public boolean attributeMatches(InstanceAttribute attr){
             return attr.isValueEquals(numberValue);
+        }
+
+        @Override
+        public boolean hasValue() {
+            return numberValue != null;
+        }
+
+        @Override
+        public String toString() {
+            return numberValue.toString();
         }
     }
     public static class BooleanAttributeQuery extends AbstractAttributeQuery{
@@ -188,6 +246,17 @@ public class SearchQuery  implements Serializable {
         @Override
         public boolean attributeMatches(InstanceAttribute attr){
             return attr.isValueEquals(booleanValue);
+        }
+
+        @Override
+        public boolean hasValue() {
+            //by default boolean attribute must have a value
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return ""+booleanValue;
         }
     }
     public static class URLAttributeQuery extends AbstractAttributeQuery{
@@ -210,40 +279,84 @@ public class SearchQuery  implements Serializable {
         public boolean attributeMatches(InstanceAttribute attr){
             return attr.isValueEquals(urlValue);
         }
+
+        @Override
+        public boolean hasValue() {
+            return !urlValue.isEmpty();
+        }
+
+        @Override
+        public String toString() {
+            return urlValue;
+        }
     }
     public static class DateAttributeQuery extends AbstractAttributeQuery{
-        private Date fromDate;
-        private Date toDate;
+        private Date date;
         public DateAttributeQuery(){
 
         }
-        public DateAttributeQuery(String name, Date fromDate, Date toDate){
+        public DateAttributeQuery(String name, Date date){
             super(name);
-            this.fromDate=fromDate;
-            this.toDate=toDate;
+            this.date = date;
         }
-        public Date getFromDate() {
-            return (fromDate!=null) ? (Date) fromDate.clone() : null;
+        public Date getDate() {
+            return (date !=null) ? (Date) date.clone() : null;
         }
-        public void setFromDate(Date fromDate) {
-            this.fromDate = (fromDate!=null) ? (Date) fromDate.clone() : null;
+        public void setDate(Date date) {
+            this.date = (date !=null) ? (Date) date.clone() : null;
         }
-        public Date getToDate() {
-            return toDate;
-        }
-        public void setToDate(Date toDate) {
-            this.toDate = toDate;
-        }
+
         @Override
         public boolean attributeMatches(InstanceAttribute attr) {
             if (attr instanceof InstanceDateAttribute) {
                 InstanceDateAttribute dateAttr = (InstanceDateAttribute) attr;
                 Date dateValue = dateAttr.getDateValue();
-                if(toDate !=null && fromDate !=null) {
-                    return !(dateValue.after(toDate) || dateValue.before(fromDate));
+                if( date !=null) {
+                    return  dateValue.equals(date);
                 }
             }
             return false;
+        }
+
+        @Override
+        public boolean hasValue() {
+            return date != null;
+        }
+
+        @Override
+        public String toString() {
+            return date.toString();
+        }
+    }
+    public static class LovAttributeQuery extends AbstractAttributeQuery{
+        private String lovValue;
+        public LovAttributeQuery(){
+
+        }
+        public LovAttributeQuery(String name, String value){
+            super(name);
+            this.lovValue=value;
+        }
+
+        public void setLovValue(String lovValue) {
+            this.lovValue = lovValue;
+        }
+        public String getLovValue() {
+            return lovValue;
+        }
+        @Override
+        public boolean attributeMatches(InstanceAttribute attr){
+            return attr.isValueEquals(lovValue);
+        }
+
+        @Override
+        public boolean hasValue() {
+            return !lovValue.isEmpty();
+        }
+
+        @Override
+        public String toString() {
+            return lovValue;
         }
     }
 }

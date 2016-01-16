@@ -1,32 +1,33 @@
 /*global define,App*/
-'use strict';
 define(
     [
-        "backbone",
-        "mustache",
-        "text!templates/control_transform.html"
+        'backbone',
+        'mustache',
+        'text!templates/control_transform.html'
     ], function (Backbone, Mustache, template) {
 
-        var PartMetadataView = Backbone.View.extend({
+        'use strict';
 
-            className: "side_control_group",
+        var ControlTransformView = Backbone.View.extend({
+
+            className: 'side_control_group',
 
             events: {
-                "click #transform_mode_view_btn > button": "transformView",
-                "click button#cancel_transformation": "cancelTransformation"
+                'click #transform_mode_view_btn > button': 'transformView',
+                'click button#cancel_transformation': 'cancelTransformation'
             },
 
             initialize: function () {
-                this.mesh = undefined;
+                this.object = undefined;
             },
 
-            setMesh: function (mesh) {
+            setObject: function (object) {
                 if (App.sceneManager.transformControlsEnabled()) {
-                    App.sceneManager.deleteTransformControls(this.mesh);
-                    App.sceneManager.setTransformControls(mesh);
+                    App.sceneManager.deleteTransformControls(this.object);
+                    App.sceneManager.setTransformControls(object);
                 }
-                this.$("button").removeAttr("disabled");
-                this.mesh = mesh;
+                this.$('button').removeAttr('disabled');
+                this.object = object;
                 return this;
             },
 
@@ -35,15 +36,15 @@ define(
                 // TransformControls enabled
                 if (App.sceneManager.transformControlsEnabled()) {
                     var mode = App.sceneManager.getTransformControlsMode();
-                    this.$("button#" + mode).addClass("active");
-                } // A mesh is selected
-                else if (!this.mesh) {
-                    this.$("button").attr("disabled", "disabled");
+                    this.$('button#' + mode).addClass('active');
+                }
+                else if (!this.object) {
+                    this.$('button').attr('disabled', 'disabled');
                 }
             },
 
             render: function () {
-                this.$el.html(Mustache.render(template, {mesh: this.mesh, i18n: App.config.i18n}));
+                this.$el.html(Mustache.render(template, {i18n: App.config.i18n}));
                 this.reset();
                 return this;
             },
@@ -54,16 +55,15 @@ define(
                 if (modeSelected === App.sceneManager.getTransformControlsMode()) {
                     App.sceneManager.leaveTransformMode();
                 } else {
-                    App.sceneManager.setTransformControls(this.mesh, modeSelected);
+                    App.sceneManager.setTransformControls(this.object, modeSelected);
                 }
             },
 
             cancelTransformation: function () {
-                //$('#transform_mode_view_btn').removeClass("active");
-                App.sceneManager.cancelTransformation(this.mesh);
+                App.sceneManager.cancelTransformation(this.object);
             }
 
         });
 
-        return PartMetadataView;
+        return ControlTransformView;
     });

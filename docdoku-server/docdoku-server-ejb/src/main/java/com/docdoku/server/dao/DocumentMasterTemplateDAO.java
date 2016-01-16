@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -24,11 +24,12 @@ import com.docdoku.core.document.DocumentMasterTemplateKey;
 import com.docdoku.core.exceptions.CreationException;
 import com.docdoku.core.exceptions.DocumentMasterTemplateAlreadyExistsException;
 import com.docdoku.core.exceptions.DocumentMasterTemplateNotFoundException;
+import com.docdoku.core.meta.ListOfValuesKey;
 
 import javax.persistence.EntityExistsException;
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceException;
-import javax.persistence.Query;
+import javax.persistence.TypedQuery;
 import java.util.List;
 import java.util.Locale;
 
@@ -57,16 +58,9 @@ public class DocumentMasterTemplateDAO {
         return template;
     }
 
-    public DocumentMasterTemplate[] findAllDocMTemplates(String pWorkspaceId) {
-        DocumentMasterTemplate[] templates;
-        Query query = em.createQuery("SELECT DISTINCT t FROM DocumentMasterTemplate t WHERE t.workspaceId = :workspaceId");
-        List listTemplates = query.setParameter("workspaceId", pWorkspaceId).getResultList();
-        templates = new DocumentMasterTemplate[listTemplates.size()];
-        for (int i = 0; i < listTemplates.size(); i++) {
-            templates[i] = (DocumentMasterTemplate) listTemplates.get(i);
-        }
-
-        return templates;
+    public List<DocumentMasterTemplate> findAllDocMTemplates(String pWorkspaceId) {
+        TypedQuery<DocumentMasterTemplate> query = em.createQuery("SELECT DISTINCT t FROM DocumentMasterTemplate t WHERE t.workspaceId = :workspaceId", DocumentMasterTemplate.class);
+        return query.setParameter("workspaceId", pWorkspaceId).getResultList();
     }
 
     public DocumentMasterTemplate loadDocMTemplate(DocumentMasterTemplateKey pKey)
@@ -92,5 +86,12 @@ public class DocumentMasterTemplateDAO {
             //thrown instead of EntityExistsException
             throw new CreationException(mLocale);
         }
+    }
+
+    public List<DocumentMasterTemplate> findAllDocMTemplatesFromLOV(ListOfValuesKey lovKey){
+        return em.createNamedQuery("DocumentMasterTemplate.findWhereLOV", DocumentMasterTemplate.class)
+                .setParameter("lovName", lovKey.getName())
+                .setParameter("workspace_id", lovKey.getWorkspaceId())
+                .getResultList();
     }
 }

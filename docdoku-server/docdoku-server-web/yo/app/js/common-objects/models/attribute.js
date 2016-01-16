@@ -1,10 +1,16 @@
 /*global define*/
 define(['backbone'], function (Backbone) {
-	'use strict';
+    'use strict';
     var Attribute = Backbone.Model.extend({
 
         getType: function () {
-            return this.get('type');
+            if (this.get('type')) {
+                return this.get('type');
+            } else if (this.get('attributeType')) {
+                return this.get('attributeType');
+            } else {
+                return null;
+            }
         },
 
         isMandatory: function () {
@@ -15,8 +21,20 @@ define(['backbone'], function (Backbone) {
             return this.get('name');
         },
 
+        getLOVName: function () {
+            return this.get('lovName');
+        },
+
         getValue: function () {
             return this.get('value');
+        },
+
+        getItems: function () {
+            return this.get('items');
+        },
+
+        getLocked: function () {
+            return this.get('locked');
         },
 
         toString: function () {
@@ -26,7 +44,13 @@ define(['backbone'], function (Backbone) {
     });
 
     Attribute.types = {
-        NUMBER: 'NUMBER', DATE: 'DATE', BOOLEAN: 'BOOLEAN', TEXT: 'TEXT', URL: 'URL'};
+        NUMBER: 'NUMBER',
+        DATE: 'DATE',
+        BOOLEAN: 'BOOLEAN',
+        TEXT: 'TEXT',
+        URL: 'URL',
+        LOV: 'LOV'
+    };
 
     return Attribute;
 });

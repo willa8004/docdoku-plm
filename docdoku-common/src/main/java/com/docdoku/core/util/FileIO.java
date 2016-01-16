@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -46,6 +46,8 @@ public class FileIO {
     private static final List<String> IMAGE_EXTENSIONS = Arrays.asList("jpg", "png", "gif", "psd", "jpeg", "psp", "tif");
     private static final List<String> ARCHIVE_EXTENSIONS = Arrays.asList("zip");
 
+    private static final Logger LOGGER = Logger.getLogger(FileIO.class.getName());
+
     private FileIO() {
     }
 
@@ -65,16 +67,13 @@ public class FileIO {
         }
     }
 
-    public static void copyFile(File pIn, File pOut) throws FileNotFoundException, IOException {
+    public static void copyFile(File pIn, File pOut) throws IOException {
         pOut.getParentFile().mkdirs();
         pOut.createNewFile();
-        InputStream in = new BufferedInputStream(new FileInputStream(pIn), BUFFER_CAPACITY);
-        OutputStream out = new BufferedOutputStream(new FileOutputStream(pOut), BUFFER_CAPACITY);
-
-        FileIO.copyBufferedStream(in, out);
-
-        in.close();
-        out.close();
+        try(InputStream in = new BufferedInputStream(new FileInputStream(pIn), BUFFER_CAPACITY);
+        OutputStream out = new BufferedOutputStream(new FileOutputStream(pOut), BUFFER_CAPACITY)) {
+            FileIO.copyBufferedStream(in, out);
+        }
     }
 
     public static void copyBufferedStream(InputStream in, OutputStream out) throws IOException {
@@ -173,7 +172,7 @@ public class FileIO {
                 unzipEntry(zipfile, entry, outputDir);
             }
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            LOGGER.log(Level.FINEST,null,e);
         }
     }
 
@@ -187,14 +186,10 @@ public class FileIO {
         if (!outputFile.getParentFile().exists()){
             outputFile.getParentFile().mkdirs();
         }
-
-        BufferedInputStream in = new BufferedInputStream(zipfile.getInputStream(entry), BUFFER_CAPACITY);
-        BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputFile), BUFFER_CAPACITY);
-
-        copyBufferedStream(in, out);
-
-        in.close();
-        out.close();
+        try(BufferedInputStream in = new BufferedInputStream(zipfile.getInputStream(entry), BUFFER_CAPACITY);
+        BufferedOutputStream out = new BufferedOutputStream(new FileOutputStream(outputFile), BUFFER_CAPACITY)){
+            copyBufferedStream(in, out);
+        }
     }
 
     public static boolean existsInArchive(File archiveFile, String fileName) throws IOException {
@@ -204,17 +199,20 @@ public class FileIO {
             zipfile = new ZipFile(archiveFile);
             exists = zipfile.getEntry(fileName) != null;
         }finally {
-            try{if(zipfile != null){
+            try{
+                if(zipfile != null){
                     zipfile.close();
-            }}catch (IOException ignored){}
+                }
+            }catch (IOException e){
+                LOGGER.log(Level.FINEST,null,e);
+            }
         }
         return exists;
     }
 
     public static boolean existsInArchive(InputStream archiveInputStream, String fileName) {
-        ZipInputStream zipInputStream = new ZipInputStream(archiveInputStream);
         ZipEntry zipEntry;
-        try {
+        try(ZipInputStream zipInputStream = new ZipInputStream(archiveInputStream)) {
             while ((zipEntry = zipInputStream.getNextEntry()) != null) {
                 if (zipEntry.getName().equals(fileName)) {
                     zipInputStream.close();
@@ -222,7 +220,7 @@ public class FileIO {
                 }
             }
         } catch (IOException e) {
-            Logger.getLogger(FileIO.class.getName()).log(Level.INFO, null, e);
+            LOGGER.log(Level.INFO, null, e);
         }
         return false;
     }

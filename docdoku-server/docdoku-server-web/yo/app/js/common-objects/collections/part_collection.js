@@ -9,6 +9,9 @@ define([
 
         className: 'PartList',
 
+        setMainPart: function (part) {
+            this.part = part;
+        },
         initialize: function (start) {
 
             this.currentPage = 0;
@@ -21,6 +24,10 @@ define([
                 this.currentPage = start;
             }
 
+        },
+
+        setResultsPerPage: function (count) {
+            this.resultsPerPage = count;
         },
 
         fetchPageCount: function () {
@@ -91,7 +98,7 @@ define([
         },
 
         url: function () {
-            return this.urlBase + this.currentPage * this.resultsPerPage;
+            return this.urlBase + this.currentPage * this.resultsPerPage + '&length=' + this.resultsPerPage;
         }
 
     });

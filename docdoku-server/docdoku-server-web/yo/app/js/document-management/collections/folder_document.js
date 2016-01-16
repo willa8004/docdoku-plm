@@ -1,24 +1,24 @@
 /*global define,App*/
 define([
     'backbone',
-    'models/document'
-], function (Backbone, Document) {
+    'common-objects/models/document/document_revision'
+], function (Backbone, DocumentRevision) {
 	'use strict';
     var FolderDocumentList = Backbone.Collection.extend({
 
-        model: Document,
+        model: DocumentRevision,
 
         url: function () {
             var baseUrl = App.config.contextPath + '/api/workspaces/' + App.config.workspaceId;
             if (this.parent) {
-                return  baseUrl + '/folders' + '/' + this.parent.id + '/documents?configSpec='+App.config.configSpec;
+                return  baseUrl + '/folders' + '/' + this.parent.id + '/documents?configSpec='+App.config.documentConfigSpec;
             } else {
-                return  baseUrl + '/folders' + '/' + App.config.workspaceId + '/documents?configSpec='+App.config.configSpec;
+                return  baseUrl + '/folders' + '/' + App.config.workspaceId + '/documents?configSpec='+App.config.documentConfigSpec;
             }
         },
 
-        comparator: function (document) {
-            return document.get('id');
+        comparator: function (documentRevision) {
+            return documentRevision.get('id');
         }
 
     });

@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -30,8 +30,13 @@ public class NamingConvention {
             '$','&','+',',','/',':',';','=','?','@','"', '<', '>', '#','%','{','}','|','\\','^','~','[',']',' ', '*','`'
     };
 
+    private static final char[] FORBIDDEN_CHARS_MASK = {
+            '$','&','+',',','/',':',';','=','?','@','"', '<', '>','%','{','}','|','\\','^','~','[',']',' ','`'
+    };
+
     private static final char[] FORBIDDEN_CHARS_FILE = {
-            '/', '\\', ':', '*', '?','"', '<', '>', '|', '~'
+            '/', '\\', ':', '*', '?','"', '<', '>', '|', '~', '#',
+            '^', '%', '{', '}','&','$','+',',', ';', '@', '\'', '`','=', '[', ']'
     };
     
     private static final String[] FORBIDDEN_NAMES = {"",".."};
@@ -74,5 +79,8 @@ public class NamingConvention {
 
     public static boolean correctNameFile(String pShortName) {
         return correct(pShortName, FORBIDDEN_CHARS_FILE);
+    }
+    public static boolean correctNameMask(String mask) {
+        return correct(mask, FORBIDDEN_CHARS_MASK);
     }
 }

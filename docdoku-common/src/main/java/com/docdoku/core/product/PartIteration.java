@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -25,6 +25,7 @@ import com.docdoku.core.common.FileHolder;
 import com.docdoku.core.common.User;
 import com.docdoku.core.document.DocumentLink;
 import com.docdoku.core.meta.InstanceAttribute;
+import com.docdoku.core.meta.InstanceAttributeTemplate;
 
 import javax.persistence.*;
 import javax.xml.bind.annotation.XmlTransient;
@@ -33,7 +34,7 @@ import java.util.*;
 
 /**
  * This class encapsulates the various states of a part whereas its unchanging
- * attributes are hold on a <a href="PartMaster.html">PartMaster</a>.
+ * attributes are hold on a {@link PartMaster}.
  *
  * @author Florent Garin
  * @version 1.1, 18/05/11
@@ -41,6 +42,12 @@ import java.util.*;
  */
 @Table(name="PARTITERATION")
 @IdClass(com.docdoku.core.product.PartIterationKey.class)
+@NamedQueries({
+        @NamedQuery(name="PartIteration.findUsedByAsSubstitute", query="SELECT p FROM PartIteration p JOIN p.components l JOIN l.substitutes s WHERE s.substitute = :partMaster"),
+        @NamedQuery(name="PartIteration.findUsedByAsComponent", query="SELECT p FROM PartIteration p JOIN p.components l WHERE l.component = :partMaster"),
+        @NamedQuery(name="PartIteration.findDistinctInstanceAttributes", query="SELECT DISTINCT i FROM InstanceAttribute i LEFT JOIN PartIteration p WHERE p.partRevision.partMaster.workspace.id = :workspaceId AND i member of p.instanceAttributes"),
+        @NamedQuery(name="PartIteration.findWhereLOV", query="SELECT p FROM PartIteration p WHERE EXISTS ( SELECT i FROM InstanceAttributeTemplate i, ListOfValuesAttributeTemplate il WHERE i member of p.instanceAttributeTemplates AND i = il AND il.lov.name = :lovName AND il.lov.workspaceId = :workspace_id)")
+})
 @Entity
 public class PartIteration implements Serializable, FileHolder, Comparable<PartIteration>, Cloneable {
     
@@ -109,8 +116,14 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
     @Temporal(TemporalType.TIMESTAMP)
     private Date creationDate;
 
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date modificationDate;
+
+    @Temporal(TemporalType.TIMESTAMP)
+    private Date checkInDate;
+
     @OneToMany(orphanRemoval=true, cascade=CascadeType.ALL, fetch=FetchType.EAGER)
-    @MapKey(name="name")
+    @OrderColumn(name="ATTRIBUTE_ORDER")
     @JoinTable(name="PARTITERATION_ATTRIBUTE",
     inverseJoinColumns={
         @JoinColumn(name="INSTANCEATTRIBUTE_ID", referencedColumnName="ID")
@@ -121,10 +134,24 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
         @JoinColumn(name="PARTREVISION_VERSION", referencedColumnName="PARTREVISION_VERSION"),
         @JoinColumn(name="ITERATION", referencedColumnName="ITERATION")
     })
-    private Map<String, InstanceAttribute> instanceAttributes=new HashMap<>();
+    private List<InstanceAttribute> instanceAttributes=new ArrayList<>();
+
+    @OneToMany(orphanRemoval=true, cascade=CascadeType.ALL, fetch=FetchType.EAGER)
+    @OrderColumn(name="ATTRIBUTE_ORDER")
+    @JoinTable(name="PARTITERATION_PATHDATA_ATTR",
+            inverseJoinColumns={
+                    @JoinColumn(name="INSTANCEATTRIBUTE_TEMPLATE_ID", referencedColumnName="ID")
+            },
+            joinColumns={
+                    @JoinColumn(name="WORKSPACE_ID", referencedColumnName="WORKSPACE_ID"),
+                    @JoinColumn(name="PARTMASTER_PARTNUMBER", referencedColumnName="PARTMASTER_PARTNUMBER"),
+                    @JoinColumn(name="PARTREVISION_VERSION", referencedColumnName="PARTREVISION_VERSION"),
+                    @JoinColumn(name="ITERATION", referencedColumnName="ITERATION")
+            })
+    private List<InstanceAttributeTemplate> instanceAttributeTemplates=new ArrayList<>();
 
     @OrderColumn(name="COMPONENT_ORDER")
-    @OneToMany(orphanRemoval=true, cascade=CascadeType.ALL, fetch=FetchType.LAZY)
+    @ManyToMany(fetch=FetchType.LAZY)
     @JoinTable(name="PARTITERATION_PARTUSAGELINK",
     inverseJoinColumns={
         @JoinColumn(name="COMPONENT_ID", referencedColumnName="ID")
@@ -147,12 +174,28 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
         MAKE, BUY
     }
     
-    public PartIteration(){
+    public PartIteration() {
     }
-    public PartIteration(PartRevision pPartRevision, int pIteration, User pAuthor) {
+
+    public PartIteration(PartRevision pPartRevision, User pAuthor) {
+        PartIteration lastPart = pPartRevision.getLastIteration();
+        int newIteration = 1;
+
+        if (lastPart != null) {
+            newIteration = lastPart.getIteration() + 1;
+            Date lastModificationDate = lastPart.modificationDate;
+            setModificationDate(lastModificationDate);
+        }
+
         setPartRevision(pPartRevision);
-        iteration = pIteration;
+        iteration = newIteration;
         author = pAuthor;
+        checkInDate = null;
+    }
+
+    public PartIteration(PartRevision pPartRevision, int pIteration, User pAuthor) {
+        this(pPartRevision, pAuthor);
+        iteration = pIteration;
     }
     
     public String getWorkspaceId() {
@@ -180,6 +223,10 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
     }
     public String getPartNumber() {
         return partRevision==null?"":partRevision.getPartNumber();
+    }
+
+    public String getPartName() {
+        return partRevision==null?"":partRevision.getPartName();
     }
 
     public String getVersion() {
@@ -210,22 +257,22 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
         this.nativeCADFile = nativeCADFile;
     }
 
-    public void setAttachedFiles(Set<BinaryResource> attachedFiles) {
-        this.attachedFiles = attachedFiles;
-    }
-
-    public void addFile(BinaryResource pBinaryResource){
-        attachedFiles.add(pBinaryResource);
-    }
-    public boolean removeFile(BinaryResource pBinaryResource){
-        return attachedFiles.remove(pBinaryResource);
-    }
-
     @Override
     public Set<BinaryResource> getAttachedFiles() {
         return attachedFiles;
     }
- 
+    public void setAttachedFiles(Set<BinaryResource> attachedFiles) {
+        this.attachedFiles = attachedFiles;
+    }
+
+    public void addAttachedFile(BinaryResource pBinaryResource){
+        attachedFiles.add(pBinaryResource);
+    }
+    public boolean removeAttachedFile(BinaryResource pBinaryResource){
+        return attachedFiles.remove(pBinaryResource);
+    }
+
+
     public Set<DocumentLink> getLinkedDocuments() {
         return linkedDocuments;
     }
@@ -241,10 +288,26 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
         this.creationDate = (creationDate!=null) ? (Date) creationDate.clone() : null;
     }
 
-    public Map<String, InstanceAttribute> getInstanceAttributes() {
+    public Date getModificationDate() {
+        return (modificationDate!=null) ? (Date) modificationDate.clone() : null;
+    }
+    public void setModificationDate(Date modificationDate) {
+        this.modificationDate = (modificationDate!=null) ? (Date) modificationDate.clone() : null;
+    }
+
+    public Date getCheckInDate() {
+        return (checkInDate!=null) ? (Date) checkInDate.clone() : null;
+    }
+
+    public void setCheckInDate(Date checkInDate) {
+        this.checkInDate = (checkInDate!=null) ? (Date) checkInDate.clone() : null;
+    }
+
+    public List<InstanceAttribute> getInstanceAttributes() {
         return instanceAttributes;
     }
-    public void setInstanceAttributes(Map<String, InstanceAttribute> instanceAttributes) {
+
+    public void setInstanceAttributes(List<InstanceAttribute> instanceAttributes) {
         this.instanceAttributes = instanceAttributes;
     }
 
@@ -288,6 +351,22 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
     
     public boolean isAssembly(){
         return components != null && !components.isEmpty();
+    }
+
+    public boolean isLastIteration(){
+        return equals(partRevision.getLastIteration());
+    }
+
+    public String getName() {
+        return partRevision==null ? "" : this.partRevision.getPartName();
+    }
+
+    public List<InstanceAttributeTemplate> getInstanceAttributeTemplates() {
+        return instanceAttributeTemplates;
+    }
+
+    public void setInstanceAttributeTemplates(List<InstanceAttributeTemplate> instanceAttributeTemplates) {
+        this.instanceAttributeTemplates = instanceAttributeTemplates;
     }
 
     @Override
@@ -361,15 +440,29 @@ public class PartIteration implements Serializable, FileHolder, Comparable<PartI
         clone.linkedDocuments = clonedLinks;
 
         //perform a deep copy
-        Map<String, InstanceAttribute> clonedInstanceAttributes = new HashMap<>();
-        for (InstanceAttribute attribute : instanceAttributes.values()) {
+        List<InstanceAttribute> clonedInstanceAttributes = new ArrayList<>();
+        for (InstanceAttribute attribute : instanceAttributes) {
             InstanceAttribute clonedAttribute = attribute.clone();
-            clonedInstanceAttributes.put(clonedAttribute.getName(), clonedAttribute);
+            clonedInstanceAttributes.add(clonedAttribute);
         }
         clone.instanceAttributes = clonedInstanceAttributes;
 
+        //perform a deep copy
+        List<InstanceAttributeTemplate> clonedInstanceAttributeTemplates = new ArrayList<>();
+        for (InstanceAttributeTemplate attribute : instanceAttributeTemplates) {
+            InstanceAttributeTemplate clonedAttribute = attribute.clone();
+            clonedInstanceAttributeTemplates.add(clonedAttribute);
+        }
+        clone.instanceAttributeTemplates = clonedInstanceAttributeTemplates;
+
         if (creationDate != null) {
             clone.creationDate = (Date) creationDate.clone();
+        }
+        if (modificationDate != null) {
+            clone.modificationDate = (Date) modificationDate.clone();
+        }
+        if (checkInDate != null) {
+            clone.checkInDate = (Date) checkInDate.clone();
         }
         return clone;
     }

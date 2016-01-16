@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -19,35 +19,45 @@
  */
 package com.docdoku.server.rest.dto;
 
+import javax.xml.bind.annotation.XmlRootElement;
 import java.io.Serializable;
+import java.util.List;
 
 /**
  *
  * @author Yassine Belouad
  */
+@XmlRootElement
 public class InstanceAttributeDTO  implements Serializable{
     
     private String name;
     private boolean mandatory;
+    private boolean locked;
+
     private Type type;
     public enum Type {
-        TEXT, NUMBER, DATE, BOOLEAN, URL
+        TEXT, NUMBER, DATE, BOOLEAN, URL, LOV
     }
     private String value;
-    
+
+    private String lovName;
+
+    private List<NameValuePairDTO> items;
+
     public InstanceAttributeDTO(){
     
     }
 
-    public InstanceAttributeDTO(String pName, Type pType, String pValue, Boolean pMandatory){
+    public InstanceAttributeDTO(String pName, Type pType, String pValue, Boolean pMandatory, Boolean pLocked){
         this.name=pName;
         this.type=pType;
         this.value=pValue;
         this.mandatory=pMandatory;
+        this.locked = pLocked;
     }
     
-    public InstanceAttributeDTO(String pName, String pType, String pValue, Boolean pMandatory){
-        this(pName,InstanceAttributeDTO.Type.valueOf(pType),pValue,pMandatory);
+    public InstanceAttributeDTO(String pName, String pType, String pValue, Boolean pMandatory, Boolean pLocked){
+        this(pName,InstanceAttributeDTO.Type.valueOf(pType),pValue,pMandatory,pLocked);
     }
     
     public String getName() {
@@ -76,5 +86,29 @@ public class InstanceAttributeDTO  implements Serializable{
     }
     public void setMandatory(boolean mandatory) {
         this.mandatory = mandatory;
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public void setLocked(boolean locked) {
+        this.locked = locked;
+    }
+
+    public String getLovName() {
+        return lovName;
+    }
+
+    public void setLovName(String lovName) {
+        this.lovName = lovName;
+    }
+
+    public List<NameValuePairDTO> getItems() {
+        return items;
+    }
+
+    public void setItems(List<NameValuePairDTO> items) {
+        this.items = items;
     }
 }

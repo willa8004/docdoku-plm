@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -9,26 +9,32 @@
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
  *
- * DocDokuPLM is distributed in the hope that it will be useful,  
- * but WITHOUT ANY WARRANTY; without even the implied warranty of  
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the  
- * GNU Affero General Public License for more details.  
- *  
- * You should have received a copy of the GNU Affero General Public License  
- * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.  
+ * DocDokuPLM is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with DocDokuPLM.  If not, see <http://www.gnu.org/licenses/>.
  */
 package com.docdoku.server.rest;
 
+import com.docdoku.core.common.BinaryResource;
 import com.docdoku.core.common.User;
 import com.docdoku.core.common.UserGroup;
 import com.docdoku.core.common.Workspace;
-import com.docdoku.core.configuration.ConfigSpec;
+import com.docdoku.core.configuration.DocumentConfigSpec;
+import com.docdoku.core.configuration.PathDataMaster;
+import com.docdoku.core.configuration.ProductInstanceMaster;
+import com.docdoku.core.document.DocumentIteration;
 import com.docdoku.core.document.DocumentIterationKey;
 import com.docdoku.core.document.DocumentRevision;
 import com.docdoku.core.document.DocumentRevisionKey;
 import com.docdoku.core.exceptions.*;
 import com.docdoku.core.exceptions.NotAllowedException;
 import com.docdoku.core.meta.*;
+import com.docdoku.core.product.PartIteration;
+import com.docdoku.core.product.PartLink;
 import com.docdoku.core.security.ACL;
 import com.docdoku.core.security.ACLUserEntry;
 import com.docdoku.core.security.ACLUserGroupEntry;
@@ -36,32 +42,40 @@ import com.docdoku.core.security.UserGroupMapping;
 import com.docdoku.core.services.IDocumentConfigSpecManagerLocal;
 import com.docdoku.core.services.IDocumentManagerLocal;
 import com.docdoku.core.services.IDocumentWorkflowManagerLocal;
+import com.docdoku.core.services.IProductManagerLocal;
 import com.docdoku.core.sharing.SharedDocument;
 import com.docdoku.core.workflow.Workflow;
 import com.docdoku.server.rest.dto.*;
+import com.docdoku.server.rest.dto.product.ProductInstanceMasterDTO;
 import org.dozer.DozerBeanMapperSingletonWrapper;
 import org.dozer.Mapper;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.security.DeclareRoles;
 import javax.annotation.security.RolesAllowed;
-import javax.ejb.EJB;
-import javax.ejb.Stateless;
+import javax.enterprise.context.RequestScoped;
+import javax.inject.Inject;
 import javax.ws.rs.*;
+import javax.ws.rs.core.GenericEntity;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.*;
 
-@Stateless
+@RequestScoped
 @DeclareRoles(UserGroupMapping.REGULAR_USER_ROLE_ID)
 @RolesAllowed(UserGroupMapping.REGULAR_USER_ROLE_ID)
 public class DocumentResource {
 
-    @EJB
+    @Inject
     private IDocumentManagerLocal documentService;
-    @EJB
+
+    @Inject
+    private IProductManagerLocal productService;
+
+    @Inject
     private IDocumentWorkflowManagerLocal documentWorkflowService;
-    @EJB
+
+    @Inject
     private IDocumentConfigSpecManagerLocal documentConfigSpecService;
 
     private static final String BASELINE_LATEST = "latest";
@@ -88,7 +102,7 @@ public class DocumentResource {
         if (configSpecType == null || BASELINE_UNDEFINED.equals(configSpecType) || BASELINE_LATEST.equals(configSpecType)) {
             docR = documentService.getDocumentRevision(documentRevisionKey);
         } else {
-            ConfigSpec configSpec = getConfigSpec(workspaceId, configSpecType);
+            DocumentConfigSpec configSpec = getConfigSpec(workspaceId, configSpecType);
             docR = documentConfigSpecService.getFilteredDocumentRevision(documentRevisionKey, configSpec);
         }
 
@@ -96,10 +110,10 @@ public class DocumentResource {
         docRsDTO.setPath(docR.getLocation().getCompletePath());
 
         if (configSpecType == null || BASELINE_UNDEFINED.equals(configSpecType) || BASELINE_LATEST.equals(configSpecType)) {
-            setDocumentRevisionDTOWorkflow(docR,docRsDTO);
+            setDocumentRevisionDTOWorkflow(docR, docRsDTO);
             docRsDTO.setIterationSubscription(documentService.isUserIterationChangeEventSubscribedForGivenDocument(workspaceId, docR));
             docRsDTO.setStateSubscription(documentService.isUserStateChangeEventSubscribedForGivenDocument(workspaceId, docR));
-        }else{
+        } else {
             docRsDTO.setWorkflow(null);
             docRsDTO.setTags(null);
         }
@@ -107,10 +121,10 @@ public class DocumentResource {
     }
 
     private void setDocumentRevisionDTOWorkflow(DocumentRevision documentRevision, DocumentRevisionDTO documentRevisionDTO)
-            throws EntityNotFoundException, UserNotActiveException, AccessRightException{
+            throws EntityNotFoundException, UserNotActiveException, AccessRightException {
         Workflow currentWorkflow = documentWorkflowService.getCurrentWorkflow(documentRevision.getKey());
-        if(currentWorkflow!=null){
-            documentRevisionDTO.setWorkflow(mapper.map(currentWorkflow,WorkflowDTO.class));
+        if (currentWorkflow != null) {
+            documentRevisionDTO.setWorkflow(mapper.map(currentWorkflow, WorkflowDTO.class));
             documentRevisionDTO.setLifeCycleState(currentWorkflow.getLifeCycleState());
         }
     }
@@ -120,7 +134,7 @@ public class DocumentResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public DocumentRevisionDTO checkInDocument(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
-            throws NotAllowedException, EntityNotFoundException, ESServerException, AccessRightException, UserNotActiveException{
+            throws NotAllowedException, EntityNotFoundException, ESServerException, AccessRightException, UserNotActiveException {
         DocumentRevision docR = documentService.checkInDocument(new DocumentRevisionKey(workspaceId, documentId, documentVersion));
         DocumentRevisionDTO docRsDTO = mapper.map(docR, DocumentRevisionDTO.class);
         docRsDTO.setPath(docR.getLocation().getCompletePath());
@@ -132,7 +146,7 @@ public class DocumentResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public DocumentRevisionDTO checkOutDocument(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
-            throws EntityNotFoundException, NotAllowedException, CreationException, AccessRightException, UserNotActiveException, EntityAlreadyExistsException{
+            throws EntityNotFoundException, NotAllowedException, CreationException, AccessRightException, UserNotActiveException, EntityAlreadyExistsException {
         DocumentRevision docR = documentService.checkOutDocument(new DocumentRevisionKey(workspaceId, documentId, documentVersion));
         DocumentRevisionDTO docRsDTO = mapper.map(docR, DocumentRevisionDTO.class);
         docRsDTO.setPath(docR.getLocation().getCompletePath());
@@ -158,7 +172,7 @@ public class DocumentResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public DocumentRevisionDTO moveDocument(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion, DocumentCreationDTO docCreationDTO)
-            throws EntityNotFoundException, NotAllowedException, AccessRightException, UserNotActiveException{
+            throws EntityNotFoundException, NotAllowedException, AccessRightException, UserNotActiveException {
         String parentFolderPath = docCreationDTO.getPath();
         String newCompletePath = Tools.stripTrailingSlash(parentFolderPath);
         DocumentRevisionKey docRsKey = new DocumentRevisionKey(workspaceId, documentId, documentVersion);
@@ -171,7 +185,7 @@ public class DocumentResource {
 
     @PUT
     @Path("/notification/iterationChange/subscribe")
-    public Response subscribeToIterationChangeEvent(@PathParam("workspaceId") String workspaceId,@PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
+    public Response subscribeToIterationChangeEvent(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
             throws EntityNotFoundException, AccessRightException, NotAllowedException, UserNotActiveException {
         documentService.subscribeToIterationChangeEvent(new DocumentRevisionKey(workspaceId, documentId, documentVersion));
         return Response.ok().build();
@@ -180,7 +194,7 @@ public class DocumentResource {
     @PUT
     @Path("/notification/iterationChange/unsubscribe")
     public Response unSubscribeToIterationChangeEvent(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
-            throws EntityNotFoundException, UserNotActiveException, AccessRightException{
+            throws EntityNotFoundException, UserNotActiveException, AccessRightException {
         documentService.unsubscribeToIterationChangeEvent(new DocumentRevisionKey(workspaceId, documentId, documentVersion));
         return Response.ok().build();
     }
@@ -196,7 +210,7 @@ public class DocumentResource {
     @PUT
     @Path("/notification/stateChange/unsubscribe")
     public Response unsubscribeToStateChangeEvent(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
-            throws EntityNotFoundException, UserNotActiveException, AccessRightException{
+            throws EntityNotFoundException, UserNotActiveException, AccessRightException {
         documentService.unsubscribeToStateChangeEvent(new DocumentRevisionKey(workspaceId, documentId, documentVersion));
         return Response.ok().build();
     }
@@ -206,23 +220,33 @@ public class DocumentResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public DocumentIterationDTO updateDocMs(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion, @PathParam("docIteration") String docIteration, DocumentIterationDTO data)
-            throws EntityNotFoundException, NotAllowedException, AccessRightException, UserNotActiveException{
+            throws EntityNotFoundException, NotAllowedException, AccessRightException, UserNotActiveException {
         String pRevisionNote = data.getRevisionNote();
         int pIteration = Integer.parseInt(docIteration);
 
-        List<DocumentIterationDTO> linkedDocs = data.getLinkedDocuments();
-        DocumentIterationKey[] links = null;
+        List<DocumentRevisionDTO> linkedDocs = data.getLinkedDocuments();
+        DocumentRevisionKey[] links = null;
+        String[] documentLinkComments = null;
         if (linkedDocs != null) {
-            links = createDocumentIterationKeys(linkedDocs);
+            documentLinkComments = new String[linkedDocs.size()];
+            links = createDocumentRevisionKeys(linkedDocs);
+            int i = 0;
+            for (DocumentRevisionDTO docRevisionForLink : linkedDocs) {
+                String comment = docRevisionForLink.getCommentLink();
+                if (comment == null) {
+                    comment = "";
+                }
+                documentLinkComments[i++] = comment;
+            }
         }
 
         List<InstanceAttributeDTO> instanceAttributes = data.getInstanceAttributes();
-        InstanceAttribute[] attributes = null;
+        List<InstanceAttribute> attributes = null;
         if (instanceAttributes != null) {
             attributes = createInstanceAttributes(instanceAttributes);
         }
 
-        DocumentRevision docR = documentService.updateDocument(new DocumentIterationKey(workspaceId, documentId, documentVersion, pIteration), pRevisionNote, attributes, links);
+        DocumentRevision docR = documentService.updateDocument(new DocumentIterationKey(workspaceId, documentId, documentVersion, pIteration), pRevisionNote, attributes, links, documentLinkComments);
         return mapper.map(docR.getLastIteration(), DocumentIterationDTO.class);
     }
 
@@ -260,7 +284,7 @@ public class DocumentResource {
         Map<String, String> roleMappings = new HashMap<>();
 
         if (rolesMappingDTO != null) {
-            for(RoleMappingDTO roleMappingDTO : rolesMappingDTO) {
+            for (RoleMappingDTO roleMappingDTO : rolesMappingDTO) {
                 roleMappings.put(roleMappingDTO.getRoleName(), roleMappingDTO.getUserLogin());
             }
         }
@@ -273,8 +297,8 @@ public class DocumentResource {
             dtos[i].setPath(docR[i].getLocation().getCompletePath());
             dtos[i].setLifeCycleState(docR[i].getLifeCycleState());
             dtos[i] = Tools.createLightDocumentRevisionDTO(dtos[i]);
-            dtos[i].setIterationSubscription(documentService.isUserIterationChangeEventSubscribedForGivenDocument(pWorkspaceId,docR[i]));
-            dtos[i].setStateSubscription(documentService.isUserStateChangeEventSubscribedForGivenDocument(pWorkspaceId,docR[i]));
+            dtos[i].setIterationSubscription(documentService.isUserIterationChangeEventSubscribedForGivenDocument(pWorkspaceId, docR[i]));
+            dtos[i].setStateSubscription(documentService.isUserStateChangeEventSubscribedForGivenDocument(pWorkspaceId, docR[i]));
         }
 
         return dtos;
@@ -284,8 +308,9 @@ public class DocumentResource {
     @Path("/tags")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public DocumentRevisionDTO saveDocTags(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion, List<TagDTO> tagDtos)
-            throws EntityNotFoundException, NotAllowedException, ESServerException, AccessRightException, UserNotActiveException{
+    public DocumentRevisionDTO saveDocTags(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion, TagListDTO tagListDto)
+            throws EntityNotFoundException, NotAllowedException, ESServerException, AccessRightException, UserNotActiveException {
+        List<TagDTO> tagDtos = tagListDto.getTags();
         String[] tagsLabel = new String[tagDtos.size()];
         for (int i = 0; i < tagDtos.size(); i++) {
             tagsLabel[i] = tagDtos.get(i).getLabel();
@@ -303,23 +328,23 @@ public class DocumentResource {
     @Path("/tags")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public Response addDocTag(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion, List<TagDTO> tagDtos)
+    public Response addDocTag(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion, TagListDTO tagListDto)
             throws EntityNotFoundException, UserNotActiveException, AccessRightException, NotAllowedException, ESServerException {
 
-        DocumentRevisionKey docRPK=new DocumentRevisionKey(workspaceId, documentId, documentVersion);
+        DocumentRevisionKey docRPK = new DocumentRevisionKey(workspaceId, documentId, documentVersion);
         DocumentRevision docR = documentService.getDocumentRevision(docRPK);
         Set<Tag> tags = docR.getTags();
         Set<String> tagLabels = new HashSet<>();
 
-        for(TagDTO tagDto:tagDtos){
+        for (TagDTO tagDto : tagListDto.getTags()) {
             tagLabels.add(tagDto.getLabel());
         }
 
-        for(Tag tag : tags){
+        for (Tag tag : tags) {
             tagLabels.add(tag.getLabel());
         }
 
-        documentService.saveTags(docRPK,tagLabels.toArray(new String[tagLabels.size()]));
+        documentService.saveTags(docRPK, tagLabels.toArray(new String[tagLabels.size()]));
         return Response.ok().build();
     }
 
@@ -336,6 +361,17 @@ public class DocumentResource {
             throws EntityNotFoundException, NotAllowedException, AccessRightException, UserNotActiveException, ESServerException, EntityConstraintException {
         documentService.deleteDocumentRevision(new DocumentRevisionKey(workspaceId, documentId, documentVersion));
         return Response.ok().build();
+    }
+
+    @PUT
+    @Path("/iterations/{docIteration}/files/{fileName}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public FileDTO renameAttachedFile(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion, @PathParam("docIteration") int docIteration, @PathParam("fileName") String fileName, FileDTO fileDTO)
+            throws EntityNotFoundException, NotAllowedException, AccessRightException, UserNotActiveException, FileAlreadyExistsException, CreationException, StorageException {
+        String fileFullName = workspaceId + "/documents/" + documentId + "/" + documentVersion + "/" + docIteration + "/" + fileName;
+        BinaryResource binaryResource = documentService.renameFileInDocument(fileFullName, fileDTO.getShortName());
+        return new FileDTO(true, binaryResource.getFullName(), binaryResource.getName());
     }
 
     @DELETE
@@ -357,8 +393,8 @@ public class DocumentResource {
         String password = pSharedDocumentDTO.getPassword();
         Date expireDate = pSharedDocumentDTO.getExpireDate();
 
-        SharedDocument sharedDocument = documentService.createSharedDocument(new DocumentRevisionKey(workspaceId, documentId, documentVersion),password,expireDate);
-        SharedDocumentDTO sharedDocumentDTO = mapper.map(sharedDocument,SharedDocumentDTO.class);
+        SharedDocument sharedDocument = documentService.createSharedDocument(new DocumentRevisionKey(workspaceId, documentId, documentVersion), password, expireDate);
+        SharedDocumentDTO sharedDocumentDTO = mapper.map(sharedDocument, SharedDocumentDTO.class);
         return Response.ok().entity(sharedDocumentDTO).build();
     }
 
@@ -392,8 +428,8 @@ public class DocumentResource {
 
         if (!acl.getGroupEntries().isEmpty() || !acl.getUserEntries().isEmpty()) {
 
-            Map<String,String> userEntries = new HashMap<>();
-            Map<String,String> groupEntries = new HashMap<>();
+            Map<String, String> userEntries = new HashMap<>();
+            Map<String, String> groupEntries = new HashMap<>();
 
             for (Map.Entry<String, ACL.Permission> entry : acl.getUserEntries().entrySet()) {
                 userEntries.put(entry.getKey(), entry.getValue().name());
@@ -404,7 +440,7 @@ public class DocumentResource {
             }
 
             documentService.updateDocumentACL(pWorkspaceId, documentRevisionKey, userEntries, groupEntries);
-        }else{
+        } else {
             documentService.removeACLFromDocumentRevision(documentRevisionKey);
         }
         return Response.ok().build();
@@ -413,28 +449,112 @@ public class DocumentResource {
     @GET
     @Path("aborted-workflows")
     @Produces(MediaType.APPLICATION_JSON)
-    public List<WorkflowDTO> getAbortedWorkflows(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
+    public Response getAbortedWorkflows(@PathParam("workspaceId") String workspaceId, @PathParam("documentId") String documentId, @PathParam("documentVersion") String documentVersion)
             throws EntityNotFoundException, AccessRightException, UserNotActiveException {
         Workflow[] abortedWorkflows = documentWorkflowService.getAbortedWorkflow(new DocumentRevisionKey(workspaceId, documentId, documentVersion));
         List<WorkflowDTO> abortedWorkflowsDTO = new ArrayList<>();
 
-        for(Workflow abortedWorkflow:abortedWorkflows){
-            abortedWorkflowsDTO.add(mapper.map(abortedWorkflow,WorkflowDTO.class));
+        for (Workflow abortedWorkflow : abortedWorkflows) {
+            abortedWorkflowsDTO.add(mapper.map(abortedWorkflow, WorkflowDTO.class));
         }
 
         Collections.sort(abortedWorkflowsDTO);
 
-        return abortedWorkflowsDTO;
+        return Response.ok(new GenericEntity<List<WorkflowDTO>>((List<WorkflowDTO>) abortedWorkflowsDTO) {
+        }).build();
     }
 
-    private InstanceAttribute[] createInstanceAttributes(List<InstanceAttributeDTO> dtos) {
-        if (dtos == null) {
-            return new InstanceAttribute[0];
+    @GET
+    @Path("{iteration}/inverse-document-link")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getInverseDocumentLinks(@PathParam("workspaceId") String workspaceId,
+                                                             @PathParam("documentId") String documentId,
+                                                             @PathParam("documentVersion") String documentVersion,
+                                                             @QueryParam("configSpec") String configSpecType) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, DocumentRevisionNotFoundException, DocumentIterationNotFoundException {
+        DocumentRevisionKey docKey = new DocumentRevisionKey(workspaceId, documentId, documentVersion);
+        List<DocumentIteration> documents = documentService.getInverseDocumentsLink(docKey);
+        Set<DocumentRevisionDTO> dtos = new HashSet<>();
+        for (DocumentIteration doc : documents) {
+            dtos.add(new DocumentRevisionDTO(doc.getWorkspaceId(), doc.getDocumentMasterId(), doc.getTitle(), doc.getVersion()));
         }
-        InstanceAttribute[] data = new InstanceAttribute[dtos.size()];
-        int i = 0;
+
+        return Response.ok(new GenericEntity<List<DocumentRevisionDTO>>((List<DocumentRevisionDTO>) new ArrayList<>(dtos)) {
+        }).build();
+    }
+
+    @GET
+    @Path("{iteration}/inverse-part-link")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getInversePartsLinks(@PathParam("workspaceId") String workspaceId,
+                                              @PathParam("documentId") String documentId,
+                                              @PathParam("documentVersion") String documentVersion,
+                                              @QueryParam("configSpec") String configSpecType) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, PartRevisionNotFoundException, PartIterationNotFoundException, DocumentRevisionNotFoundException {
+        DocumentRevisionKey docKey = new DocumentRevisionKey(workspaceId, documentId, documentVersion);
+        List<PartIteration> parts = productService.getInversePartsLink(docKey);
+        Set<PartRevisionDTO> dtos = new HashSet<>();
+        for (PartIteration part : parts) {
+            dtos.add(new PartRevisionDTO(workspaceId, part.getNumber(), part.getPartName(), part.getVersion()));
+        }
+
+        return Response.ok(new GenericEntity<List<PartRevisionDTO>>((List<PartRevisionDTO>) new ArrayList<>(dtos)) {
+        }).build();
+    }
+
+    @GET
+    @Path("{iteration}/inverse-product-instances-link")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getInverseProductInstancesLinks(@PathParam("workspaceId") String workspaceId,
+                                                                             @PathParam("documentId") String documentId,
+                                                                             @PathParam("documentVersion") String documentVersion,
+                                                                             @QueryParam("configSpec") String configSpecType) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, PartRevisionNotFoundException, PartIterationNotFoundException, DocumentRevisionNotFoundException {
+        DocumentRevisionKey docKey = new DocumentRevisionKey(workspaceId, documentId, documentVersion);
+        Set<ProductInstanceMaster> productInstanceMasterList = productService.getInverseProductInstancesLink(docKey);
+        Set<ProductInstanceMasterDTO> dtos = new HashSet<>();
+        for (ProductInstanceMaster productInstanceMaster:productInstanceMasterList) {
+            dtos.add(mapper.map(productInstanceMaster, ProductInstanceMasterDTO.class));
+        }
+        return Response.ok(new GenericEntity<List<ProductInstanceMasterDTO>>((List<ProductInstanceMasterDTO>) new ArrayList<>(dtos)) {
+        }).build();
+    }
+
+    @GET
+    @Path("{iteration}/inverse-path-data-link")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getInversePathDataLinks(@PathParam("workspaceId") String workspaceId,
+                                                           @PathParam("documentId") String documentId,
+                                                           @PathParam("documentVersion") String documentVersion,
+                                                           @QueryParam("configSpec") String configSpecType) throws UserNotFoundException, WorkspaceNotFoundException, UserNotActiveException, PartRevisionNotFoundException, PartIterationNotFoundException, DocumentRevisionNotFoundException, ConfigurationItemNotFoundException, PartUsageLinkNotFoundException {
+        DocumentRevisionKey docKey = new DocumentRevisionKey(workspaceId, documentId, documentVersion);
+        Set<PathDataMaster> pathDataMasters = productService.getInversePathDataLink(docKey);
+
+        Set<PathDataMasterDTO> dtos = new HashSet<>();
+        for (PathDataMaster pathDataMaster : pathDataMasters) {
+            PathDataMasterDTO dto = mapper.map(pathDataMaster, PathDataMasterDTO.class);
+            ProductInstanceMaster productInstanceMaster = productService.findProductByPathMaster(workspaceId, pathDataMaster);
+
+            LightPartLinkListDTO partLinksList = new LightPartLinkListDTO();
+            List<PartLink> path = productService.decodePath(productInstanceMaster.getInstanceOf().getKey(), pathDataMaster.getPath());
+            for(PartLink partLink : path){
+                partLinksList.getPartLinks().add(new LightPartLinkDTO(partLink));
+            }
+            dto.setPartLinksList(partLinksList);
+
+            dto.setSerialNumber(productInstanceMaster.getSerialNumber());
+            dtos.add(dto);
+        }
+
+        return Response.ok(new GenericEntity<List<PathDataMasterDTO>>((List<PathDataMasterDTO>) new ArrayList<>(dtos)) {
+        }).build();
+
+    }
+
+    private List<InstanceAttribute> createInstanceAttributes(List<InstanceAttributeDTO> dtos) {
+        if (dtos == null) {
+            return new ArrayList<>();
+        }
+        List<InstanceAttribute> data = new ArrayList<>();
         for (InstanceAttributeDTO dto : dtos) {
-            data[i++] = createInstanceAttribute(dto);
+            data.add(createInstanceAttribute(dto));
         }
 
         return data;
@@ -442,21 +562,33 @@ public class DocumentResource {
 
     private InstanceAttribute createInstanceAttribute(InstanceAttributeDTO dto) {
         InstanceAttribute attr;
-        switch (dto.getType()){
-            case BOOLEAN :
+        switch (dto.getType()) {
+            case BOOLEAN:
                 attr = new InstanceBooleanAttribute();
                 break;
-            case TEXT :
+            case TEXT:
                 attr = new InstanceTextAttribute();
                 break;
-            case NUMBER :
+            case NUMBER:
                 attr = new InstanceNumberAttribute();
                 break;
-            case DATE :
+            case DATE:
                 attr = new InstanceDateAttribute();
                 break;
-            case URL :
+            case URL:
                 attr = new InstanceURLAttribute();
+                break;
+            case LOV:
+                attr = new InstanceListOfValuesAttribute();
+                List<NameValuePairDTO> itemsDTO = dto.getItems();
+                List<NameValuePair> items = new ArrayList<>();
+                if (itemsDTO != null) {
+                    for (NameValuePairDTO itemDTO : itemsDTO) {
+                        items.add(mapper.map(itemDTO, NameValuePair.class));
+                    }
+                }
+                ((InstanceListOfValuesAttribute) attr).setItems(items);
+
                 break;
             default:
                 throw new IllegalArgumentException("Instance attribute not supported");
@@ -464,14 +596,16 @@ public class DocumentResource {
 
         attr.setName(dto.getName());
         attr.setValue(dto.getValue());
+        attr.setLocked(dto.isLocked());
+        attr.setMandatory(dto.isMandatory());
         return attr;
     }
 
-    private DocumentIterationKey[] createDocumentIterationKeys(List<DocumentIterationDTO> dtos) {
-        DocumentIterationKey[] data = new DocumentIterationKey[dtos.size()];
+    private DocumentRevisionKey[] createDocumentRevisionKeys(List<DocumentRevisionDTO> dtos) {
+        DocumentRevisionKey[] data = new DocumentRevisionKey[dtos.size()];
         int i = 0;
-        for (DocumentIterationDTO dto : dtos) {
-            data[i++] = new DocumentIterationKey(dto.getWorkspaceId(), dto.getDocumentMasterId(), dto.getDocumentRevisionVersion(), dto.getIteration());
+        for (DocumentRevisionDTO dto : dtos) {
+            data[i++] = new DocumentRevisionKey(dto.getWorkspaceId(), dto.getDocumentMasterId(), dto.getVersion());
         }
 
         return data;
@@ -479,16 +613,17 @@ public class DocumentResource {
 
     /**
      * Get a configuration specification
-     * @param workspaceId The current workspace
+     *
+     * @param workspaceId    The current workspace
      * @param configSpecType The configuration specification type
      * @return A configuration specification
-     * @throws com.docdoku.core.exceptions.UserNotFoundException If the user login-workspace doesn't exist
-     * @throws com.docdoku.core.exceptions.UserNotActiveException If the user is disabled
+     * @throws com.docdoku.core.exceptions.UserNotFoundException      If the user login-workspace doesn't exist
+     * @throws com.docdoku.core.exceptions.UserNotActiveException     If the user is disabled
      * @throws com.docdoku.core.exceptions.WorkspaceNotFoundException If the workspace doesn't exist
-     * @throws com.docdoku.core.exceptions.BaselineNotFoundException If the baseline doesn't exist
+     * @throws com.docdoku.core.exceptions.BaselineNotFoundException  If the baseline doesn't exist
      */
-    private ConfigSpec getConfigSpec(String workspaceId, String configSpecType) throws UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException, BaselineNotFoundException {
-        ConfigSpec cs;
+    private DocumentConfigSpec getConfigSpec(String workspaceId, String configSpecType) throws UserNotFoundException, UserNotActiveException, WorkspaceNotFoundException, BaselineNotFoundException {
+        DocumentConfigSpec cs;
         switch (configSpecType) {
             case BASELINE_LATEST:
             case BASELINE_UNDEFINED:

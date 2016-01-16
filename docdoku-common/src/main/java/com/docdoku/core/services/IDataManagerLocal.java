@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -21,6 +21,7 @@
 package com.docdoku.core.services;
 
 import com.docdoku.core.common.BinaryResource;
+import com.docdoku.core.exceptions.FileNotFoundException;
 import com.docdoku.core.exceptions.StorageException;
 
 import java.io.InputStream;
@@ -36,6 +37,7 @@ public interface IDataManagerLocal {
     boolean exists(BinaryResource binaryResource, String subResourceVirtualPath) throws StorageException;
     void copyData(BinaryResource source, BinaryResource destination) throws StorageException;
     void deleteData(BinaryResource binaryResource) throws StorageException;
+    void renameFile(BinaryResource binaryResource, String pNewName) throws StorageException, FileNotFoundException;
     Date getLastModified(BinaryResource binaryResource, String subResourceVirtualPath) throws StorageException;
     String getExternalStorageURI(BinaryResource binaryResource);
     String getShortenExternalStorageURI(BinaryResource binaryResource);

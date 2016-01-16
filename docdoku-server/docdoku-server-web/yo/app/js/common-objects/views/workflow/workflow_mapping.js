@@ -1,4 +1,4 @@
-/*global define,App,_*/
+/*global define,_*/
 define([
     'common-objects/views/base',
     'common-objects/collections/users',
@@ -48,7 +48,7 @@ define([
         toList: function () {
             var list = [];
             _.each(this.rolesItemViews, function (view) {
-                list.push({roleName: view.model.get('name'), userLogin: view.model.get('defaultUserMapped').login });
+                list.push({roleName: view.model.get('name'), userLogin: view.model.get('defaultAssignee').login });
             });
             return list;
         }

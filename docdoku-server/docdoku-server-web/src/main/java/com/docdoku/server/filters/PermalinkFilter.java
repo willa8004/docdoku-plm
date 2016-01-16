@@ -1,6 +1,6 @@
 /*
  * DocDoku, Professional Open Source
- * Copyright 2006 - 2014 DocDoku SARL
+ * Copyright 2006 - 2015 DocDoku SARL
  *
  * This file is part of DocDokuPLM.
  *
@@ -26,7 +26,7 @@ import com.docdoku.core.exceptions.*;
 import com.docdoku.core.product.PartRevision;
 import com.docdoku.core.product.PartRevisionKey;
 
-import javax.ejb.EJB;
+import javax.inject.Inject;
 import javax.security.auth.login.LoginException;
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -43,15 +43,14 @@ public class PermalinkFilter implements Filter {
     private static final Logger LOGGER = Logger.getLogger(PermalinkFilter.class.getName());
     private static final String ENCODING = "UTF-8";
     private static final String ERROR_ENCODING = "The HttpRequest path information can not be decoding.";
-    private static final String ERROR_ENTITY_TYPE = "Tentation of access to a unknow type of entity.";
-    private static final String ERROR_403_DOCUMENT = "Tentation of access to a forbidden document.";
-    private static final String ERROR_404_DOCUMENT = "Tentation of access to a not found document.";
-    private static final String ERROR_403_PART = "Tentation of access to a forbidden part.";
-    private static final String ERROR_404_PART = "Tentation of access to a not found part.";
+    private static final String ERROR_ENTITY_TYPE = "Attempt of access to a unknown type of entity.";
+    private static final String ERROR_403_DOCUMENT = "Attempt of access to a forbidden document.";
+    private static final String ERROR_404_DOCUMENT = "Attempt of access to a not found document.";
+    private static final String ERROR_403_PART = "Attempt of access to a forbidden part.";
+    private static final String ERROR_404_PART = "Attempt of access to a not found part.";
 
-    @EJB
+    @Inject
     private GuestProxy guestProxy;
-
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response,
@@ -149,12 +148,12 @@ public class PermalinkFilter implements Filter {
 
     @Override
     public void destroy() {
-
+        // Nothing to do
     }
 
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
-
+        // Nothing to do
     }
 
 }
